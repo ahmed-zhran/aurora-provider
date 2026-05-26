@@ -33,10 +33,6 @@
           <span class="stat-label">Agents</span>
           <span class="stat-val" id="server-agents-count">0</span>
         </div>
-        <div class="stat-badge">
-          <span class="stat-label">IP Pool</span>
-          <span class="stat-val" id="server-ips-count">0</span>
-        </div>
       </div>
     </header>
 
@@ -90,20 +86,7 @@
               </div>
             </div>
 
-            <div class="card glass">
-              <h2>Outbound IP Pool Rotation</h2>
-              <p class="description">Requests will rotate round-robin across these local interface IP addresses. Leave empty to use the default interface.</p>
-              <div class="ip-manager">
-                <div class="ip-list" id="ip-list-container">
-                  <!-- Populated dynamically -->
-                </div>
-                <div class="add-ip-row">
-                  <input type="text" id="new-ip-input" placeholder="e.g., 192.168.1.100" class="form-input">
-                  <button class="btn btn-primary" id="add-ip-btn">Add IP</button>
-                </div>
-                <button class="btn btn-success full-width mt-3" id="save-ips-btn">Save IP Pool</button>
-              </div>
-            </div>
+
           </div>
 
           <!-- Right Column: API Tester & Live Logs -->
