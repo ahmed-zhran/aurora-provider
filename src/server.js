@@ -2,7 +2,7 @@ import express from "express";
 import { readFileSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { Agent } from "undici";
+import { Agent, ProxyAgent } from "undici";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -45,6 +45,109 @@ function getNextIp() {
   const ip = IPS[ipIndex];
   ipIndex = (ipIndex + 1) % IPS.length;
   return ip;
+}
+
+// ─── Proxy pool & testing ─────────────────────────────────────────────────────
+let PROXY_POOL = []; // Array of { url, latency }
+let proxyPoolIndex = 0;
+let proxyStatus = "Idle"; // "Scraping...", "Testing...", "Active"
+
+function getNextProxy() {
+  if (!PROXY_POOL || PROXY_POOL.length === 0) return null;
+  const proxy = PROXY_POOL[proxyPoolIndex];
+  proxyPoolIndex = (proxyPoolIndex + 1) % PROXY_POOL.length;
+  return proxy.url;
+}
+
+// Scrape and test proxies
+async function refreshProxyPool() {
+  proxyStatus = "Scraping free proxies...";
+  console.log(`[aurora-provider] ${proxyStatus}`);
+  
+  const sources = [
+    "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
+    "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt"
+  ];
+  
+  const rawProxies = new Set();
+  
+  for (const url of sources) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const text = await res.text();
+      const lines = text.split("\n");
+      for (let line of lines) {
+        line = line.trim();
+        if (line && !line.startsWith("#")) {
+          if (line.includes(":")) {
+            rawProxies.add(`http://${line}`);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn(`[aurora-provider] Failed to fetch proxy source ${url}: ${err.message}`);
+    }
+  }
+
+  const list = Array.from(rawProxies);
+  console.log(`[aurora-provider] Fetched ${list.length} unique proxies.`);
+  
+  if (list.length === 0) {
+    proxyStatus = "Failed to fetch any proxies";
+    return;
+  }
+
+  proxyStatus = "Testing proxy latencies...";
+  console.log(`[aurora-provider] ${proxyStatus}`);
+
+  // Shuffle and pick 150 proxies to test
+  const shuffled = list.sort(() => 0.5 - Math.random());
+  const sample = shuffled.slice(0, 150);
+  
+  const results = [];
+  
+  // Test in chunks of 20 concurrent pings
+  const chunkSize = 20;
+  for (let i = 0; i < sample.length; i += chunkSize) {
+    const chunk = sample.slice(i, i + chunkSize);
+    const promises = chunk.map(async (proxyUrl) => {
+      const start = Date.now();
+      try {
+        const dispatcher = new ProxyAgent(proxyUrl);
+        const res = await fetch("https://registry.npmjs.org/express", {
+          method: "HEAD",
+          dispatcher,
+          signal: AbortSignal.timeout(3500)
+        });
+        if (res.ok) {
+          results.push({ url: proxyUrl, latency: Date.now() - start });
+        }
+      } catch (err) {
+        // failed or timed out
+      }
+    });
+    await Promise.all(promises);
+  }
+
+  console.log(`[aurora-provider] Testing complete. Found ${results.length} working proxies.`);
+
+  if (results.length === 0) {
+    proxyStatus = "No working proxies found. Using direct connection.";
+    PROXY_POOL = [];
+    return;
+  }
+
+  // Sort by latency and take top 10
+  results.sort((a, b) => a.latency - b.latency);
+  PROXY_POOL = results.slice(0, 10);
+  proxyPoolIndex = 0;
+  proxyStatus = `Active (${PROXY_POOL.length} proxies)`;
+  
+  console.log("[aurora-provider] Selected active proxy pool:");
+  PROXY_POOL.forEach((p, idx) => {
+    console.log(`  [Proxy ${idx + 1}] ${p.url} (${p.latency}ms)`);
+  });
 }
 
 // ─── SSE Log Broadcaster ──────────────────────────────────────────────────────
@@ -160,11 +263,18 @@ async function attemptRequest(providerName, modelId, body) {
 
   const payload = { ...body, model: modelId };
 
-  // Outbound IP rotation connection agent
-  const ip = getNextIp();
-  const dispatcher = getAgentForIp(ip);
-  if (ip) {
-    console.log(`[aurora-provider] Routing request through outbound IP: ${ip}`);
+  // Outbound routing: Prefer Proxy Pool first, then Outbound IP Rotation, then default connection
+  let dispatcher;
+  const proxyUrl = getNextProxy();
+  if (proxyUrl) {
+    console.log(`[aurora-provider] Routing request through proxy: ${proxyUrl}`);
+    dispatcher = new ProxyAgent(proxyUrl);
+  } else {
+    const ip = getNextIp();
+    dispatcher = getAgentForIp(ip);
+    if (ip) {
+      console.log(`[aurora-provider] Routing request through outbound IP: ${ip}`);
+    }
   }
 
   try {
@@ -350,6 +460,21 @@ app.get("/api/logs-stream", (req, res) => {
   });
 });
 
+// Proxies API
+app.get("/api/proxies", (req, res) => {
+  res.json({
+    status: proxyStatus,
+    pool: PROXY_POOL
+  });
+});
+
+app.post("/api/proxies/refresh", (req, res) => {
+  refreshProxyPool().catch(err => {
+    console.error(`[aurora-provider] Error refreshing proxy pool: ${err.message}`);
+  });
+  res.json({ success: true, message: "Proxy refresh started in background." });
+});
+
 // Health check
 app.get("/health", (req, res) => {
   res.json({ status: "ok", version: "1.0.0", agents: Object.keys(AGENTS) });
@@ -478,4 +603,7 @@ app.listen(PORT, "127.0.0.1", () => {
 ║  Agents:    ${Object.keys(AGENTS).join(", ").padEnd(30)}║
 ╚══════════════════════════════════════════╝
   `);
+  refreshProxyPool().catch(err => {
+    console.error(`[aurora-provider] Error on initial proxy load: ${err.message}`);
+  });
 });
