@@ -103,9 +103,8 @@ async function refreshProxyPool() {
   proxyStatus = "Testing proxy latencies...";
   console.log(`[aurora-provider] ${proxyStatus}`);
 
-  // Shuffle and pick 150 proxies to test
-  const shuffled = list.sort(() => 0.5 - Math.random());
-  const sample = shuffled.slice(0, 150);
+  // Pick the first 150 proxies (which are typically the newest/most active)
+  const sample = list.slice(0, 150);
   
   const results = [];
   
