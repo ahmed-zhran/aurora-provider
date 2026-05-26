@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Dashboard event listeners
   document.getElementById('add-ip-btn').addEventListener('click', addIpAddress);
   document.getElementById('save-ips-btn').addEventListener('click', saveIpPool);
+  document.getElementById('refresh-proxies-btn').addEventListener('click', triggerProxyRefresh);
   document.getElementById('api-test-form').addEventListener('submit', runApiTest);
   document.getElementById('clear-response-btn').addEventListener('click', () => {
     document.getElementById('json-response-output').textContent = 'Ready to test.';
@@ -44,6 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Start status polling
   startStatusPolling();
   startUptimeCounter();
+  startProxyStatusPolling();
 });
 
 // ─── Tabs Navigation ─────────────────────────────────────────────────────────
@@ -839,4 +841,93 @@ async function saveKeysConfig() {
     alert('API Keys saved successfully!');
     loadConfig();
   } catch (e) {}
+}
+
+// ─── Proxy Status Polling & Rendering ────────────────────────────────────────
+let proxyPollingTimer = null;
+
+function startProxyStatusPolling() {
+  updateProxyStatus();
+  proxyPollingTimer = setInterval(updateProxyStatus, 4000);
+}
+
+async function updateProxyStatus() {
+  try {
+    const data = await fetchJSON('/api/proxies');
+    const statusVal = document.getElementById('proxy-pool-status');
+    statusVal.textContent = data.status;
+
+    // Apply color class based on status
+    if (data.status.includes('Active')) {
+      statusVal.className = 'stat-val text-success';
+    } else if (data.status.includes('Scraping') || data.status.includes('Testing')) {
+      statusVal.className = 'stat-val text-warning';
+    } else {
+      statusVal.className = 'stat-val text-danger';
+    }
+
+    renderProxyTable(data.pool);
+  } catch (err) {
+    document.getElementById('proxy-pool-status').textContent = 'Error';
+    document.getElementById('proxy-pool-status').className = 'stat-val text-danger';
+  }
+}
+
+function renderProxyTable(pool) {
+  const tbody = document.getElementById('proxy-pool-table-body');
+  tbody.innerHTML = '';
+
+  if (!pool || pool.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="2" class="text-muted" style="padding:1rem; text-align:center;">No active proxies. Direct connections will be used.</td></tr>';
+    return;
+  }
+
+  pool.forEach(proxy => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid var(--color-card-border)';
+
+    const urlTd = document.createElement('td');
+    urlTd.style.padding = '6px 8px';
+    urlTd.style.fontFamily = 'var(--font-mono)';
+    urlTd.textContent = proxy.url;
+
+    const speedTd = document.createElement('td');
+    speedTd.style.padding = '6px 8px';
+    speedTd.style.textAlign = 'right';
+    
+    // Format speed color based on latency
+    const span = document.createElement('span');
+    span.textContent = `${proxy.latency}ms`;
+    if (proxy.latency < 500) {
+      span.className = 'text-success';
+    } else if (proxy.latency < 1500) {
+      span.className = 'text-warning';
+    } else {
+      span.className = 'text-danger';
+    }
+    
+    speedTd.appendChild(span);
+    tr.appendChild(urlTd);
+    tr.appendChild(speedTd);
+    tbody.appendChild(tr);
+  });
+}
+
+async function triggerProxyRefresh() {
+  const btn = document.getElementById('refresh-proxies-btn');
+  btn.disabled = true;
+  btn.textContent = 'Refreshing...';
+  try {
+    const res = await fetchJSON('/api/proxies/refresh', { method: 'POST' });
+    if (res.success) {
+      updateProxyStatus();
+    }
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setTimeout(() => {
+      btn.disabled = false;
+      btn.textContent = 'Refresh Proxies';
+    }, 2000);
+  }
 }
