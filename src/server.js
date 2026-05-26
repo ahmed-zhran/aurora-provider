@@ -1,7 +1,8 @@
 import express from "express";
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { Agent } from "undici";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -13,8 +14,64 @@ function loadJSON(file) {
 }
 
 const PROVIDERS = loadJSON("providers.json").providers;
-const AGENTS    = loadJSON("agents.json").agents;
-const KEYS_CFG  = loadJSON("keys.json").keys;
+let AGENTS      = loadJSON("agents.json").agents;
+let KEYS_CFG    = loadJSON("keys.json").keys;
+
+// Load IPs configuration
+let IPS = [];
+try {
+  IPS = loadJSON("ips.json").ips;
+} catch (e) {
+  IPS = [];
+}
+
+// Outbound agents cache for IP rotation
+const outboundAgents = {};
+function getAgentForIp(ip) {
+  if (!ip) return undefined;
+  if (!outboundAgents[ip]) {
+    outboundAgents[ip] = new Agent({
+      connect: {
+        localAddress: ip
+      }
+    });
+  }
+  return outboundAgents[ip];
+}
+
+let ipIndex = 0;
+function getNextIp() {
+  if (!IPS || IPS.length === 0) return null;
+  const ip = IPS[ipIndex];
+  ipIndex = (ipIndex + 1) % IPS.length;
+  return ip;
+}
+
+// ─── SSE Log Broadcaster ──────────────────────────────────────────────────────
+const sseClients = [];
+function broadcastLog(level, message) {
+  const data = JSON.stringify({ timestamp: new Date().toISOString(), level, message });
+  for (const res of sseClients) {
+    res.write(`data: ${data}\n\n`);
+  }
+}
+
+const originalLog = console.log;
+const originalWarn = console.warn;
+const originalError = console.error;
+
+console.log = (...args) => {
+  originalLog(...args);
+  broadcastLog("info", args.join(" "));
+};
+console.warn = (...args) => {
+  originalWarn(...args);
+  broadcastLog("warn", args.join(" "));
+};
+console.error = (...args) => {
+  originalError(...args);
+  broadcastLog("error", args.join(" "));
+};
 
 // ─── Rate-limit tracker ───────────────────────────────────────────────────────
 // Tracks per-key health: { [providerKey]: { key, hitAt, cooldownUntil, failures } }
@@ -103,11 +160,19 @@ async function attemptRequest(providerName, modelId, body) {
 
   const payload = { ...body, model: modelId };
 
+  // Outbound IP rotation connection agent
+  const ip = getNextIp();
+  const dispatcher = getAgentForIp(ip);
+  if (ip) {
+    console.log(`[aurora-provider] Routing request through outbound IP: ${ip}`);
+  }
+
   try {
     const res = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
+      dispatcher,
     });
 
     if (res.status === 429) {
@@ -205,6 +270,85 @@ function resolveAgent(modelId) {
 
 const app = express();
 app.use(express.json({ limit: "10mb" }));
+
+// Serve UI
+app.use(express.static(join(ROOT, "src", "public")));
+
+// Config APIs
+app.get("/api/config", (req, res) => {
+  res.json({
+    providers: PROVIDERS,
+    agents: AGENTS,
+    keys: KEYS_CFG,
+    ips: IPS
+  });
+});
+
+app.post("/api/keys", (req, res) => {
+  try {
+    const { keys } = req.body;
+    // Clear and assign new keys
+    for (const key of Object.keys(KEYS_CFG)) {
+      delete KEYS_CFG[key];
+    }
+    Object.assign(KEYS_CFG, keys);
+    
+    writeFileSync(join(ROOT, "config", "keys.json"), JSON.stringify({
+      _comment: "Aurora-Provider API keys store. Add multiple keys per provider — they will be rotated automatically on rate limit.",
+      _security: "Keep this file out of version control. Add to .gitignore.",
+      keys
+    }, null, 2), "utf8");
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/agents", (req, res) => {
+  try {
+    const { agents } = req.body;
+    AGENTS = agents;
+    writeFileSync(join(ROOT, "config", "agents.json"), JSON.stringify({
+      _comment: "Aurora-Provider agent definitions. Each agent has an ordered fallback chain: provider + model pairs sorted by context size → rate limit generosity → speed.",
+      _version: "1.0.0",
+      agents
+    }, null, 2), "utf8");
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/ips", (req, res) => {
+  try {
+    const { ips } = req.body;
+    IPS = ips;
+    writeFileSync(join(ROOT, "config", "ips.json"), JSON.stringify({
+      _comment: "IP rotation pool. Add local interface IP addresses here to route requests through different outbound IPs.",
+      ips
+    }, null, 2), "utf8");
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Logs stream (Server-Sent Events)
+app.get("/api/logs-stream", (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  sseClients.push(res);
+
+  req.on("close", () => {
+    const index = sseClients.indexOf(res);
+    if (index !== -1) {
+      sseClients.splice(index, 1);
+    }
+  });
+});
 
 // Health check
 app.get("/health", (req, res) => {
