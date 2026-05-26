@@ -58,8 +58,9 @@ let proxyStatus = "Idle"; // "Scraping...", "Testing...", "Active"
 
 function getNextProxy() {
   if (!PROXY_POOL || PROXY_POOL.length === 0) return null;
-  const proxy = PROXY_POOL[proxyPoolIndex];
-  proxyPoolIndex = (proxyPoolIndex + 1) % PROXY_POOL.length;
+  const activeLimit = Math.min(PROXY_POOL.length, 10);
+  const proxy = PROXY_POOL[proxyPoolIndex % activeLimit];
+  proxyPoolIndex = (proxyPoolIndex + 1) % activeLimit;
   return proxy.url;
 }
 
@@ -120,12 +121,12 @@ async function refreshProxyPool() {
   proxyStatus = "Testing proxy latencies...";
   console.log(`[aurora-provider] ${proxyStatus}`);
 
-  const sample = shuffled.slice(0, 200);
+  const sample = shuffled.slice(0, 800);
   const results = [];
   
-  const chunkSize = 15;
+  const chunkSize = 20;
   for (let i = 0; i < sample.length; i += chunkSize) {
-    if (results.length >= 10) break;
+    if (results.length >= 100) break;
     const chunk = sample.slice(i, i + chunkSize);
     const promises = chunk.map(async (proxyUrl) => {
       const start = Date.now();
@@ -155,14 +156,17 @@ async function refreshProxyPool() {
   }
 
   results.sort((a, b) => a.latency - b.latency);
-  PROXY_POOL = results.slice(0, 10);
+  PROXY_POOL = results.slice(0, 100);
   proxyPoolIndex = 0;
   proxyStatus = `Active (${PROXY_POOL.length} proxies)`;
   
   console.log("[aurora-provider] Selected active proxy pool:");
-  PROXY_POOL.forEach((p, idx) => {
+  PROXY_POOL.slice(0, 10).forEach((p, idx) => {
     console.log(`  [Proxy ${idx + 1}] ${p.url} (${p.latency}ms)`);
   });
+  if (PROXY_POOL.length > 10) {
+    console.log(`  ... and ${PROXY_POOL.length - 10} more warm proxies in standby pool.`);
+  }
 }
 
 function removeDeadProxy(proxyUrl) {
@@ -179,7 +183,7 @@ function removeDeadProxy(proxyUrl) {
       proxyStatus = `Active (${PROXY_POOL.length} proxies)`;
     }
     
-    if (PROXY_POOL.length < 3 && !proxyStatus.startsWith("Scraping") && !proxyStatus.startsWith("Testing")) {
+    if (PROXY_POOL.length < 15 && !proxyStatus.startsWith("Scraping") && !proxyStatus.startsWith("Testing")) {
       console.log(`[aurora-provider] Proxy pool low (${PROXY_POOL.length} remaining). Replenishing in background...`);
       refreshProxyPool().catch(err => {
         console.error(`[aurora-provider] Auto-replenish failed: ${err.message}`);
