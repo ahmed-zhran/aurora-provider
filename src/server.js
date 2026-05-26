@@ -108,9 +108,10 @@ async function refreshProxyPool() {
   
   const results = [];
   
-  // Test in chunks of 20 concurrent pings
-  const chunkSize = 20;
+  // Test in chunks of 5 concurrent pings
+  const chunkSize = 5;
   for (let i = 0; i < sample.length; i += chunkSize) {
+    if (results.length >= 10) break;
     const chunk = sample.slice(i, i + chunkSize);
     const promises = chunk.map(async (proxyUrl) => {
       const start = Date.now();
@@ -119,7 +120,7 @@ async function refreshProxyPool() {
         const res = await fetch("https://registry.npmjs.org/express", {
           method: "HEAD",
           dispatcher,
-          signal: AbortSignal.timeout(3500)
+          signal: AbortSignal.timeout(5000)
         });
         if (res.ok) {
           results.push({ url: proxyUrl, latency: Date.now() - start });
