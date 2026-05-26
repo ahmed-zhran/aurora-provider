@@ -69,8 +69,8 @@ async function refreshProxyPool() {
   console.log(`[aurora-provider] ${proxyStatus}`);
   
   const sources = [
-    "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/http.txt",
-    "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt"
+    "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt",
+    "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt"
   ];
   
   const rawProxies = new Set();
@@ -83,7 +83,7 @@ async function refreshProxyPool() {
         line = line.trim();
         if (line && !line.startsWith("#")) {
           if (line.includes(":")) {
-            rawProxies.add(`http://${line}`);
+            rawProxies.add(`socks5://${line}`);
           }
         }
       }
