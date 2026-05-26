@@ -10,6 +10,12 @@
           "model": "big-pickle",
           "contextWindow": 200000,
           "reasoning": true
+        },
+        {
+          "provider": "openrouter",
+          "model": "deepseek/deepseek-v4-flash:free",
+          "contextWindow": 1000000,
+          "reasoning": true
         }
       ]
     },

@@ -639,7 +639,9 @@ async function saveAgentsConfig() {
     });
     alert('Agents configuration saved successfully!');
     loadConfig();
-  } catch (e) {}
+  } catch (e) {
+    alert('Failed to save agents configuration: ' + e.message);
+  }
 }
 
 // ─── TAB 3: API Keys Management Panel ────────────────────────────────────────
@@ -771,7 +773,9 @@ async function saveKeysConfig() {
     });
     alert('API Keys saved successfully!');
     loadConfig();
-  } catch (e) {}
+  } catch (e) {
+    alert('Failed to save API Keys: ' + e.message);
+  }
 }
 
 // ─── Proxy Status Polling & Rendering ────────────────────────────────────────
