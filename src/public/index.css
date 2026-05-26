@@ -773,6 +773,11 @@ body {
   align-items: center;
 }
 
+.key-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+
 .cf-key-fields {
   display: flex;
   flex-direction: column;
