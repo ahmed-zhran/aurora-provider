@@ -20,8 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
   loadConfig();
   
   // Dashboard event listeners
-  document.getElementById('add-ip-btn').addEventListener('click', addIpAddress);
-  document.getElementById('save-ips-btn').addEventListener('click', saveIpPool);
   document.getElementById('refresh-proxies-btn').addEventListener('click', triggerProxyRefresh);
   document.getElementById('api-test-form').addEventListener('submit', runApiTest);
   document.getElementById('clear-response-btn').addEventListener('click', () => {
@@ -134,7 +132,6 @@ async function loadConfig() {
   try {
     config = await fetchJSON('/api/config');
     renderUIPool();
-    renderOutboundIps();
     updateAgentsDropdown();
   } catch (err) {
     console.error("Failed to load configs", err);
@@ -263,75 +260,7 @@ function renderHealthGrid(keyStates) {
   });
 }
 
-// ─── IP Pool Management ──────────────────────────────────────────────────────
 
-function renderOutboundIps() {
-  const container = document.getElementById('ip-list-container');
-  container.innerHTML = '';
-
-  const ips = config.ips || [];
-  document.getElementById('server-ips-count').textContent = ips.length;
-
-  if (ips.length === 0) {
-    container.innerHTML = '<div class="text-muted" style="font-size:0.85rem; padding: 0.25rem;">No local IPs configured. System defaults apply.</div>';
-    return;
-  }
-
-  ips.forEach((ip, idx) => {
-    const row = document.createElement('div');
-    row.className = 'ip-row';
-
-    const addr = document.createElement('span');
-    addr.className = 'ip-addr';
-    addr.textContent = ip;
-
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn-text-btn';
-    delBtn.innerHTML = 'Remove';
-    delBtn.addEventListener('click', () => {
-      config.ips.splice(idx, 1);
-      renderOutboundIps();
-    });
-
-    row.appendChild(addr);
-    row.appendChild(delBtn);
-    container.appendChild(row);
-  });
-}
-
-function addIpAddress() {
-  const input = document.getElementById('new-ip-input');
-  const ip = input.value.trim();
-  if (!ip) return;
-
-  // Simple IP format check
-  const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
-  if (!ipRegex.test(ip)) {
-    alert("Invalid IP Address format.");
-    return;
-  }
-
-  if (!config.ips) config.ips = [];
-  if (config.ips.includes(ip)) {
-    alert("IP already in the pool.");
-    return;
-  }
-
-  config.ips.push(ip);
-  input.value = '';
-  renderOutboundIps();
-}
-
-async function saveIpPool() {
-  try {
-    await fetchJSON('/api/ips', {
-      method: 'POST',
-      body: JSON.stringify({ ips: config.ips || [] })
-    });
-    alert('Outbound IP Pool saved successfully.');
-    loadConfig();
-  } catch (e) {}
-}
 
 // ─── API Tester Panel ────────────────────────────────────────────────────────
 
