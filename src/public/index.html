@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aurora-Provider Dashboard</title>
+  <link rel="stylesheet" href="index.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="glass-bg"></div>
+  
+  <div class="container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="glow-dot"></div>
+        <h1>Aurora-Provider</h1>
+        <span class="version-tag">v1.0.0</span>
+      </div>
+      <div class="server-stats">
+        <div class="stat-badge">
+          <span class="stat-label">Status</span>
+          <span class="stat-val text-success" id="server-status">Connecting...</span>
+        </div>
+        <div class="stat-badge">
+          <span class="stat-label">Uptime</span>
+          <span class="stat-val" id="server-uptime">0s</span>
+        </div>
+        <div class="stat-badge">
+          <span class="stat-label">Agents</span>
+          <span class="stat-val" id="server-agents-count">0</span>
+        </div>
+        <div class="stat-badge">
+          <span class="stat-label">IP Pool</span>
+          <span class="stat-val" id="server-ips-count">0</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="tabs-nav">
+      <button class="tab-btn active" data-tab="tab-dashboard">Dashboard & Test</button>
+      <button class="tab-btn" data-tab="tab-agents">Agents Config</button>
+      <button class="tab-btn" data-tab="tab-keys">API Keys</button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- TAB 1: Dashboard & Test -->
+      <section id="tab-dashboard" class="tab-pane active">
+        <div class="grid-layout">
+          <!-- Left Column: Key Health & Outbound IPs -->
+          <div class="grid-col-left">
+            <div class="card glass">
+              <h2>Provider Keys Health</h2>
+              <div class="provider-health-list" id="health-grid">
+                <!-- Populated dynamically -->
+                <div class="loading-spinner">Loading health status...</div>
+              </div>
+            </div>
+
+            <div class="card glass">
+              <h2>Outbound IP Pool Rotation</h2>
+              <p class="description">Requests will rotate round-robin across these local interface IP addresses. Leave empty to use the default interface.</p>
+              <div class="ip-manager">
+                <div class="ip-list" id="ip-list-container">
+                  <!-- Populated dynamically -->
+                </div>
+                <div class="add-ip-row">
+                  <input type="text" id="new-ip-input" placeholder="e.g., 192.168.1.100" class="form-input">
+                  <button class="btn btn-primary" id="add-ip-btn">Add IP</button>
+                </div>
+                <button class="btn btn-success full-width mt-3" id="save-ips-btn">Save IP Pool</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: API Tester & Live Logs -->
+          <div class="grid-col-right">
+            <div class="card glass">
+              <h2>API Tester</h2>
+              <form id="api-test-form">
+                <div class="form-group">
+                  <label for="test-agent-select">Select Agent</label>
+                  <select id="test-agent-select" class="form-select" required>
+                    <option value="" disabled selected>Loading agents...</option>
+                  </select>
+                  <span class="error-text id="agent-warning" style="display:none; color: var(--color-danger); margin-top: 5px;">No agents configured yet! Add an agent in the Agents Config tab first.</span>
+                </div>
+                <div class="form-group">
+                  <label for="test-prompt">Prompt / Message</label>
+                  <textarea id="test-prompt" class="form-textarea" required placeholder="Type something to test...">Write a hello world program in Python.</textarea>
+                </div>
+                <div class="form-row">
+                  <div class="form-group flex-row">
+                    <input type="checkbox" id="test-stream" checked>
+                    <label for="test-stream">Stream response</label>
+                  </div>
+                  <button type="submit" class="btn btn-primary" id="run-test-btn">Run Test</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- JSON Output Screen -->
+            <div class="card glass flex-fill">
+              <div class="card-header-actions">
+                <h2>API Response (JSON)</h2>
+                <button class="btn-text-btn" id="clear-response-btn">Clear</button>
+              </div>
+              <div class="json-viewer-container">
+                <pre id="json-response-output" class="json-output">Ready to test. Run a query above to see the full raw JSON response here.</pre>
+              </div>
+            </div>
+
+            <!-- Terminal / Live Logs -->
+            <div class="card glass log-card">
+              <div class="card-header-actions">
+                <h2>Live Server logs</h2>
+                <button class="btn-text-btn" id="clear-logs-btn">Clear</button>
+              </div>
+              <div class="terminal-log" id="logs-terminal">
+                <div class="log-line system">[system] Listening for logs...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: Agents Config -->
+      <section id="tab-agents" class="tab-pane">
+        <div class="grid-layout">
+          <!-- Left Column: Agents List -->
+          <div class="grid-col-left">
+            <div class="card glass">
+              <h2>Agents</h2>
+              <p class="description">Select an agent to edit, or create a new one.</p>
+              <div class="agents-list" id="agents-selector-container">
+                <!-- Populated dynamically -->
+              </div>
+              <div class="add-agent-row">
+                <input type="text" id="new-agent-name" placeholder="Agent name (e.g. coder)" class="form-input">
+                <button class="btn btn-primary" id="create-agent-btn">Create</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Agent Settings -->
+          <div class="grid-col-right" id="agent-settings-card" style="display: none;">
+            <div class="card glass">
+              <div class="agent-title-row">
+                <h2 id="current-agent-title">Agent Settings: Coder</h2>
+                <div class="agent-actions">
+                  <button class="btn btn-secondary btn-sm" id="rename-agent-btn">Rename</button>
+                  <button class="btn btn-danger btn-sm" id="delete-agent-btn">Delete Agent</button>
+                </div>
+              </div>
+
+              <!-- Fallback Chain -->
+              <div class="fallback-section mt-4">
+                <h3>Fallback Chain Priority</h3>
+                <p class="description">Reorder items in the list. The server queries the first provider first, falling back downwards when keys are exhausted or errors occur.</p>
+                
+                <div class="fallback-list-container" id="fallback-chain-list">
+                  <!-- Populated dynamically -->
+                </div>
+
+                <!-- Add Step Form -->
+                <div class="add-fallback-step card bg-dark mt-3">
+                  <h4>Add Fallback Step</h4>
+                  <div class="add-step-fields">
+                    <div class="form-group flex-1">
+                      <label>Provider</label>
+                      <select id="step-provider-select" class="form-select">
+                        <option value="" disabled selected>Select provider</option>
+                      </select>
+                    </div>
+                    <div class="form-group flex-1">
+                      <label>Model</label>
+                      <select id="step-model-select" class="form-select" disabled>
+                        <option value="" disabled selected>Select model</option>
+                      </select>
+                    </div>
+                    <div class="align-bottom">
+                      <button class="btn btn-primary" id="add-step-btn">Add Step</button>
+                    </div>
+                  </div>
+                </div>
+
+                <button class="btn btn-success mt-4" id="save-agents-btn">Save Agents Config</button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="grid-col-right empty-agent-message" id="agent-settings-empty">
+            <div class="card glass flex-center">
+              <p class="text-muted">Select an agent from the list to view and configure its fallback chain.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: API Keys -->
+      <section id="tab-keys" class="tab-pane">
+        <div class="card glass">
+          <div class="card-header-actions">
+            <div>
+              <h2>Provider API Keys</h2>
+              <p class="description">Add one or multiple keys for each provider. Multiple keys are rotated on rate-limiting (429).</p>
+            </div>
+            <button class="btn btn-success" id="save-keys-btn">Save API Keys</button>
+          </div>
+          <div class="keys-grid" id="keys-manager-container">
+            <!-- Populated dynamically -->
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="index.js"></script>
+</body>
+</html>
