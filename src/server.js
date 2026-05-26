@@ -4,6 +4,7 @@ import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { Agent, ProxyAgent } from "undici";
 import dns from "dns";
+import { execSync } from "child_process";
 
 dns.setDefaultResultOrder("ipv4first");
 
@@ -76,9 +77,7 @@ async function refreshProxyPool() {
   
   for (const url of sources) {
     try {
-      const res = await fetch(url);
-      if (!res.ok) continue;
-      const text = await res.text();
+      const text = execSync(`curl -s -S -m 10 "${url}"`, { encoding: "utf8" });
       const lines = text.split("\n");
       for (let line of lines) {
         line = line.trim();
@@ -89,7 +88,7 @@ async function refreshProxyPool() {
         }
       }
     } catch (err) {
-      console.warn(`[aurora-provider] Failed to fetch proxy source ${url}: ${err.message}`);
+      console.warn(`[aurora-provider] Failed to fetch proxy source ${url} via curl: ${err.message}`);
     }
   }
 
