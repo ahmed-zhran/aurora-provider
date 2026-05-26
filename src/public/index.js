@@ -667,27 +667,29 @@ function renderKeysTab() {
 
     // Render existing keys
     keys.forEach((key, idx) => {
-      addKeyInputRow(provKey, key);
+      addKeyInputRow(provKey, key, list);
     });
 
     // Add empty placeholder row if no keys
     if (keys.length === 0) {
-      addKeyInputRow(provKey, '');
+      addKeyInputRow(provKey, '', list);
     }
 
     // Add Key Button
     const addBtn = document.createElement('button');
     addBtn.className = 'btn btn-secondary btn-sm mt-3 align-self-start';
     addBtn.textContent = 'Add Key';
-    addBtn.addEventListener('click', () => addKeyInputRow(provKey, ''));
+    addBtn.addEventListener('click', () => addKeyInputRow(provKey, '', list));
     box.appendChild(addBtn);
 
     container.appendChild(box);
   });
 }
 
-function addKeyInputRow(providerKey, keyValue) {
-  const list = document.getElementById(`keys-list-${providerKey}`);
+function addKeyInputRow(providerKey, keyValue, listContainer) {
+  const list = listContainer || document.getElementById(`keys-list-${providerKey}`);
+  if (!list) return;
+
   const row = document.createElement('div');
   row.className = 'key-input-row';
 
