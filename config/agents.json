@@ -1,85 +1,245 @@
 {
   "_comment": "Aurora-Provider agent definitions. Each agent has an ordered fallback chain: provider + model pairs sorted by context size → rate limit generosity → speed.",
   "_version": "1.0.0",
-
   "agents": {
-
-    "plan": {
-      "_comment": "Orchestrator — needs highest reasoning + large context. Read-only. No writing.",
-      "fallbacks": [
-        { "provider": "opencode_zen",         "model": "opencode/big-pickle",                    "contextWindow": 200000, "reasoning": true  },
-        { "provider": "cloudflare_workers_ai", "model": "@cf/moonshotai/kimi-k2.6",              "contextWindow": 262000, "reasoning": true  },
-        { "provider": "openrouter",            "model": "moonshotai/kimi-k2.6:free",             "contextWindow": 262000, "reasoning": true  },
-        { "provider": "openrouter",            "model": "deepseek/deepseek-v4-flash:free",       "contextWindow": 1000000,"reasoning": true  },
-        { "provider": "google_ai_studio",      "model": "gemini-2.5-flash",                      "contextWindow": 1000000,"reasoning": true  }
-      ]
-    },
-
     "build": {
       "_comment": "Orchestrator — delegates only, no direct file edits. Needs strong reasoning + large context.",
       "fallbacks": [
-        { "provider": "opencode_zen",          "model": "opencode/big-pickle",                   "contextWindow": 200000, "reasoning": true  },
-        { "provider": "cloudflare_workers_ai", "model": "@cf/moonshotai/kimi-k2.6",             "contextWindow": 262000, "reasoning": true  },
-        { "provider": "openrouter",            "model": "moonshotai/kimi-k2.6:free",            "contextWindow": 262000, "reasoning": true  },
-        { "provider": "openrouter",            "model": "deepseek/deepseek-v4-flash:free",      "contextWindow": 1000000,"reasoning": true  },
-        { "provider": "google_ai_studio",      "model": "gemini-2.5-flash",                     "contextWindow": 1000000,"reasoning": true  }
+        {
+          "provider": "opencode_zen",
+          "model": "opencode/big-pickle",
+          "contextWindow": 200000,
+          "reasoning": true
+        },
+        {
+          "provider": "cloudflare_workers_ai",
+          "model": "@cf/moonshotai/kimi-k2.6",
+          "contextWindow": 262000,
+          "reasoning": true
+        },
+        {
+          "provider": "openrouter",
+          "model": "moonshotai/kimi-k2.6:free",
+          "contextWindow": 262000,
+          "reasoning": true
+        },
+        {
+          "provider": "openrouter",
+          "model": "deepseek/deepseek-v4-flash:free",
+          "contextWindow": 1000000,
+          "reasoning": true
+        },
+        {
+          "provider": "google_ai_studio",
+          "model": "gemini-2.5-flash",
+          "contextWindow": 1000000,
+          "reasoning": true
+        }
       ]
     },
-
     "coder": {
       "_comment": "Implementation — needs highest reasoning + large context for full codebase edits.",
       "fallbacks": [
-        { "provider": "opencode_zen",          "model": "opencode/big-pickle",                   "contextWindow": 200000, "reasoning": true  },
-        { "provider": "cloudflare_workers_ai", "model": "@cf/moonshotai/kimi-k2.6",             "contextWindow": 262000, "reasoning": true  },
-        { "provider": "openrouter",            "model": "deepseek/deepseek-v4-flash:free",      "contextWindow": 1000000,"reasoning": true  },
-        { "provider": "zhipu",                 "model": "glm-4.7-flash",                        "contextWindow": 200000, "reasoning": true  },
-        { "provider": "google_ai_studio",      "model": "gemini-2.5-flash",                     "contextWindow": 1000000,"reasoning": true  }
+        {
+          "provider": "opencode_zen",
+          "model": "opencode/big-pickle",
+          "contextWindow": 200000,
+          "reasoning": true
+        },
+        {
+          "provider": "cloudflare_workers_ai",
+          "model": "@cf/moonshotai/kimi-k2.6",
+          "contextWindow": 262000,
+          "reasoning": true
+        },
+        {
+          "provider": "openrouter",
+          "model": "deepseek/deepseek-v4-flash:free",
+          "contextWindow": 1000000,
+          "reasoning": true
+        },
+        {
+          "provider": "zhipu",
+          "model": "glm-4.7-flash",
+          "contextWindow": 200000,
+          "reasoning": true
+        },
+        {
+          "provider": "google_ai_studio",
+          "model": "gemini-2.5-flash",
+          "contextWindow": 1000000,
+          "reasoning": true
+        }
       ]
     },
-
     "explore": {
       "_comment": "Codebase analysis — large context critical, low reasoning effort, fast speed preferred.",
       "fallbacks": [
-        { "provider": "opencode_zen",          "model": "opencode/deepseek-v4-flash-free",       "contextWindow": 200000, "reasoning": true  },
-        { "provider": "openrouter",            "model": "deepseek/deepseek-v4-flash:free",       "contextWindow": 1000000,"reasoning": true  },
-        { "provider": "openrouter",            "model": "meta-llama/llama-4-maverick:free",      "contextWindow": 1000000,"reasoning": false },
-        { "provider": "google_ai_studio",      "model": "gemini-2.5-flash",                      "contextWindow": 1000000,"reasoning": true  },
-        { "provider": "llm7",                  "model": "llama-3.1-405b",                         "contextWindow": 131072, "reasoning": false }
+        {
+          "provider": "opencode_zen",
+          "model": "opencode/deepseek-v4-flash-free",
+          "contextWindow": 200000,
+          "reasoning": true
+        },
+        {
+          "provider": "openrouter",
+          "model": "deepseek/deepseek-v4-flash:free",
+          "contextWindow": 1000000,
+          "reasoning": true
+        },
+        {
+          "provider": "openrouter",
+          "model": "meta-llama/llama-4-maverick:free",
+          "contextWindow": 1000000,
+          "reasoning": false
+        },
+        {
+          "provider": "google_ai_studio",
+          "model": "gemini-2.5-flash",
+          "contextWindow": 1000000,
+          "reasoning": true
+        },
+        {
+          "provider": "llm7",
+          "model": "llama-3.1-405b",
+          "contextWindow": 131072,
+          "reasoning": false
+        }
       ]
     },
-
     "researcher": {
       "_comment": "External research — web tools, high reasoning, medium-large context.",
       "fallbacks": [
-        { "provider": "opencode_zen",          "model": "opencode/nemotron-3-super-free",        "contextWindow": 128000, "reasoning": true  },
-        { "provider": "openrouter",            "model": "qwen/qwen3-235b-a22b:free",             "contextWindow": 262000, "reasoning": true  },
-        { "provider": "cloudflare_workers_ai", "model": "@cf/moonshotai/kimi-k2.6",             "contextWindow": 262000, "reasoning": true  },
-        { "provider": "google_ai_studio",      "model": "gemini-2.5-flash",                      "contextWindow": 1000000,"reasoning": true  },
-        { "provider": "llm7",                  "model": "deepseek-r1-distill-llama-70b",         "contextWindow": 128000, "reasoning": true  }
+        {
+          "provider": "opencode_zen",
+          "model": "opencode/nemotron-3-super-free",
+          "contextWindow": 128000,
+          "reasoning": true
+        },
+        {
+          "provider": "openrouter",
+          "model": "qwen/qwen3-235b-a22b:free",
+          "contextWindow": 262000,
+          "reasoning": true
+        },
+        {
+          "provider": "cloudflare_workers_ai",
+          "model": "@cf/moonshotai/kimi-k2.6",
+          "contextWindow": 262000,
+          "reasoning": true
+        },
+        {
+          "provider": "google_ai_studio",
+          "model": "gemini-2.5-flash",
+          "contextWindow": 1000000,
+          "reasoning": true
+        },
+        {
+          "provider": "llm7",
+          "model": "deepseek-r1-distill-llama-70b",
+          "contextWindow": 128000,
+          "reasoning": true
+        }
       ]
     },
-
     "scribe": {
       "_comment": "Documentation writing — fast, large output, less reasoning needed.",
       "fallbacks": [
-        { "provider": "opencode_zen",          "model": "opencode/deepseek-v4-flash-free",       "contextWindow": 200000, "reasoning": false },
-        { "provider": "google_ai_studio",      "model": "gemini-2.5-flash",                      "contextWindow": 1000000,"reasoning": false },
-        { "provider": "openrouter",            "model": "deepseek/deepseek-v4-flash:free",       "contextWindow": 1000000,"reasoning": false },
-        { "provider": "groq",                  "model": "llama-3.3-70b-versatile",               "contextWindow": 128000, "reasoning": false },
-        { "provider": "llm7",                  "model": "llama-3.1-405b",                         "contextWindow": 131072, "reasoning": false }
+        {
+          "provider": "opencode_zen",
+          "model": "opencode/deepseek-v4-flash-free",
+          "contextWindow": 200000,
+          "reasoning": false
+        },
+        {
+          "provider": "google_ai_studio",
+          "model": "gemini-2.5-flash",
+          "contextWindow": 1000000,
+          "reasoning": false
+        },
+        {
+          "provider": "openrouter",
+          "model": "deepseek/deepseek-v4-flash:free",
+          "contextWindow": 1000000,
+          "reasoning": false
+        },
+        {
+          "provider": "groq",
+          "model": "llama-3.3-70b-versatile",
+          "contextWindow": 128000,
+          "reasoning": false
+        },
+        {
+          "provider": "llm7",
+          "model": "llama-3.1-405b",
+          "contextWindow": 131072,
+          "reasoning": false
+        }
       ]
     },
-
     "reviewer": {
       "_comment": "Code review — high reasoning, medium context, accuracy over speed.",
       "fallbacks": [
-        { "provider": "opencode_zen",          "model": "opencode/nemotron-3-super-free",        "contextWindow": 128000, "reasoning": true  },
-        { "provider": "cloudflare_workers_ai", "model": "@cf/moonshotai/kimi-k2.6",             "contextWindow": 262000, "reasoning": true  },
-        { "provider": "openrouter",            "model": "moonshotai/kimi-k2.6:free",            "contextWindow": 262000, "reasoning": true  },
-        { "provider": "zhipu",                 "model": "glm-4.7-flash",                         "contextWindow": 200000, "reasoning": true  },
-        { "provider": "llm7",                  "model": "deepseek-r1-distill-llama-70b",         "contextWindow": 128000, "reasoning": true  }
+        {
+          "provider": "opencode_zen",
+          "model": "opencode/nemotron-3-super-free",
+          "contextWindow": 128000,
+          "reasoning": true
+        },
+        {
+          "provider": "cloudflare_workers_ai",
+          "model": "@cf/moonshotai/kimi-k2.6",
+          "contextWindow": 262000,
+          "reasoning": true
+        },
+        {
+          "provider": "openrouter",
+          "model": "moonshotai/kimi-k2.6:free",
+          "contextWindow": 262000,
+          "reasoning": true
+        },
+        {
+          "provider": "zhipu",
+          "model": "glm-4.7-flash",
+          "contextWindow": 200000,
+          "reasoning": true
+        },
+        {
+          "provider": "llm7",
+          "model": "deepseek-r1-distill-llama-70b",
+          "contextWindow": 128000,
+          "reasoning": true
+        }
+      ]
+    },
+    "planner": {
+      "_comment": "Orchestrator — needs highest reasoning + large context. Read-only. No writing.",
+      "fallbacks": [
+        {
+          "provider": "opencode_zen",
+          "model": "opencode/big-pickle",
+          "contextWindow": 200000,
+          "reasoning": true
+        },
+        {
+          "provider": "cloudflare_workers_ai",
+          "model": "@cf/moonshotai/kimi-k2.6",
+          "contextWindow": 262000,
+          "reasoning": true
+        },
+        {
+          "provider": "openrouter",
+          "model": "moonshotai/kimi-k2.6:free",
+          "contextWindow": 262000,
+          "reasoning": true
+        },
+        {
+          "provider": "openrouter",
+          "model": "deepseek/deepseek-v4-flash:free",
+          "contextWindow": 1000000,
+          "reasoning": true
+        }
       ]
     }
-
   }
 }
