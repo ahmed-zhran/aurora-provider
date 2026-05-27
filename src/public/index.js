@@ -270,6 +270,9 @@ function initLogStream() {
       line.textContent = `[${timeStr}] ${data.message}`;
       
       logsTerminal.appendChild(line);
+      while (logsTerminal.children.length > 300) {
+        logsTerminal.removeChild(logsTerminal.firstChild);
+      }
       logsTerminal.scrollTop = logsTerminal.scrollHeight;
     } catch (e) {
       console.error("Error parsing log line:", e);
@@ -281,6 +284,9 @@ function initLogStream() {
     line.className = 'log-line error';
     line.textContent = `[${new Date().toLocaleTimeString()}] [system] Log stream connection lost. Retrying...`;
     logsTerminal.appendChild(line);
+    while (logsTerminal.children.length > 300) {
+      logsTerminal.removeChild(logsTerminal.firstChild);
+    }
   };
 }
 
