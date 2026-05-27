@@ -141,6 +141,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // Keys event listeners
   document.getElementById('save-keys-btn').addEventListener('click', saveKeysConfig);
 
+  // Proxy settings event listeners
+  const slider = document.getElementById('proxy-latency-threshold-slider');
+  const sliderVal = document.getElementById('proxy-latency-threshold-val');
+  if (slider && sliderVal) {
+    slider.addEventListener('input', () => {
+      sliderVal.textContent = slider.value + 'ms';
+    });
+  }
+  const saveProxySettingsBtn = document.getElementById('save-proxy-settings-btn');
+  if (saveProxySettingsBtn) {
+    saveProxySettingsBtn.addEventListener('click', saveProxySettings);
+  }
+
   // Providers event listeners
   document.getElementById('create-provider-btn').addEventListener('click', createProvider);
   document.getElementById('delete-provider-btn').addEventListener('click', deleteSelectedProvider);
@@ -1564,6 +1577,7 @@ async function updateProxyStatus() {
     }
 
     renderProxyTable(data.pool);
+    renderSourceRankings(data.rankedBySuccess, data.rankedByLatency);
   } catch (err) {
     const statusVal = document.getElementById('proxy-pool-status');
     if (statusVal) { statusVal.textContent = 'Error'; statusVal.className = 'stat-val text-danger'; }
@@ -1630,3 +1644,76 @@ async function triggerProxyRefresh() {
     }, 2000);
   }
 }
+
+async function renderProxiesTab() {
+  try {
+    const data = await fetchJSON('/api/settings');
+    const slider = document.getElementById('proxy-latency-threshold-slider');
+    const sliderVal = document.getElementById('proxy-latency-threshold-val');
+    if (slider && sliderVal && data.latencyThreshold !== undefined) {
+      slider.value = data.latencyThreshold;
+      sliderVal.textContent = data.latencyThreshold + 'ms';
+    }
+  } catch (err) {
+    console.error("Failed to load proxy settings:", err);
+  }
+}
+
+async function saveProxySettings() {
+  const slider = document.getElementById('proxy-latency-threshold-slider');
+  if (!slider) return;
+  const threshold = parseInt(slider.value, 10);
+  try {
+    const res = await fetchJSON('/api/settings', {
+      method: 'POST',
+      body: JSON.stringify({ latencyThreshold: threshold })
+    });
+    if (res.success) {
+      alert('Proxy latency threshold saved successfully!');
+    }
+  } catch (err) {
+    alert('Failed to save proxy settings: ' + err.message);
+  }
+}
+
+function renderSourceRankings(rankedBySuccess, rankedByLatency) {
+  const successTbody = document.getElementById('proxy-source-success-tbody');
+  const latencyTbody = document.getElementById('proxy-source-latency-tbody');
+
+  if (successTbody && rankedBySuccess) {
+    successTbody.innerHTML = '';
+    rankedBySuccess.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid var(--color-card-border)';
+      
+      const sourceName = row.source.split('/').pop().split('?')[0];
+
+      tr.innerHTML = `
+        <td style="padding: 6px; font-family: var(--font-mono); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${row.source}">${sourceName}</td>
+        <td style="padding: 6px; text-align: center; color: var(--color-success);">${row.success}</td>
+        <td style="padding: 6px; text-align: center; color: var(--color-danger);">${row.failure}</td>
+        <td style="padding: 6px; text-align: right; font-weight: 600;">${row.successRate}%</td>
+      `;
+      successTbody.appendChild(tr);
+    });
+  }
+
+  if (latencyTbody && rankedByLatency) {
+    latencyTbody.innerHTML = '';
+    rankedByLatency.forEach(row => {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid var(--color-card-border)';
+      
+      const sourceName = row.source.split('/').pop().split('?')[0];
+      const avgSpeed = row.avgLatency > 0 ? `${row.avgLatency}ms` : '—';
+
+      tr.innerHTML = `
+        <td style="padding: 6px; font-family: var(--font-mono); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${row.source}">${sourceName}</td>
+        <td style="padding: 6px; text-align: center;">${row.success}</td>
+        <td style="padding: 6px; text-align: right; font-weight: 600; color: ${row.avgLatency > 0 ? 'var(--color-primary)' : 'var(--color-text-muted)'};">${avgSpeed}</td>
+      `;
+      latencyTbody.appendChild(tr);
+    });
+  }
+}
+

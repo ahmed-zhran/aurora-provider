@@ -228,6 +228,10 @@
           "model": "google/gemma-4-26b-a4b-it:free",
           "contextWindow": 1000000,
           "reasoning": true
+        },
+        {
+          "provider": "google_ai_studio",
+          "model": "gemma-4-26b"
         }
       ]
     }
