@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <div class="glass-bg"></div>
@@ -41,6 +42,8 @@
       <button class="tab-btn active" data-tab="tab-dashboard">Dashboard & Test</button>
       <button class="tab-btn" data-tab="tab-agents">Agents Config</button>
       <button class="tab-btn" data-tab="tab-keys">API Keys</button>
+      <button class="tab-btn" data-tab="tab-usage">Usage Stats</button>
+      <button class="tab-btn" data-tab="tab-providers">Provider Config</button>
     </nav>
 
     <!-- Main Content Area -->
@@ -229,7 +232,301 @@
         </div>
       </section>
 
-    </main>
+    
+      <!-- TAB 4: Usage Stats -->
+      <section id="tab-usage" class="tab-pane">
+        <div class="metrics-row" style="display: flex; gap: 1.5rem; margin-bottom: 1.5rem;">
+          <div class="metric-card glass" style="flex: 1; padding: 1.25rem; background: var(--color-card-bg); border: 1px solid var(--color-card-border); border-radius: var(--border-radius-lg); text-align: center; box-shadow: var(--shadow-premium);">
+            <span class="stat-label" style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 0.25rem;">Total Requests</span>
+            <span class="metric-value" id="stats-total-requests" style="font-size: 2rem; font-weight: 700; color: var(--color-text-main);">0</span>
+          </div>
+          <div class="metric-card glass" style="flex: 1; padding: 1.25rem; background: var(--color-card-bg); border: 1px solid var(--color-card-border); border-radius: var(--border-radius-lg); text-align: center; box-shadow: var(--shadow-premium);">
+            <span class="stat-label" style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 0.25rem;">Success Rate</span>
+            <span class="metric-value" id="stats-success-rate" style="font-size: 2rem; font-weight: 700; color: var(--color-success);">0%</span>
+          </div>
+          <div class="metric-card glass" style="flex: 1; padding: 1.25rem; background: var(--color-card-bg); border: 1px solid var(--color-card-border); border-radius: var(--border-radius-lg); text-align: center; box-shadow: var(--shadow-premium);">
+            <span class="stat-label" style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 0.25rem;">Avg Latency</span>
+            <span class="metric-value" id="stats-avg-latency" style="font-size: 2rem; font-weight: 700; color: var(--color-primary);">0ms</span>
+          </div>
+        </div>
+
+        <div class="charts-row" style="display: flex; gap: 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+          <div class="card glass chart-card" style="flex: 2 1 600px; min-height: 320px;">
+            <h2>Requests Over Time</h2>
+            <div class="chart-container" style="position: relative; height: 260px; width: 100%;">
+              <canvas id="chart-requests-time"></canvas>
+            </div>
+          </div>
+          <div class="card glass chart-card" style="flex: 1 1 300px; min-height: 320px;">
+            <h2>Provider Distribution</h2>
+            <div class="chart-container" style="position: relative; height: 260px; width: 100%;">
+              <canvas id="chart-providers-pie"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="card glass">
+          <h2>Filter Usage History</h2>
+          <div class="filters-grid" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
+            <div class="form-group" style="flex: 1 1 150px; margin-bottom: 0;">
+              <label for="filter-start-date">Start Date</label>
+              <input type="date" id="filter-start-date" class="form-input">
+            </div>
+            <div class="form-group" style="flex: 1 1 150px; margin-bottom: 0;">
+              <label for="filter-end-date">End Date</label>
+              <input type="date" id="filter-end-date" class="form-input">
+            </div>
+            <div class="form-group" style="flex: 1 1 150px; margin-bottom: 0;">
+              <label for="filter-agent">Agent</label>
+              <select id="filter-agent" class="form-select">
+                <option value="">All Agents</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1 1 150px; margin-bottom: 0;">
+              <label for="filter-provider">Provider</label>
+              <select id="filter-provider" class="form-select">
+                <option value="">All Providers</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1 1 120px; margin-bottom: 0;">
+              <label for="filter-source">Source</label>
+              <select id="filter-source" class="form-select">
+                <option value="">All Sources</option>
+                <option value="API">API</option>
+                <option value="Testing">Testing</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex: 1 1 120px; margin-bottom: 0;">
+              <label for="filter-status">Status</label>
+              <select id="filter-status" class="form-select">
+                <option value="">All Statuses</option>
+                <option value="Success">Success</option>
+                <option value="Error">Error</option>
+              </select>
+            </div>
+            <div style="flex: 1 1 120px;">
+              <button class="btn btn-primary" id="apply-filters-btn" style="width: 100%;">Apply</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Logs Table -->
+        <div class="card glass">
+          <h2>Usage Request Logs</h2>
+          <div class="table-container" style="overflow-x: auto; margin-top: 1rem;">
+            <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
+                  <th style="padding: 10px 8px;">Timestamp</th>
+                  <th style="padding: 10px 8px;">Source</th>
+                  <th style="padding: 10px 8px;">Agent</th>
+                  <th style="padding: 10px 8px;">Provider</th>
+                  <th style="padding: 10px 8px;">Model</th>
+                  <th style="padding: 10px 8px;">Key</th>
+                  <th style="padding: 10px 8px;">Proxy</th>
+                  <th style="padding: 10px 8px;">Status</th>
+                  <th style="padding: 10px 8px; text-align: right;">Latency</th>
+                  <th style="padding: 10px 8px; text-align: center;">Details</th>
+                </tr>
+              </thead>
+              <tbody id="usage-logs-tbody">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+          <!-- Pagination -->
+          <div class="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem;">
+            <button class="btn btn-secondary btn-sm" id="prev-page-btn" disabled>Previous</button>
+            <span id="pagination-info" style="font-size: 0.9rem; color: var(--color-text-muted);">Page 1 of 1</span>
+            <button class="btn btn-secondary btn-sm" id="next-page-btn" disabled>Next</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 5: Provider Config -->
+      <section id="tab-providers" class="tab-pane">
+        <div class="grid-layout">
+          <!-- Left Column: Providers List -->
+          <div class="grid-col-left">
+            <div class="card glass">
+              <h2>LLM Providers</h2>
+              <p class="description">Select a provider to edit its endpoints and models, or register a custom provider.</p>
+              <div class="agents-list" id="providers-selector-container">
+                <!-- Populated dynamically -->
+              </div>
+              <div class="add-agent-row">
+                <input type="text" id="new-provider-name" placeholder="Provider ID (e.g. sambanova)" class="form-input">
+                <button class="btn btn-primary" id="create-provider-btn">Create</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Provider Settings Form -->
+          <div class="grid-col-right" id="provider-settings-card" style="display: none;">
+            <div class="card glass">
+              <div class="agent-title-row">
+                <h2 id="current-provider-title">Provider Config</h2>
+                <button class="btn btn-danger btn-sm" id="delete-provider-btn">Delete Provider</button>
+              </div>
+
+              <form id="provider-config-form" class="mt-3" onsubmit="event.preventDefault();">
+                <div class="form-group">
+                  <label>Display Name</label>
+                  <input type="text" id="provider-display-name" class="form-input" required placeholder="e.g. OpenRouter (free models)">
+                </div>
+                <div class="form-group">
+                  <label>Base URL</label>
+                  <input type="text" id="provider-base-url" class="form-input" required placeholder="e.g. https://openrouter.ai/api/v1">
+                </div>
+                <div class="form-row">
+                  <div class="form-group flex-1">
+                    <label>Auth Header</label>
+                    <input type="text" id="provider-auth-header" class="form-input" required placeholder="e.g. Authorization">
+                  </div>
+                  <div class="form-group flex-1">
+                    <label>Auth Prefix</label>
+                    <input type="text" id="provider-auth-prefix" class="form-input" placeholder="e.g. Bearer">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Cooldown time (seconds)</label>
+                  <input type="number" id="provider-cooldown" class="form-input" min="1" placeholder="e.g. 60 (defaults to dynamic failure backoff)">
+                  <span class="description" style="margin-top: 3px; display: block;">Configures how long keys under this provider cool down on rate limits (429). Useful if a provider rate-limits you for hours.</span>
+                </div>
+                <div class="form-group">
+                  <label>Description / Notes</label>
+                  <textarea id="provider-notes" class="form-textarea" placeholder="Provider notes..."></textarea>
+                </div>
+              </form>
+
+              <!-- Models Section -->
+              <div class="fallback-section mt-4">
+                <h3>Provider Models List</h3>
+                <p class="description">Define the models exposed by this provider that agents can target.</p>
+                <div class="table-container">
+                  <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+                    <thead>
+                      <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
+                        <th style="padding: 6px;">ID</th>
+                        <th style="padding: 6px;">Alias</th>
+                        <th style="padding: 6px;">Name</th>
+                        <th style="padding: 6px; text-align: right;">Context</th>
+                        <th style="padding: 6px; text-align: center;">Reasoning</th>
+                        <th style="padding: 6px; text-align: center;">Coding</th>
+                        <th style="padding: 6px; text-align: right;">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="provider-models-tbody">
+                      <!-- Populated dynamically -->
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Add Model Form -->
+                <div class="add-fallback-step card bg-dark mt-3" style="padding: 1rem;">
+                  <h4>Register Model</h4>
+                  <div class="add-model-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label style="font-size: 0.75rem;">Model ID</label>
+                      <input type="text" id="model-field-id" class="form-input" placeholder="google/gemma-4-26b-a4b-it:free">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label style="font-size: 0.75rem;">Alias</label>
+                      <input type="text" id="model-field-alias" class="form-input" placeholder="gemma-4-or">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label style="font-size: 0.75rem;">Display Name</label>
+                      <input type="text" id="model-field-name" class="form-input" placeholder="Gemma 4 (free)">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                      <label style="font-size: 0.75rem;">Context Window</label>
+                      <input type="number" id="model-field-context" class="form-input" placeholder="1000000">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0; display: flex; gap: 1rem; align-items: center; height: 100%; margin-top: 15px;">
+                      <div class="flex-row">
+                        <input type="checkbox" id="model-field-reasoning" checked>
+                        <label for="model-field-reasoning">Reasoning</label>
+                      </div>
+                      <div class="flex-row">
+                        <input type="checkbox" id="model-field-coding" checked>
+                        <label for="model-field-coding">Coding</label>
+                      </div>
+                    </div>
+                    <div class="align-bottom" style="display: flex; align-items: flex-end;">
+                      <button class="btn btn-primary" id="add-provider-model-btn" style="width: 100%;">Add Model</button>
+                    </div>
+                  </div>
+                </div>
+
+                <button class="btn btn-success mt-4" id="save-providers-btn">Save Provider Config</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid-col-right empty-agent-message" id="provider-settings-empty">
+            <div class="card glass flex-center" style="min-height: 400px; display: flex; justify-content: center; align-items: center;">
+              <p class="text-muted">Select an LLM provider from the list to view and configure its details and models.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+</main>
+
+  <!-- Details Modal -->
+  <div class="modal-overlay" id="log-details-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
+    <div class="modal-content glass" style="background: rgba(17, 22, 38, 0.95); border: 1px solid var(--color-card-border); border-radius: var(--border-radius-lg); width: 90%; max-width: 800px; max-height: 85vh; overflow-y: auto; padding: 1.5rem; box-shadow: var(--shadow-premium); display: flex; flex-direction: column;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-card-border); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+        <h2 style="margin: 0; font-size: 1.3rem;">Request Details Log</h2>
+        <button class="close-btn" id="close-modal-btn" style="background: none; border: none; color: var(--color-text-muted); font-size: 1.5rem; cursor: pointer; transition: var(--transition-smooth);">&times;</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 1rem;">
+        <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
+          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
+            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Timestamp</span>
+            <span class="info-val" id="modal-timestamp" style="font-weight: 500; font-size: 0.85rem;">-</span>
+          </div>
+          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
+            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Source</span>
+            <span class="info-val" id="modal-source" style="font-weight: 500; font-size: 0.85rem;">-</span>
+          </div>
+          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
+            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Agent</span>
+            <span class="info-val" id="modal-agent" style="font-weight: 500; font-size: 0.85rem;">-</span>
+          </div>
+          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
+            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Provider / Model</span>
+            <span class="info-val" id="modal-prov-model" style="font-weight: 500; font-size: 0.85rem;">-</span>
+          </div>
+          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
+            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Key Used</span>
+            <span class="info-val" id="modal-key" style="font-weight: 500; font-size: 0.85rem;">-</span>
+          </div>
+          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
+            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Proxy Used</span>
+            <span class="info-val" id="modal-proxy" style="font-weight: 500; font-size: 0.85rem; font-family: var(--font-mono);">-</span>
+          </div>
+          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
+            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Status</span>
+            <span class="info-val" id="modal-status" style="font-weight: 500; font-size: 0.85rem;">-</span>
+          </div>
+          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
+            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Latency</span>
+            <span class="info-val" id="modal-latency" style="font-weight: 500; font-size: 0.85rem;">-</span>
+          </div>
+        </div>
+        <div class="text-area-box mt-3" style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <h3 style="font-size: 1rem; font-weight: 600;">Prompt / Message</h3>
+          <div class="code-box" id="modal-prompt" style="background: rgba(0,0,0,0.3); border: 1px solid var(--color-card-border); padding: 0.75rem; border-radius: var(--border-radius-sm); font-family: var(--font-mono); font-size: 0.8rem; overflow-x: auto; white-space: pre-wrap; max-height: 150px; overflow-y: auto; color: var(--color-text-muted);">[]</div>
+        </div>
+        <div class="text-area-box mt-3" style="display: flex; flex-direction: column; gap: 0.5rem;">
+          <h3 style="font-size: 1rem; font-weight: 600;">Response Content</h3>
+          <div class="code-box text-response-box" id="modal-response" style="background: rgba(0,0,0,0.3); border: 1px solid var(--color-card-border); padding: 0.75rem; border-radius: var(--border-radius-sm); font-family: var(--font-sans); font-size: 0.85rem; overflow-x: auto; white-space: pre-wrap; max-height: 250px; overflow-y: auto; color: var(--color-text-main); line-height: 1.5;">-</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   </div>
 
   <script src="index.js"></script>

@@ -818,5 +818,80 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255,255,255,0.3);
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ─── Premium Keys Card Layout ─── */
+.key-input-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--border-radius-md);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: var(--transition-smooth);
+}
+
+.key-input-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.key-input-row .key-name,
+.key-input-row .key-email {
+  flex: 1 1 180px;
+}
+
+.key-input-row .standard-key {
+  flex: 2 1 300px;
+}
+
+.key-input-row .cf-key-fields {
+  display: flex;
+  gap: 0.5rem;
+  flex: 2 1 300px;
+}
+
+.key-input-row .cf-key-fields input {
+  flex: 1;
+}
+
+/* ─── Usage Dashboard, Charts & Badges ─── */
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: var(--border-radius-sm);
+  text-transform: uppercase;
+}
+.badge-primary {
+  background: var(--color-primary-light);
+  color: #a5b4fc;
+}
+.badge-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-muted);
+}
+
+.chart-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-container {
+  flex: 1;
+  position: relative;
+  width: 100%;
+}
+
+/* ─── Provider & Models Config ─── */
+.add-model-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
 }
