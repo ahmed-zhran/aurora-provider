@@ -174,7 +174,7 @@ try {
   console.warn("[aurora-provider] Failed to load settings.json:", e.message);
 }
 
-const TARGET_COUNTRIES = ["EG", "TR", "GR", "CY", "IT", "NL", "DE", "FR", "GB", "ES", "SA", "AE", "US", "SG", "MX"];
+const TARGET_COUNTRIES = ["TR", "GR", "CY", "NL", "DE", "FR", "SA", "AE"];
 
 const COUNTRY_NAME_MAP = {
   EG: "egypt",
@@ -277,7 +277,7 @@ const PROXY_SOURCES = [
   // 6. Spys.one SOCKS5 country & city landing pages
   "https://spys.one/en/socks-proxy-list/",
   ...TARGET_COUNTRIES.map(c => `https://spys.one/free-proxy-list/${c}/`),
-  ...["Falkenstein", "Frankfurt", "Amsterdam", "Paris", "London", "Milan", "Istanbul", "Cairo"].flatMap(city =>
+  ...["Falkenstein", "Frankfurt", "Amsterdam", "Paris", "London", "Milan", "Istanbul"].flatMap(city =>
     Array.from({ length: 3 }, (_, i) => `https://spys.one/proxy-city/${city}/${i + 1}/`)
   ),
 
@@ -291,7 +291,7 @@ const PROXY_SOURCES = [
   }),
 
   // 9. Litport country landing pages
-  ...["france", "germany", "netherlands", "turkey", "united-states", "greece", "egypt"].map(c => `https://litport.net/free-proxy/${c}`),
+  ...["france", "germany", "netherlands", "turkey", "united-states", "greece"].map(c => `https://litport.net/free-proxy/${c}`),
 
   // 10. Free.geonix.com country landing pages
   ...TARGET_COUNTRIES.flatMap(c => {
@@ -361,15 +361,24 @@ async function refreshProxyPool(isManual = false) {
   proxyStatus = "Refreshing proxy pool...";
   console.log(`[aurora-provider] ${proxyStatus} (Sequential harvesting + testing)`);
 
-  const newPool = [];
   const seenProxies = new Set();
+  const shuffledSources = [...PROXY_SOURCES].sort(() => Math.random() - 0.5);
+  const domainLastFetch = new Map();
 
-  for (let sIdx = 0; sIdx < PROXY_SOURCES.length; sIdx++) {
-    const url = PROXY_SOURCES[sIdx];
-    const sourceCleanName = url.split('/').pop() || url;
-    console.log(`[harvest] [${sIdx + 1}/${PROXY_SOURCES.length}] Fetching source: ${url}`);
+  for (let sIdx = 0; sIdx < shuffledSources.length; sIdx++) {
+    const url = shuffledSources[sIdx];
     
     try {
+      const urlObj = new URL(url);
+      const domain = urlObj.hostname;
+      const lastFetch = domainLastFetch.get(domain) || 0;
+      const delayNeeded = 2500 - (Date.now() - lastFetch);
+      if (delayNeeded > 0) {
+        await new Promise(resolve => setTimeout(resolve, delayNeeded));
+      }
+      domainLastFetch.set(domain, Date.now());
+
+      console.log(`[harvest] [${sIdx + 1}/${shuffledSources.length}] Fetching source: ${url}`);
       const res = await fetch(url, { 
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -482,8 +491,7 @@ async function refreshProxyPool(isManual = false) {
                   failureCount: existing ? existing.failureCount : 0
                 };
 
-                insertIntoSortedPool(newPool, proxyObj, 200);
-                PROXY_POOL = [...newPool];
+                insertIntoSortedPool(PROXY_POOL, proxyObj, 200);
                 proxyStatus = `Active (${PROXY_POOL.length} proxies)`;
                 
                 if (SOURCE_STATS[url]) {
