@@ -2,9 +2,10 @@ import express from "express";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { ProxyAgent, fetch as undiciFetch } from "undici";
+import { fetch as undiciFetch } from "undici";
+import { socksDispatcher } from "fetch-socks";
 import dns from "dns";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 
 dns.setDefaultResultOrder("ipv4first");
 
@@ -42,6 +43,9 @@ for (const file of configFiles) {
 
 // ─── Database loading ─────────────────────────────────────────────────────────
 const db = new Database(join(VAULT_DIR, "vault.db"));
+db.run = function (sql) {
+  return this.exec(sql);
+};
 db.run(`
   CREATE TABLE IF NOT EXISTS usage_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,23 +109,54 @@ let proxyStatus = "Idle"; // "Scraping...", "Testing...", "Active"
 
 let SERVER_PUBLIC_IP = "";
 
+function getProxyDispatcher(proxyUrl) {
+  try {
+    const url = new URL(proxyUrl);
+    const host = url.hostname;
+    const port = parseInt(url.port);
+    const options = {
+      type: 5,
+      host,
+      port
+    };
+    if (url.username) {
+      options.userId = decodeURIComponent(url.username);
+    }
+    if (url.password) {
+      options.password = decodeURIComponent(url.password);
+    }
+    return socksDispatcher(options, {
+      connect: {
+        timeout: 2500
+      }
+    });
+  } catch (e) {
+    console.error(`[aurora-provider] Failed to parse proxy URL: ${proxyUrl}`, e.message);
+    return null;
+  }
+}
+
 async function detectServerPublicIp() {
   const providers = [
-    "https://api.ipify.org?format=json",
-    "https://api.my-ip.io/ip.json",
-    "https://ipinfo.io/json"
+    { url: "https://checkip.amazonaws.com", format: "text" },
+    { url: "https://api.my-ip.io/ip.json", format: "json" },
+    { url: "https://ipinfo.io/json", format: "json" }
   ];
-  for (const url of providers) {
+  for (const p of providers) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+      const res = await fetch(p.url, { signal: AbortSignal.timeout(4000) });
       if (res.ok) {
-        const data = await res.json();
-        SERVER_PUBLIC_IP = data.ip;
-        console.log(`[aurora-provider] Detected server public IP: ${SERVER_PUBLIC_IP} using ${url}`);
+        if (p.format === "text") {
+          SERVER_PUBLIC_IP = (await res.text()).trim();
+        } else {
+          const data = await res.json();
+          SERVER_PUBLIC_IP = data.ip;
+        }
+        console.log(`[aurora-provider] Detected server public IP: ${SERVER_PUBLIC_IP} using ${p.url}`);
         return;
       }
     } catch (e) {
-      console.warn(`[aurora-provider] Failed to detect IP using ${url}: ${e.message}`);
+      console.warn(`[aurora-provider] Failed to detect IP using ${p.url}: ${e.message}`);
     }
   }
 }
@@ -146,10 +181,8 @@ const PROXY_SOURCES = [
   "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-socks5.txt",
   "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000&country=all&ssl=all&anonymity=all",
   "https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS5_RAW.txt",
-  "https://raw.githubusercontent.com/B4RC0D37/proxy-list/main/SOCKS5.txt",
-  "https://raw.githubusercontent.com/officialputuid/socks5-list/master/socks5.txt",
   "https://raw.githubusercontent.com/MuRongPIG/Proxy-Master/main/socks5.txt",
-  "https://raw.githubusercontent.com/rdavydov/proxy-list/main/socks5.txt",
+  "https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/socks5.txt",
 
   // 20+ Researched Free Proxy Repositories (TXT feeds)
   "https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/socks5/data.txt",
@@ -162,18 +195,13 @@ const PROXY_SOURCES = [
   "https://raw.githubusercontent.com/r00tee/Proxy-List/main/Socks5.txt",
   "https://raw.githubusercontent.com/vmheaven/VMHeaven-Free-Proxy-Updated/main/socks5.txt",
   "https://raw.githubusercontent.com/Thordata/awesome-free-proxy-list/main/proxies/socks5.txt",
-  "https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/socks5/socks5.txt",
-  "https://raw.githubusercontent.com/Zaeem20/Free-Proxy-List/master/socks5.txt",
-  "https://raw.githubusercontent.com/yem9a/Proxy-List/main/socks5.txt",
   "https://raw.githubusercontent.com/vakhov/fresh-proxy-list/master/socks5.txt",
   "https://raw.githubusercontent.com/mmpx12/proxy-list/master/socks5.txt",
-  "https://raw.githubusercontent.com/HyperBeast/ProxyList/master/socks5.txt",
-  "https://raw.githubusercontent.com/casals-ar/proxy-list/main/socks5.txt",
-  "https://raw.githubusercontent.com/UptimerBot/proxy-list/main/proxies/socks5.txt",
   "https://raw.githubusercontent.com/prxchk/proxy-list/main/socks5.txt",
   "https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/socks5.txt",
+  "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/socks5.txt",
 
-  // Databay and Flamingo JSON APIs
+  // Databay and Flamingo JSON/HTML feeds
   "https://databay.com/api/v1/proxy-list?format=json&limit=200",
   "https://flamingoproxies.com/free-proxies/china?q=&protocol=&anonymity=&per_page=50",
 
@@ -206,100 +234,164 @@ async function refreshProxyPool() {
   proxyStatus = "Scraping free proxies...";
   console.log(`[aurora-provider] ${proxyStatus}`);
   
-  const rawProxyToSource = new Map(); // deduplicated url -> scraper source url
+  const sourceToProxies = new Map(); // sourceUrl -> proxyUrls[]
+  const proxyToSource = new Map(); // proxyUrl -> sourceUrl
+  const seenProxies = new Set();
   
-  const fetchPromises = PROXY_SOURCES.map(async (url) => {
-    try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = await res.text();
-      
-      const trimmed = text.trim();
-      if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-        try {
-          const json = JSON.parse(trimmed);
-          const dataArray = Array.isArray(json) ? json : (json.data || json.proxies || json.results || json.list || json.records || []);
-          if (Array.isArray(dataArray)) {
-            for (const item of dataArray) {
-              if (item) {
-                const ip = item.ip || item.host || item.ipAddress || item.address;
-                const port = item.port || item.portNumber;
-                if (ip && port) {
-                  const proxyUrl = `socks5://${ip.toString().trim()}:${port.toString().trim()}`;
-                  if (!rawProxyToSource.has(proxyUrl)) {
-                    rawProxyToSource.set(proxyUrl, url);
+  const batchSize = 10;
+  for (let i = 0; i < PROXY_SOURCES.length; i += batchSize) {
+    const batch = PROXY_SOURCES.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (url) => {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        
+        const trimmed = text.trim();
+        let parsedJson = false;
+        const localProxies = [];
+
+        const addProxy = (ipStr, portVal) => {
+          const proxyUrl = `socks5://${ipStr}:${portVal}`;
+          if (!seenProxies.has(proxyUrl)) {
+            seenProxies.add(proxyUrl);
+            proxyToSource.set(proxyUrl, url);
+            localProxies.push(proxyUrl);
+          }
+        };
+
+        if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+          try {
+            const json = JSON.parse(trimmed);
+            const dataArray = Array.isArray(json) ? json : (json.data || json.proxies || json.results || json.list || json.records || []);
+            if (Array.isArray(dataArray)) {
+              for (const item of dataArray) {
+                if (item) {
+                  const ip = item.ip || item.host || item.ipAddress || item.address;
+                  const port = item.port || item.portNumber;
+                  if (ip && port) {
+                    const ipStr = ip.toString().trim();
+                    const portVal = parseInt(port, 10);
+                    const octets = ipStr.split('.').map(o => parseInt(o, 10));
+                    if (octets.length === 4 && octets.every(o => o >= 0 && o <= 255) && portVal > 0 && portVal <= 65535) {
+                      addProxy(ipStr, portVal);
+                    }
                   }
                 }
               }
+              parsedJson = true;
             }
-            return;
+          } catch (e) {
+            // Fall back to plain text parsing
           }
-        } catch (e) {
-          // Fall back to plain text parsing if JSON parse failed
         }
-      }
 
-      const lines = text.split("\n");
-      for (let line of lines) {
-        line = line.trim();
-        if (line && !line.startsWith("#")) {
-          let ipPort = line;
-          if (ipPort.includes("://")) {
-            ipPort = ipPort.split("://")[1];
-          }
-          ipPort = ipPort.replace(/\/+$/, "").trim();
-          if (ipPort.includes(":")) {
-            const proxyUrl = `socks5://${ipPort}`;
-            if (!rawProxyToSource.has(proxyUrl)) {
-              rawProxyToSource.set(proxyUrl, url);
+        if (!parsedJson) {
+          const regex = /\b((?:\d{1,3}\.){3}\d{1,3}):(\d{1,5})\b/g;
+          let match;
+          while ((match = regex.exec(text)) !== null) {
+            const ip = match[1];
+            const portVal = parseInt(match[2], 10);
+            const octets = ip.split('.').map(o => parseInt(o, 10));
+            if (octets.every(o => o >= 0 && o <= 255) && portVal > 0 && portVal <= 65535) {
+              addProxy(ip, portVal);
             }
           }
         }
+
+        if (localProxies.length > 0) {
+          sourceToProxies.set(url, localProxies);
+        }
+      } catch (err) {
+        if (!err.message.includes("404")) {
+          console.warn(`[aurora-provider] Failed to fetch proxy source ${url}: ${err.message}`);
+        }
       }
-    } catch (err) {
-      console.warn(`[aurora-provider] Failed to fetch proxy source ${url}: ${err.message}`);
-    }
-  });
+    }));
+    // Stagger batches slightly to avoid rate-limiting on third-party APIs
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
 
-  await Promise.all(fetchPromises);
-
-  const list = Array.from(rawProxyToSource.keys());
-  console.log(`[aurora-provider] Fetched ${list.length} unique SOCKS5 proxies from all sources.`);
+  const totalFetchedCount = seenProxies.size;
+  console.log(`[aurora-provider] Fetched ${totalFetchedCount} unique SOCKS5 proxies from all sources.`);
   
-  if (list.length === 0) {
+  if (totalFetchedCount === 0) {
     proxyStatus = "Failed to fetch any proxies";
     return;
   }
 
-  // Shuffle the list to randomize
-  const shuffled = list.sort(() => Math.random() - 0.5);
+  // Balanced round-robin sampling across all sources
+  const sample = [];
+  const sourcesArray = Array.from(sourceToProxies.entries()); // [ [url, proxyArray], ... ]
+  
+  // Shuffle proxies within each source first
+  for (const [url, proxyArray] of sourcesArray) {
+    proxyArray.sort(() => Math.random() - 0.5);
+  }
+  
+  let added = true;
+  let index = 0;
+  while (added && sample.length < 1200) {
+    added = false;
+    for (const [url, proxyArray] of sourcesArray) {
+      if (index < proxyArray.length) {
+        sample.push(proxyArray[index]);
+        added = true;
+        if (sample.length >= 1200) break;
+      }
+    }
+    index++;
+  }
 
   proxyStatus = "Testing proxy latencies...";
-  console.log(`[aurora-provider] ${proxyStatus}`);
+  console.log(`[aurora-provider] ${proxyStatus} (Evaluating balanced sample of ${sample.length} proxies)`);
 
-  const sample = shuffled.slice(0, 800);
   const results = [];
+  const allTestedSuccess = []; // Track all working anonymous proxies regardless of latency
   
-  const chunkSize = 30;
+  const chunkSize = 150;
   for (let i = 0; i < sample.length; i += chunkSize) {
     if (results.length >= 100) break;
     const chunk = sample.slice(i, i + chunkSize);
     const promises = chunk.map(async (proxyUrl) => {
-      const start = Date.now();
-      const source = rawProxyToSource.get(proxyUrl);
+      const source = proxyToSource.get(proxyUrl);
       try {
-        const dispatcher = new ProxyAgent(proxyUrl);
-        // We fetch the IP echo service through the proxy to verify it works and masks our IP
-        const res = await undiciFetch("https://api.ipify.org?format=json", {
-          method: "GET",
-          dispatcher,
-          signal: AbortSignal.timeout(4000)
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const proxyIp = data.ip;
-          const latency = Date.now() - start;
+        const dispatcher = getProxyDispatcher(proxyUrl);
+        if (!dispatcher) return;
 
+        let proxyIp = null;
+        let latency = 0;
+        
+        // Single high-speed GET request to verify connectivity + mask IP
+        const startReq = Date.now();
+        try {
+          const resEcho = await undiciFetch("https://checkip.amazonaws.com", {
+            method: "GET",
+            dispatcher,
+            signal: AbortSignal.timeout(3000)
+          });
+          if (resEcho.ok) {
+            proxyIp = (await resEcho.text()).trim();
+            latency = Date.now() - startReq;
+          }
+        } catch (e) {
+          try {
+            const startReq2 = Date.now();
+            const resEcho2 = await undiciFetch("https://api.ipify.org", {
+              method: "GET",
+              dispatcher,
+              signal: AbortSignal.timeout(3000)
+            });
+            if (resEcho2.ok) {
+              proxyIp = (await resEcho2.text()).trim();
+              latency = Date.now() - startReq2;
+            }
+          } catch (e2) {
+            // Both failed
+          }
+        }
+
+        if (proxyIp) {
           // Double check if the proxy actually masked our IP
           if (SERVER_PUBLIC_IP && proxyIp === SERVER_PUBLIC_IP) {
             console.warn(`[aurora-provider] Proxy ${proxyUrl} failed to mask IP (leaked server IP: ${proxyIp}). Discarding.`);
@@ -309,15 +401,19 @@ async function refreshProxyPool() {
             return;
           }
 
+          const existing = PROXY_POOL.find(p => p.url === proxyUrl);
+          const proxyObj = {
+            url: proxyUrl,
+            latency,
+            source,
+            successCount: existing ? existing.successCount : 1,
+            failureCount: existing ? existing.failureCount : 0
+          };
+
+          allTestedSuccess.push(proxyObj);
+
           if (latency <= PROXY_LATENCY_THRESHOLD) {
-            const existing = PROXY_POOL.find(p => p.url === proxyUrl);
-            results.push({
-              url: proxyUrl,
-              latency,
-              source,
-              successCount: existing ? existing.successCount : 1,
-              failureCount: existing ? existing.failureCount : 0
-            });
+            results.push(proxyObj);
             if (SOURCE_STATS[source]) {
               SOURCE_STATS[source].success++;
               SOURCE_STATS[source].totalLatency += latency;
@@ -337,20 +433,26 @@ async function refreshProxyPool() {
     await Promise.all(promises);
   }
 
-  console.log(`[aurora-provider] Testing complete. Found ${results.length} proxies under latency threshold (${PROXY_LATENCY_THRESHOLD}ms).`);
+  console.log(`[aurora-provider] Testing complete. Found ${results.length} proxies under latency threshold (${PROXY_LATENCY_THRESHOLD}ms), out of ${allTestedSuccess.length} total working anonymous proxies.`);
 
-  if (results.length === 0) {
-    proxyStatus = `No proxies under ${PROXY_LATENCY_THRESHOLD}ms found. Re-checking with threshold offset...`;
-    // Fallback: relax threshold for this load if none met it
-    const fallbackList = [];
-    // We can pick the top 20 lowest latencies from the sample
+  let selectedPool = [];
+  if (results.length >= 5) {
+    selectedPool = results;
+  } else if (allTestedSuccess.length > 0) {
+    allTestedSuccess.sort((a, b) => a.latency - b.latency);
+    // Take up to 30 fastest working proxies as fallback
+    selectedPool = allTestedSuccess.slice(0, 30);
+    console.log(`[aurora-provider] Few proxies met latency threshold (${PROXY_LATENCY_THRESHOLD}ms). Falling back to top ${selectedPool.length} fastest verified working anonymous proxies (latencies up to ${selectedPool[selectedPool.length - 1].latency}ms).`);
+  }
+
+  if (selectedPool.length === 0) {
     proxyStatus = "No working proxies under threshold. Using direct connection.";
     PROXY_POOL = [];
     return;
   }
 
-  results.sort((a, b) => a.latency - b.latency);
-  PROXY_POOL = results.slice(0, 100);
+  selectedPool.sort((a, b) => a.latency - b.latency);
+  PROXY_POOL = selectedPool.slice(0, 100);
   proxyPoolIndex = 0;
   proxyStatus = `Active (${PROXY_POOL.length} proxies)`;
   
@@ -531,7 +633,7 @@ async function attemptRequest(providerName, modelId, body, forcedKeyIndex = null
     const currentProxy = proxyUrl || "direct";
     if (proxyUrl) {
       console.log(`[aurora-provider] Routing request through proxy: ${proxyUrl} (attempt ${attempts + 1}/${maxProxyRetries + 1})`);
-      dispatcher = new ProxyAgent(proxyUrl);
+      dispatcher = getProxyDispatcher(proxyUrl);
     }
 
     try {
