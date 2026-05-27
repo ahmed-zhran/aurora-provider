@@ -2,9 +2,8 @@ import express from "express";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { Agent, ProxyAgent } from "undici";
+import { ProxyAgent } from "undici";
 import dns from "dns";
-import { execSync } from "child_process";
 import { Database } from "bun:sqlite";
 
 dns.setDefaultResultOrder("ipv4first");
@@ -18,7 +17,7 @@ if (!existsSync(VAULT_DIR)) {
 }
 
 // Migrate configuration files to vault on boot
-const configFiles = ["providers.json", "agents.json", "keys.json", "ips.json"];
+const configFiles = ["providers.json", "agents.json", "keys.json"];
 for (const file of configFiles) {
   const dest = join(VAULT_DIR, file);
   if (!existsSync(dest)) {
@@ -60,9 +59,35 @@ db.run(`
     response TEXT,
     status TEXT,
     error_message TEXT,
-    latency_ms INTEGER
+    latency_ms INTEGER,
+    prompt_tokens INTEGER,
+    completion_tokens INTEGER,
+    total_tokens INTEGER,
+    request_host TEXT
   )
 `);
+
+// Safe column migrations for existing databases
+try {
+  const columns = db.prepare("PRAGMA table_info(usage_logs)").all();
+  const columnNames = columns.map(c => c.name);
+
+  const migrations = [
+    { name: "prompt_tokens", type: "INTEGER" },
+    { name: "completion_tokens", type: "INTEGER" },
+    { name: "total_tokens", type: "INTEGER" },
+    { name: "request_host", type: "TEXT" }
+  ];
+
+  for (const col of migrations) {
+    if (!columnNames.includes(col.name)) {
+      console.log(`[aurora-provider] Migrating: Adding column ${col.name} to usage_logs`);
+      db.run(`ALTER TABLE usage_logs ADD COLUMN ${col.name} ${col.type}`);
+    }
+  }
+} catch (err) {
+  console.error("[aurora-provider] Error running database migrations:", err.message);
+}
 
 // ─── Config loading ───────────────────────────────────────────────────────────
 
@@ -74,40 +99,43 @@ const PROVIDERS = loadJSON("providers.json").providers;
 let AGENTS      = loadJSON("agents.json").agents;
 let KEYS_CFG    = loadJSON("keys.json").keys;
 
-// Load IPs configuration
-let IPS = [];
-try {
-  IPS = loadJSON("ips.json").ips;
-} catch (e) {
-  IPS = [];
-}
-
-// Outbound agents cache for IP rotation
-const outboundAgents = {};
-function getAgentForIp(ip) {
-  if (!ip) return undefined;
-  if (!outboundAgents[ip]) {
-    outboundAgents[ip] = new Agent({
-      connect: {
-        localAddress: ip
-      }
-    });
-  }
-  return outboundAgents[ip];
-}
-
-let ipIndex = 0;
-function getNextIp() {
-  if (!IPS || IPS.length === 0) return null;
-  const ip = IPS[ipIndex];
-  ipIndex = (ipIndex + 1) % IPS.length;
-  return ip;
-}
-
 // ─── Proxy pool & testing ─────────────────────────────────────────────────────
-let PROXY_POOL = []; // Array of { url, latency }
+let PROXY_POOL = []; // Array of { url, latency, source, successCount, failureCount }
 let proxyPoolIndex = 0;
 let proxyStatus = "Idle"; // "Scraping...", "Testing...", "Active"
+
+let PROXY_LATENCY_THRESHOLD = 1500; // default 1500ms
+try {
+  const settingsPath = join(VAULT_DIR, "settings.json");
+  if (existsSync(settingsPath)) {
+    const s = JSON.parse(readFileSync(settingsPath, "utf8"));
+    if (s.latencyThreshold !== undefined) {
+      PROXY_LATENCY_THRESHOLD = Number(s.latencyThreshold);
+    }
+  }
+} catch (e) {
+  console.warn("[aurora-provider] Failed to load settings.json:", e.message);
+}
+
+const PROXY_SOURCES = [
+  "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt",
+  "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt",
+  "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt",
+  "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-socks5.txt",
+  "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000&country=all&ssl=all&anonymity=all",
+  "https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS5_RAW.txt",
+  "https://raw.githubusercontent.com/B4RC0D37/proxy-list/main/SOCKS5.txt",
+  "https://raw.githubusercontent.com/officialputuid/socks5-list/master/socks5.txt",
+  "https://raw.githubusercontent.com/MuRongPIG/Proxy-Master/main/socks5.txt",
+  "https://raw.githubusercontent.com/rdavydov/proxy-list/main/socks5.txt"
+];
+
+const SOURCE_STATS = {};
+for (const src of PROXY_SOURCES) {
+  SOURCE_STATS[src] = { success: 0, failure: 0, totalLatency: 0 };
+}
+
+let lastRequestTime = Date.now();
 
 function getNextProxy() {
   if (!PROXY_POOL || PROXY_POOL.length === 0) return null;
@@ -122,19 +150,9 @@ async function refreshProxyPool() {
   proxyStatus = "Scraping free proxies...";
   console.log(`[aurora-provider] ${proxyStatus}`);
   
-  const sources = [
-    "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt",
-    "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt",
-    "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt",
-    "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-socks5.txt",
-    "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000&country=all&ssl=all&anonymity=all",
-    "https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS5_RAW.txt",
-    "https://raw.githubusercontent.com/B4RC0D37/proxy-list/main/SOCKS5.txt"
-  ];
+  const rawProxyToSource = new Map(); // deduplicated url -> scraper source url
   
-  const rawProxies = new Set();
-  
-  const fetchPromises = sources.map(async (url) => {
+  const fetchPromises = PROXY_SOURCES.map(async (url) => {
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -149,7 +167,10 @@ async function refreshProxyPool() {
           }
           ipPort = ipPort.replace(/\/+$/, "").trim();
           if (ipPort.includes(":")) {
-            rawProxies.add(`socks5://${ipPort}`);
+            const proxyUrl = `socks5://${ipPort}`;
+            if (!rawProxyToSource.has(proxyUrl)) {
+              rawProxyToSource.set(proxyUrl, url);
+            }
           }
         }
       }
@@ -160,8 +181,8 @@ async function refreshProxyPool() {
 
   await Promise.all(fetchPromises);
 
-  const list = Array.from(rawProxies);
-  console.log(`[aurora-provider] Fetched ${list.length} unique proxies from all sources.`);
+  const list = Array.from(rawProxyToSource.keys());
+  console.log(`[aurora-provider] Fetched ${list.length} unique SOCKS5 proxies from all sources.`);
   
   if (list.length === 0) {
     proxyStatus = "Failed to fetch any proxies";
@@ -177,33 +198,57 @@ async function refreshProxyPool() {
   const sample = shuffled.slice(0, 800);
   const results = [];
   
-  const chunkSize = 20;
+  const chunkSize = 30;
   for (let i = 0; i < sample.length; i += chunkSize) {
     if (results.length >= 100) break;
     const chunk = sample.slice(i, i + chunkSize);
     const promises = chunk.map(async (proxyUrl) => {
       const start = Date.now();
+      const source = rawProxyToSource.get(proxyUrl);
       try {
         const dispatcher = new ProxyAgent(proxyUrl);
         const res = await fetch("https://registry.npmjs.org/express", {
           method: "HEAD",
           dispatcher,
-          signal: AbortSignal.timeout(3500)
+          signal: AbortSignal.timeout(3000)
         });
         if (res.ok) {
-          results.push({ url: proxyUrl, latency: Date.now() - start });
+          const latency = Date.now() - start;
+          if (latency <= PROXY_LATENCY_THRESHOLD) {
+            results.push({
+              url: proxyUrl,
+              latency,
+              source,
+              successCount: 1,
+              failureCount: 0
+            });
+            if (SOURCE_STATS[source]) {
+              SOURCE_STATS[source].success++;
+              SOURCE_STATS[source].totalLatency += latency;
+            }
+          }
+        } else {
+          if (SOURCE_STATS[source]) {
+            SOURCE_STATS[source].failure++;
+          }
         }
       } catch (err) {
-        // failed or timed out
+        if (SOURCE_STATS[source]) {
+          SOURCE_STATS[source].failure++;
+        }
       }
     });
     await Promise.all(promises);
   }
 
-  console.log(`[aurora-provider] Testing complete. Found ${results.length} working proxies.`);
+  console.log(`[aurora-provider] Testing complete. Found ${results.length} proxies under latency threshold (${PROXY_LATENCY_THRESHOLD}ms).`);
 
   if (results.length === 0) {
-    proxyStatus = "No working proxies found. Using direct connection.";
+    proxyStatus = `No proxies under ${PROXY_LATENCY_THRESHOLD}ms found. Re-checking with threshold offset...`;
+    // Fallback: relax threshold for this load if none met it
+    const fallbackList = [];
+    // We can pick the top 20 lowest latencies from the sample
+    proxyStatus = "No working proxies under threshold. Using direct connection.";
     PROXY_POOL = [];
     return;
   }
@@ -215,7 +260,7 @@ async function refreshProxyPool() {
   
   console.log("[aurora-provider] Selected active proxy pool:");
   PROXY_POOL.slice(0, 10).forEach((p, idx) => {
-    console.log(`  [Proxy ${idx + 1}] ${p.url} (${p.latency}ms)`);
+    console.log(`  [Proxy ${idx + 1}] ${p.url} (${p.latency}ms) [Source: ${p.source.split('/').pop()}]`);
   });
   if (PROXY_POOL.length > 10) {
     console.log(`  ... and ${PROXY_POOL.length - 10} more warm proxies in standby pool.`);
@@ -225,7 +270,12 @@ async function refreshProxyPool() {
 function removeDeadProxy(proxyUrl) {
   const index = PROXY_POOL.findIndex(p => p.url === proxyUrl);
   if (index !== -1) {
+    const proxyObj = PROXY_POOL[index];
     console.warn(`[aurora-provider] Removing dead proxy from pool: ${proxyUrl}`);
+    if (proxyObj.source && SOURCE_STATS[proxyObj.source]) {
+      SOURCE_STATS[proxyObj.source].failure++;
+    }
+    
     PROXY_POOL.splice(index, 1);
     if (proxyPoolIndex >= PROXY_POOL.length) {
       proxyPoolIndex = 0;
@@ -236,8 +286,9 @@ function removeDeadProxy(proxyUrl) {
       proxyStatus = `Active (${PROXY_POOL.length} proxies)`;
     }
     
-    if (PROXY_POOL.length < 15 && !proxyStatus.startsWith("Scraping") && !proxyStatus.startsWith("Testing")) {
-      console.log(`[aurora-provider] Proxy pool low (${PROXY_POOL.length} remaining). Replenishing in background...`);
+    const PROXIES_MAX_LIMIT = 100;
+    if (PROXY_POOL.length < (PROXIES_MAX_LIMIT / 2) && !proxyStatus.startsWith("Scraping") && !proxyStatus.startsWith("Testing")) {
+      console.log(`[aurora-provider] Proxy pool decreased by > 50% (${PROXY_POOL.length} remaining). Replenishing in background...`);
       refreshProxyPool().catch(err => {
         console.error(`[aurora-provider] Auto-replenish failed: ${err.message}`);
       });
@@ -385,15 +436,10 @@ async function attemptRequest(providerName, modelId, body, forcedKeyIndex = null
     if (proxyUrl) {
       console.log(`[aurora-provider] Routing request through proxy: ${proxyUrl} (attempt ${attempts + 1}/${maxProxyRetries + 1})`);
       dispatcher = new ProxyAgent(proxyUrl);
-    } else {
-      const ip = getNextIp();
-      dispatcher = getAgentForIp(ip);
-      if (ip) {
-        console.log(`[aurora-provider] Routing request through outbound IP: ${ip}`);
-      }
     }
 
     try {
+      const requestStart = Date.now();
       const res = await fetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers,
@@ -441,8 +487,20 @@ async function attemptRequest(providerName, modelId, body, forcedKeyIndex = null
         return { error: "HTTP_ERROR", status: res.status, providerName, modelId, keyIndex: keyEntry.keyIndex, keyName: keyEntry.name, keyEmail: keyEntry.email, proxy: currentProxy };
       }
 
+      if (proxyUrl) {
+        const pObj = PROXY_POOL.find(p => p.url === proxyUrl);
+        if (pObj) {
+          pObj.successCount++;
+          if (pObj.source && SOURCE_STATS[pObj.source]) {
+            SOURCE_STATS[pObj.source].success++;
+            SOURCE_STATS[pObj.source].totalLatency += (Date.now() - requestStart);
+          }
+        }
+      }
+
       // Stream passthrough: return raw Response for streaming
       return { success: true, response: res, providerName, modelId, keyIndex: keyEntry.keyIndex, keyName: keyEntry.name, keyEmail: keyEntry.email, proxy: currentProxy };
+
     } catch (err) {
       console.error(`[aurora-provider] ${providerName}/${modelId} → Network error via proxy ${proxyUrl || "direct"}: ${err.message}`);
       
@@ -542,8 +600,7 @@ app.get("/api/config", (req, res) => {
   res.json({
     providers: PROVIDERS,
     agents: AGENTS,
-    keys: KEYS_CFG,
-    ips: IPS
+    keys: KEYS_CFG
   });
 });
 
@@ -582,20 +639,6 @@ app.post("/api/agents", (req, res) => {
   }
 });
 
-app.post("/api/ips", (req, res) => {
-  try {
-    const { ips } = req.body;
-    IPS = ips;
-    writeFileSync(join(VAULT_DIR, "ips.json"), JSON.stringify({
-      _comment: "IP rotation pool. Add local interface IP addresses here to route requests through different outbound IPs.",
-      ips
-    }, null, 2), "utf8");
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 // Providers API
 app.get("/api/providers", (req, res) => {
   res.json({ providers: PROVIDERS });
@@ -624,7 +667,7 @@ app.post("/api/providers", (req, res) => {
 // Usage statistics and logs query API
 app.get("/api/usage", (req, res) => {
   try {
-    const { startDate, endDate, agent, provider, source, status, page = 1, limit = 50 } = req.query;
+    const { startDate, endDate, agent, provider, source, status, host, page = 1, limit = 50 } = req.query;
 
     const clauses = [];
     const params = [];
@@ -653,6 +696,10 @@ app.get("/api/usage", (req, res) => {
       clauses.push("status = ?");
       params.push(status);
     }
+    if (host) {
+      clauses.push("request_host = ?");
+      params.push(host);
+    }
 
     const where = clauses.length > 0 ? "WHERE " + clauses.join(" AND ") : "";
 
@@ -667,6 +714,12 @@ app.get("/api/usage", (req, res) => {
       FROM usage_logs 
       ${successWhere} AND latency_ms > 0
     `).get(...params).avg || 0;
+
+    const totalTokens = db.prepare(`
+      SELECT sum(total_tokens) as sum 
+      FROM usage_logs 
+      ${where}
+    `).get(...params).sum || 0;
 
     // Paginated logs
     const pageNum = parseInt(page);
@@ -712,12 +765,21 @@ app.get("/api/usage", (req, res) => {
     `;
     const timeData = db.prepare(timeSql).all(...params);
 
+    // Get all distinct request hosts for filter populating
+    const uniqueHosts = db.prepare(`
+      SELECT DISTINCT request_host 
+      FROM usage_logs 
+      WHERE request_host IS NOT NULL AND request_host != ''
+    `).all().map(r => r.request_host);
+
     res.json({
       success: true,
       logs: paginatedLogs,
       totalCount,
       successCount,
       avgLatency: Math.round(avgLatency),
+      totalTokens,
+      uniqueHosts,
       stats: {
         providers: providersData,
         models: modelsData,
@@ -747,11 +809,58 @@ app.get("/api/logs-stream", (req, res) => {
   });
 });
 
+// Settings API
+app.get("/api/settings", (req, res) => {
+  res.json({ latencyThreshold: PROXY_LATENCY_THRESHOLD });
+});
+
+app.post("/api/settings", (req, res) => {
+  try {
+    const { latencyThreshold } = req.body;
+    if (typeof latencyThreshold === "number" && latencyThreshold > 0) {
+      PROXY_LATENCY_THRESHOLD = latencyThreshold;
+      writeFileSync(join(VAULT_DIR, "settings.json"), JSON.stringify({ latencyThreshold }, null, 2), "utf8");
+      res.json({ success: true });
+    } else {
+      res.status(400).json({ error: "Invalid latencyThreshold" });
+    }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Proxies API
 app.get("/api/proxies", (req, res) => {
+  const sourceRankings = PROXY_SOURCES.map(src => {
+    const stats = SOURCE_STATS[src] || { success: 0, failure: 0, totalLatency: 0 };
+    const total = stats.success + stats.failure;
+    const successRate = total > 0 ? (stats.success / total) * 100 : 0;
+    const avgLatency = stats.success > 0 ? Math.round(stats.totalLatency / stats.success) : 0;
+    return {
+      source: src,
+      success: stats.success,
+      failure: stats.failure,
+      successRate: Math.round(successRate),
+      avgLatency: avgLatency
+    };
+  });
+
+  const rankedByLatency = [...sourceRankings].sort((a, b) => {
+    if (a.avgLatency === 0) return 1;
+    if (b.avgLatency === 0) return -1;
+    return a.avgLatency - b.avgLatency;
+  });
+
+  const rankedBySuccess = [...sourceRankings].sort((a, b) => {
+    return b.successRate - a.successRate;
+  });
+
   res.json({
     status: proxyStatus,
-    pool: PROXY_POOL
+    pool: PROXY_POOL,
+    latencyThreshold: PROXY_LATENCY_THRESHOLD,
+    rankedByLatency,
+    rankedBySuccess
   });
 });
 
@@ -795,6 +904,7 @@ app.get("/v1/models", (req, res) => {
 function parseTextFromSse(sseData) {
   let text = "";
   let reasoning = "";
+  let usage = null;
   const lines = sseData.split("\n");
   for (const line of lines) {
     if (line.startsWith("data: ")) {
@@ -802,6 +912,9 @@ function parseTextFromSse(sseData) {
       if (jsonStr === "[DONE]") continue;
       try {
         const parsed = JSON.parse(jsonStr);
+        if (parsed.usage) {
+          usage = parsed.usage;
+        }
         const delta = parsed.choices?.[0]?.delta;
         if (delta) {
           if (delta.content) text += delta.content;
@@ -812,13 +925,35 @@ function parseTextFromSse(sseData) {
       }
     }
   }
-  return reasoning ? `[Reasoning]\n${reasoning}\n\n[Content]\n${text}` : text;
+  const cleanText = reasoning ? `[Reasoning]\n${reasoning}\n\n[Content]\n${text}` : text;
+  return { text: cleanText, usage };
 }
 
 // Main completions endpoint
 app.post("/v1/chat/completions", async (req, res) => {
   const { model, stream, ...rest } = req.body;
   
+  // Inactivity check
+  const idleTime = Date.now() - lastRequestTime;
+  lastRequestTime = Date.now();
+  
+  if (idleTime > 60 * 60 * 1000) { // > 1 hour
+    console.log(`[aurora-provider] Server idle for ${Math.round(idleTime / 3600000)} hours. Force refreshing proxy pool...`);
+    const beforePrune = PROXY_POOL.length;
+    PROXY_POOL = PROXY_POOL.filter(p => p.latency <= PROXY_LATENCY_THRESHOLD);
+    console.log(`[aurora-provider] Synchronously pruned ${beforePrune - PROXY_POOL.length} slow proxies.`);
+    refreshProxyPool().catch(err => {
+      console.error(`[aurora-provider] Forced proxy refresh failed: ${err.message}`);
+    });
+  }
+  
+  // Client Host capture
+  let clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
+  if (clientIp.startsWith("::ffff:")) {
+    clientIp = clientIp.substring(7);
+  }
+  clientIp = clientIp.split(",")[0].trim();
+
   let source = req.headers["x-request-source"];
   if (!source) {
     const origin = req.headers["origin"] || req.headers["referer"];
@@ -833,8 +968,11 @@ app.post("/v1/chat/completions", async (req, res) => {
       source = "API";
     }
   }
+  const requestHost = source === "Testing" ? "Dashboard" : clientIp;
 
   const prompt = req.body.messages ? JSON.stringify(req.body.messages) : "";
+  const promptText = req.body.messages ? req.body.messages.map(m => m.content || "").join(" ") : "";
+  const estimatedPromptTokens = Math.max(1, Math.round(promptText.length / 4));
 
   const agentName = resolveAgent(model);
   if (!agentName) {
@@ -844,10 +982,11 @@ app.post("/v1/chat/completions", async (req, res) => {
     try {
       const stmt = db.prepare(`
         INSERT INTO usage_logs (
-          agent, provider, model, key_index, key_name, key_email, proxy, source, prompt, response, status, error_message, latency_ms
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          agent, provider, model, key_index, key_name, key_email, proxy, source, prompt, response, status, error_message, latency_ms,
+          prompt_tokens, completion_tokens, total_tokens, request_host
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
-      stmt.run(null, null, model, null, null, null, null, source, prompt, null, "Error", errorMsg, 0);
+      stmt.run(null, null, model, null, null, null, null, source, prompt, null, "Error", errorMsg, 0, estimatedPromptTokens, 0, estimatedPromptTokens, requestHost);
     } catch (err) {
       console.error("[aurora-provider] DB Error logging invalid model request:", err.message);
     }
@@ -871,10 +1010,11 @@ app.post("/v1/chat/completions", async (req, res) => {
     try {
       const stmt = db.prepare(`
         INSERT INTO usage_logs (
-          agent, provider, model, key_index, key_name, key_email, proxy, source, prompt, response, status, error_message, latency_ms
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          agent, provider, model, key_index, key_name, key_email, proxy, source, prompt, response, status, error_message, latency_ms,
+          prompt_tokens, completion_tokens, total_tokens, request_host
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
-      stmt.run(agentName, result.providerName || null, result.modelId || null, result.keyIndex !== undefined ? result.keyIndex : null, result.keyName || null, result.keyEmail || null, result.proxy || null, source, prompt, null, "Error", result.error, latency);
+      stmt.run(agentName, result.providerName || null, result.modelId || null, result.keyIndex !== undefined ? result.keyIndex : null, result.keyName || null, result.keyEmail || null, result.proxy || null, source, prompt, null, "Error", result.error, latency, estimatedPromptTokens, 0, estimatedPromptTokens, requestHost);
     } catch (err) {
       console.error("[aurora-provider] DB Error logging dispatch error:", err.message);
     }
@@ -906,16 +1046,21 @@ app.post("/v1/chat/completions", async (req, res) => {
     res.end();
 
     const latency = Date.now() - start;
-    const cleanResponse = parseTextFromSse(fullResponseText);
+    const { text: cleanResponse, usage: streamUsage } = parseTextFromSse(fullResponseText);
     
+    const promptTokens = streamUsage?.prompt_tokens || estimatedPromptTokens;
+    const completionTokens = streamUsage?.completion_tokens || Math.max(1, Math.round(cleanResponse.length / 4));
+    const totalTokens = streamUsage?.total_tokens || (promptTokens + completionTokens);
+
     // Log successful stream request to SQLite
     try {
       const stmt = db.prepare(`
         INSERT INTO usage_logs (
-          agent, provider, model, key_index, key_name, key_email, proxy, source, prompt, response, status, error_message, latency_ms
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          agent, provider, model, key_index, key_name, key_email, proxy, source, prompt, response, status, error_message, latency_ms,
+          prompt_tokens, completion_tokens, total_tokens, request_host
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
-      stmt.run(agentName, result.providerName, result.modelId, result.keyIndex, result.keyName, result.keyEmail, result.proxy, source, prompt, cleanResponse, "Success", null, latency);
+      stmt.run(agentName, result.providerName, result.modelId, result.keyIndex, result.keyName, result.keyEmail, result.proxy, source, prompt, cleanResponse, "Success", null, latency, promptTokens, completionTokens, totalTokens, requestHost);
     } catch (err) {
       console.error("[aurora-provider] DB Error logging stream success:", err.message);
     }
@@ -927,13 +1072,18 @@ app.post("/v1/chat/completions", async (req, res) => {
       const latency = Date.now() - start;
       const responseText = data.choices?.[0]?.message?.content || "";
 
+      const promptTokens = data.usage?.prompt_tokens || estimatedPromptTokens;
+      const completionTokens = data.usage?.completion_tokens || Math.max(1, Math.round(responseText.length / 4));
+      const totalTokens = data.usage?.total_tokens || (promptTokens + completionTokens);
+
       // Log successful JSON request to SQLite
       const stmt = db.prepare(`
         INSERT INTO usage_logs (
-          agent, provider, model, key_index, key_name, key_email, proxy, source, prompt, response, status, error_message, latency_ms
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          agent, provider, model, key_index, key_name, key_email, proxy, source, prompt, response, status, error_message, latency_ms,
+          prompt_tokens, completion_tokens, total_tokens, request_host
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
-      stmt.run(agentName, result.providerName, result.modelId, result.keyIndex, result.keyName, result.keyEmail, result.proxy, source, prompt, responseText, "Success", null, latency);
+      stmt.run(agentName, result.providerName, result.modelId, result.keyIndex, result.keyName, result.keyEmail, result.proxy, source, prompt, responseText, "Success", null, latency, promptTokens, completionTokens, totalTokens, requestHost);
     } catch (err) {
       console.error("[aurora-provider] Error parsing JSON upstream or DB log:", err.message);
       if (!res.headersSent) {

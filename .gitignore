@@ -4,3 +4,4 @@ vault/keys.json
 vault/vault.db
 .env
 *.log
+freetier-provider-models-reference.md

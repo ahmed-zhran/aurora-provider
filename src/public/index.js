@@ -19,9 +19,75 @@ const logsLimit = 15;
 let chartRequestsTime = null;
 let chartProvidersPie = null;
 
+// ─── Theme System ────────────────────────────────────────────────────────────
+const THEMES = [
+  { id: 'deep-space', label: 'Deep Space', swatch: 'linear-gradient(135deg, #6366f1, #10b981)' },
+  { id: 'light',      label: 'Light Mode', swatch: 'linear-gradient(135deg, #4f46e5, #f0f2f8)' },
+  { id: 'cyberpunk',  label: 'Cyberpunk',  swatch: 'linear-gradient(135deg, #00ffc8, #ff0078)' },
+  { id: 'aurora',     label: 'Aurora',     swatch: 'linear-gradient(135deg, #a855f7, #f472b6)' },
+  { id: 'ocean',      label: 'Ocean',      swatch: 'linear-gradient(135deg, #06b6d4, #10b981)' },
+];
+
+function initTheme() {
+  const saved = localStorage.getItem('aurora-theme') || 'deep-space';
+  applyTheme(saved, false);
+
+  const btn = document.getElementById('theme-picker-btn');
+  const dropdown = document.getElementById('theme-picker-dropdown');
+
+  // Toggle dropdown
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dropdown.classList.toggle('open');
+  });
+
+  // Close on outside click
+  document.addEventListener('click', (e) => {
+    if (!document.getElementById('theme-picker-wrapper').contains(e.target)) {
+      dropdown.classList.remove('open');
+    }
+  });
+
+  // Theme option clicks
+  document.querySelectorAll('.theme-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      const themeId = opt.getAttribute('data-theme');
+      applyTheme(themeId, true);
+      dropdown.classList.remove('open');
+    });
+  });
+}
+
+function applyTheme(themeId, save = true) {
+  const theme = THEMES.find(t => t.id === themeId) || THEMES[0];
+  
+  // Apply data-theme to root element
+  document.documentElement.setAttribute('data-theme', themeId);
+  
+  // Update picker button label and swatch
+  const swatchEl = document.getElementById('theme-current-swatch');
+  const labelEl = document.getElementById('theme-current-label');
+  if (swatchEl) swatchEl.style.background = theme.swatch;
+  if (labelEl) labelEl.textContent = theme.label;
+  
+  // Highlight active option in dropdown
+  document.querySelectorAll('.theme-option').forEach(opt => {
+    opt.classList.toggle('active', opt.getAttribute('data-theme') === themeId);
+  });
+  
+  if (save) localStorage.setItem('aurora-theme', themeId);
+}
+
 // ─── Initializer ─────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Ensure modal is closed on load
+  const modal = document.getElementById('log-details-modal');
+  if (modal) modal.style.display = 'none';
+
+  // Init theme picker
+  initTheme();
+
   // Restore persisted tab if present
   const persistedTab = localStorage.getItem('activeTab');
   if (persistedTab && document.getElementById(persistedTab)) {
@@ -76,6 +142,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('close-modal-btn').addEventListener('click', () => {
     document.getElementById('log-details-modal').style.display = 'none';
+  });
+
+  // Close modal on overlay click
+  document.getElementById('log-details-modal').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('log-details-modal')) {
+      document.getElementById('log-details-modal').style.display = 'none';
+    }
   });
 
   // Start status polling
@@ -893,6 +966,7 @@ async function loadUsageStats() {
   const endDate = document.getElementById('filter-end-date').value;
   const agent = document.getElementById('filter-agent').value;
   const provider = document.getElementById('filter-provider').value;
+  const host = document.getElementById('filter-host').value;
   const source = document.getElementById('filter-source').value;
   const status = document.getElementById('filter-status').value;
 
@@ -904,6 +978,7 @@ async function loadUsageStats() {
   if (endDate) params.append('endDate', endDate);
   if (agent) params.append('agent', agent);
   if (provider) params.append('provider', provider);
+  if (host) params.append('host', host);
   if (source) params.append('source', source);
   if (status) params.append('status', status);
 
@@ -915,6 +990,21 @@ async function loadUsageStats() {
     const rate = data.totalCount > 0 ? Math.round((data.successCount / data.totalCount) * 100) : 0;
     document.getElementById('stats-success-rate').textContent = `${rate}%`;
     document.getElementById('stats-avg-latency').textContent = `${data.avgLatency}ms`;
+    document.getElementById('stats-total-tokens').textContent = data.totalTokens ? data.totalTokens.toLocaleString() : '0';
+
+    // Populate Request Host filter dynamically
+    const hostSelect = document.getElementById('filter-host');
+    const selectedHost = hostSelect.value;
+    hostSelect.innerHTML = '<option value="">All Hosts</option>';
+    if (data.uniqueHosts) {
+      data.uniqueHosts.forEach(h => {
+        const opt = document.createElement('option');
+        opt.value = h;
+        opt.textContent = h;
+        hostSelect.appendChild(opt);
+      });
+    }
+    hostSelect.value = selectedHost;
 
     // Render paginated logs table
     renderUsageLogsTable(data.logs);
@@ -937,7 +1027,7 @@ function renderUsageLogsTable(logs) {
   tbody.innerHTML = '';
 
   if (!logs || logs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="text-muted" style="padding:1.5rem; text-align:center;">No request logs found matching current filters.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="text-muted" style="padding:1.5rem; text-align:center;">No request logs found matching current filters.</td></tr>';
     return;
   }
 
@@ -948,6 +1038,10 @@ function renderUsageLogsTable(logs) {
     const timeTd = document.createElement('td');
     timeTd.style.padding = '8px';
     timeTd.textContent = log.timestamp;
+
+    const hostTd = document.createElement('td');
+    hostTd.style.padding = '8px';
+    hostTd.textContent = log.request_host || '-';
 
     const sourceTd = document.createElement('td');
     sourceTd.style.padding = '8px';
@@ -970,10 +1064,17 @@ function renderUsageLogsTable(logs) {
     modelTd.style.fontSize = '0.75rem';
     modelTd.textContent = log.model ? log.model.split('/').pop() : '-';
 
+    const tokensTd = document.createElement('td');
+    tokensTd.style.padding = '8px';
+    tokensTd.style.textAlign = 'right';
+    tokensTd.style.fontFamily = 'var(--font-mono)';
+    tokensTd.style.fontSize = '0.75rem';
+    tokensTd.textContent = log.total_tokens ? `${log.prompt_tokens}/${log.completion_tokens} (${log.total_tokens})` : '-';
+
     const keyTd = document.createElement('td');
     keyTd.style.padding = '8px';
     keyTd.textContent = log.key_name 
-      ? `${log.key_name} (${log.key_email || 'No email'})` 
+      ? `${log.key_name}` 
       : (log.key_index !== null ? `Key [${log.key_index}]` : '-');
 
     const proxyTd = document.createElement('td');
@@ -1005,10 +1106,12 @@ function renderUsageLogsTable(logs) {
     actionTd.appendChild(viewBtn);
 
     tr.appendChild(timeTd);
+    tr.appendChild(hostTd);
     tr.appendChild(sourceTd);
     tr.appendChild(agentTd);
     tr.appendChild(provTd);
     tr.appendChild(modelTd);
+    tr.appendChild(tokensTd);
     tr.appendChild(keyTd);
     tr.appendChild(proxyTd);
     tr.appendChild(statusTd);
@@ -1029,7 +1132,7 @@ function showLogDetails(log) {
   document.getElementById('modal-proxy').textContent = log.proxy || 'direct';
   document.getElementById('modal-status').textContent = log.status;
   document.getElementById('modal-status').className = `info-val ${log.status === 'Success' ? 'text-success' : 'text-danger'}`;
-  document.getElementById('modal-latency').textContent = log.latency_ms ? `${log.latency_ms}ms` : '-';
+  document.getElementById('modal-latency').textContent = (log.latency_ms ? `${log.latency_ms}ms` : '-') + (log.total_tokens ? ` | Tokens: ${log.prompt_tokens}p + ${log.completion_tokens}c = ${log.total_tokens}t` : '');
 
   // Format Prompt JSON array to clean text
   let promptText = log.prompt;
