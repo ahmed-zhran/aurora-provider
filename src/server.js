@@ -1354,5 +1354,5 @@ app.listen(PORT, "127.0.0.1", async () => {
   });
 });
 
-// Trigger watcher reload to load new agents.json configurations
+// Trigger watcher reload to load new agents.json configurations (refreshed keys - hot reload triggered)
 

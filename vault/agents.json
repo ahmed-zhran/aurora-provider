@@ -209,6 +209,14 @@
     "test": {
       "fallbacks": [
         {
+          "provider": "opencode_zen",
+          "model": "deepseek-v4-flash-free"
+        },
+        {
+          "provider": "google_ai_studio",
+          "model": "gemini-2.5-flash"
+        },
+        {
           "provider": "openrouter",
           "model": "google/gemma-4-26b-a4b-it:free"
         }
