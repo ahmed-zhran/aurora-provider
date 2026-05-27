@@ -103,6 +103,29 @@ let PROXY_POOL = []; // Array of { url, latency, source, successCount, failureCo
 let proxyPoolIndex = 0;
 let proxyStatus = "Idle"; // "Scraping...", "Testing...", "Active"
 
+let SERVER_PUBLIC_IP = "";
+
+async function detectServerPublicIp() {
+  const providers = [
+    "https://api.ipify.org?format=json",
+    "https://api.my-ip.io/ip.json",
+    "https://ipinfo.io/json"
+  ];
+  for (const url of providers) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        const data = await res.json();
+        SERVER_PUBLIC_IP = data.ip;
+        console.log(`[aurora-provider] Detected server public IP: ${SERVER_PUBLIC_IP} using ${url}`);
+        return;
+      }
+    } catch (e) {
+      console.warn(`[aurora-provider] Failed to detect IP using ${url}: ${e.message}`);
+    }
+  }
+}
+
 let PROXY_LATENCY_THRESHOLD = 1500; // default 1500ms
 try {
   const settingsPath = join(VAULT_DIR, "settings.json");
@@ -150,8 +173,17 @@ const PROXY_SOURCES = [
   "https://raw.githubusercontent.com/prxchk/proxy-list/main/socks5.txt",
   "https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/socks5.txt",
 
+  // Databay and Flamingo JSON APIs
+  "https://databay.com/api/v1/proxy-list?format=json&limit=200",
+  "https://flamingoproxies.com/free-proxies/china?q=&protocol=&anonymity=&per_page=50",
+
   // 20 Pages of Geonode SOCKS5 Free API (JSON format)
-  ...Array.from({ length: 20 }, (_, i) => `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=${i + 1}&sort_by=lastChecked&sort_type=desc`)
+  ...Array.from({ length: 20 }, (_, i) => `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=${i + 1}&sort_by=lastChecked&sort_type=desc`),
+
+  // Geonode SOCKS5 APIs filtered by specific fast/nearest countries (NL, DE, FR, TR, GB, IT, ES, US, SG, MX)
+  ...["NL", "DE", "FR", "TR", "GB", "IT", "ES", "US", "SG", "MX"].flatMap(country => 
+    Array.from({ length: 5 }, (_, i) => `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=${i + 1}&sort_by=lastChecked&sort_type=desc&country=${country}`)
+  )
 ];
 
 const SOURCE_STATS = {};
@@ -186,13 +218,17 @@ async function refreshProxyPool() {
       if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
         try {
           const json = JSON.parse(trimmed);
-          const dataArray = Array.isArray(json) ? json : (json.data || json.proxies || []);
+          const dataArray = Array.isArray(json) ? json : (json.data || json.proxies || json.results || json.list || json.records || []);
           if (Array.isArray(dataArray)) {
             for (const item of dataArray) {
-              if (item && item.ip && item.port) {
-                const proxyUrl = `socks5://${item.ip.trim()}:${item.port.toString().trim()}`;
-                if (!rawProxyToSource.has(proxyUrl)) {
-                  rawProxyToSource.set(proxyUrl, url);
+              if (item) {
+                const ip = item.ip || item.host || item.ipAddress || item.address;
+                const port = item.port || item.portNumber;
+                if (ip && port) {
+                  const proxyUrl = `socks5://${ip.toString().trim()}:${port.toString().trim()}`;
+                  if (!rawProxyToSource.has(proxyUrl)) {
+                    rawProxyToSource.set(proxyUrl, url);
+                  }
                 }
               }
             }
@@ -253,20 +289,34 @@ async function refreshProxyPool() {
       const source = rawProxyToSource.get(proxyUrl);
       try {
         const dispatcher = new ProxyAgent(proxyUrl);
-        const res = await fetch("https://registry.npmjs.org/express", {
-          method: "HEAD",
+        // We fetch the IP echo service through the proxy to verify it works and masks our IP
+        const res = await fetch("https://api.ipify.org?format=json", {
+          method: "GET",
           dispatcher,
-          signal: AbortSignal.timeout(3000)
+          signal: AbortSignal.timeout(4000)
         });
         if (res.ok) {
+          const data = await res.json();
+          const proxyIp = data.ip;
           const latency = Date.now() - start;
+
+          // Double check if the proxy actually masked our IP
+          if (SERVER_PUBLIC_IP && proxyIp === SERVER_PUBLIC_IP) {
+            console.warn(`[aurora-provider] Proxy ${proxyUrl} failed to mask IP (leaked server IP: ${proxyIp}). Discarding.`);
+            if (SOURCE_STATS[source]) {
+              SOURCE_STATS[source].failure++;
+            }
+            return;
+          }
+
           if (latency <= PROXY_LATENCY_THRESHOLD) {
+            const existing = PROXY_POOL.find(p => p.url === proxyUrl);
             results.push({
               url: proxyUrl,
               latency,
               source,
-              successCount: 1,
-              failureCount: 0
+              successCount: existing ? existing.successCount : 1,
+              failureCount: existing ? existing.failureCount : 0
             });
             if (SOURCE_STATS[source]) {
               SOURCE_STATS[source].success++;
@@ -1180,7 +1230,7 @@ setTimeout(() => {
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT ?? 8550;
-app.listen(PORT, "127.0.0.1", () => {
+app.listen(PORT, "127.0.0.1", async () => {
   console.log(`
 ╔══════════════════════════════════════════╗
 ║       Aurora-Provider  v1.0.0            ║
@@ -1190,6 +1240,7 @@ app.listen(PORT, "127.0.0.1", () => {
 ║  Agents:    ${Object.keys(AGENTS).join(", ").padEnd(30)}║
 ╚══════════════════════════════════════════╝
   `);
+  await detectServerPublicIp();
   refreshProxyPool().catch(err => {
     console.error(`[aurora-provider] Error on initial proxy load: ${err.message}`);
   });
