@@ -35,7 +35,6 @@ for (const file of configFiles) {
       if (file === "keys.json") defaultVal = { keys: {} };
       else if (file === "agents.json") defaultVal = { agents: {} };
       else if (file === "providers.json") defaultVal = { providers: {} };
-      else if (file === "ips.json") defaultVal = { ips: [] };
       writeFileSync(dest, JSON.stringify(defaultVal, null, 2), "utf8");
     }
   }

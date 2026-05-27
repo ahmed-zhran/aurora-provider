@@ -1,4 +1,0 @@
-{
-  "_comment": "IP rotation pool. Add local interface IP addresses here to route requests through different outbound IPs.",
-  "ips": []
-}
