@@ -174,17 +174,35 @@ try {
   console.warn("[aurora-provider] Failed to load settings.json:", e.message);
 }
 
+const TARGET_COUNTRIES = ["EG", "TR", "GR", "CY", "IT", "NL", "DE", "FR", "GB", "ES", "SA", "AE", "US", "SG", "MX"];
+
+const COUNTRY_NAME_MAP = {
+  EG: "egypt",
+  TR: "turkey",
+  GR: "greece",
+  CY: "cyprus",
+  IT: "italy",
+  NL: "netherlands",
+  DE: "germany",
+  FR: "france",
+  GB: "united-kingdom",
+  ES: "spain",
+  SA: "saudi-arabia",
+  AE: "united-arab-emirates",
+  US: "united-states",
+  SG: "singapore",
+  MX: "mexico"
+};
+
 const PROXY_SOURCES = [
+  // Github RAW files (static, bulk lists of SOCKS5 proxies)
   "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt",
   "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt",
   "https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt",
   "https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-socks5.txt",
-  "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000&country=all&ssl=all&anonymity=all",
   "https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS5_RAW.txt",
   "https://raw.githubusercontent.com/MuRongPIG/Proxy-Master/main/socks5.txt",
   "https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/socks5.txt",
-
-  // 20+ Researched Free Proxy Repositories (TXT feeds)
   "https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/socks5/data.txt",
   "https://raw.githubusercontent.com/proxygenerator1/ProxyGenerator/main/MostStable/socks5.txt",
   "https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/socks5.txt",
@@ -201,17 +219,85 @@ const PROXY_SOURCES = [
   "https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/socks5.txt",
   "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/socks5.txt",
 
-  // Databay and Flamingo JSON/HTML feeds
+  // Static web list / provider landing pages
+  "https://www.webshare.io/features/free-proxy",
+  "https://oxylabs.io/products/free-proxies",
+  "https://sockslist.us/",
+  "https://aimultiple.com/free-socks5-proxies",
+  "https://gologin.com/proxies/free-proxies/",
+
+  // 1. Geonode SOCKS5 Free API - Pagination + Anonymity levels (first 5 pages + country filtered pages)
+  ...Array.from({ length: 5 }, (_, i) => `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=${i + 1}&sort_by=lastChecked&sort_type=desc`),
+  ...Array.from({ length: 5 }, (_, i) => `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=${i + 1}&sort_by=lastChecked&sort_type=desc&anonymityLevel=elite`),
+  ...Array.from({ length: 5 }, (_, i) => `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=${i + 1}&sort_by=lastChecked&sort_type=desc&anonymityLevel=anonymous`),
+
+  // Country-specific pages (2 pages of general + 1 page of elite + 1 page of anonymous per near/fast country)
+  ...TARGET_COUNTRIES.flatMap(country => [
+    `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=1&sort_by=lastChecked&sort_type=desc&country=${country}`,
+    `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=2&sort_by=lastChecked&sort_type=desc&country=${country}`,
+    `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=1&sort_by=lastChecked&sort_type=desc&country=${country}&anonymityLevel=elite`,
+    `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=1&sort_by=lastChecked&sort_type=desc&country=${country}&anonymityLevel=anonymous`
+  ]),
+
+  // 2. Proxyscrape API calls with varying country and anonymity filters
+  "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000&country=all&ssl=all&anonymity=all",
+  "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000&country=all&ssl=all&anonymity=anonymous",
+  "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000&country=all&ssl=all&anonymity=elite",
+  ...TARGET_COUNTRIES.flatMap(country => [
+    `https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000&country=${country}&ssl=all&anonymity=all`,
+    `https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000&country=${country}&ssl=all&anonymity=anonymous`,
+    `https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000&country=${country}&ssl=all&anonymity=elite`
+  ]),
+
+  // 3. Databay API - General limit + target country list pages
   "https://databay.com/api/v1/proxy-list?format=json&limit=200",
-  "https://flamingoproxies.com/free-proxies/china?q=&protocol=&anonymity=&per_page=50",
+  ...TARGET_COUNTRIES.map(c => `https://databay.com/api/v1/proxy-list?format=json&limit=100&country=${c}`),
 
-  // 20 Pages of Geonode SOCKS5 Free API (JSON format)
-  ...Array.from({ length: 20 }, (_, i) => `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=${i + 1}&sort_by=lastChecked&sort_type=desc`),
+  // 4. Flamingoproxies SOCKS5 landing pages
+  "https://flamingoproxies.com/free-proxies/china?q=&protocol=socks5&anonymity=&per_page=50",
+  ...TARGET_COUNTRIES.flatMap(c => {
+    const name = COUNTRY_NAME_MAP[c];
+    return name ? [
+      `https://flamingoproxies.com/free-proxies/${name}?q=&protocol=socks5&anonymity=&per_page=50`,
+      `https://flamingoproxies.com/free-proxies/${name}?q=&protocol=socks5&anonymity=elite&per_page=50`,
+      `https://flamingoproxies.com/free-proxies/${name}?q=&protocol=socks5&anonymity=anonymous&per_page=50`
+    ] : [];
+  }),
 
-  // Geonode SOCKS5 APIs filtered by specific fast/nearest countries (NL, DE, FR, TR, GB, IT, ES, US, SG, MX)
-  ...["NL", "DE", "FR", "TR", "GB", "IT", "ES", "US", "SG", "MX"].flatMap(country => 
-    Array.from({ length: 5 }, (_, i) => `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=${i + 1}&sort_by=lastChecked&sort_type=desc&country=${country}`)
-  )
+  // 5. Freeproxy.world SOCKS5 country-specific & anonymity-specific pages
+  "https://www.freeproxy.world/?type=socks5",
+  "https://www.freeproxy.world/?type=socks5&anonymity=anonymous",
+  "https://www.freeproxy.world/?type=socks5&anonymity=elite",
+  ...TARGET_COUNTRIES.flatMap(c => [
+    `https://www.freeproxy.world/?type=socks5&country=${c}`,
+    `https://www.freeproxy.world/?type=socks5&country=${c}&anonymity=anonymous`,
+    `https://www.freeproxy.world/?type=socks5&country=${c}&anonymity=elite`
+  ]),
+
+  // 6. Spys.one SOCKS5 country & city landing pages
+  "https://spys.one/en/socks-proxy-list/",
+  ...TARGET_COUNTRIES.map(c => `https://spys.one/free-proxy-list/${c}/`),
+  ...["Falkenstein", "Frankfurt", "Amsterdam", "Paris", "London", "Milan", "Istanbul", "Cairo"].flatMap(city =>
+    Array.from({ length: 3 }, (_, i) => `https://spys.one/proxy-city/${city}/${i + 1}/`)
+  ),
+
+  // 7. Proxynova country SOCKS5 pages
+  ...TARGET_COUNTRIES.map(c => `https://www.proxynova.com/proxy-server-list/country-${c.toLowerCase()}`),
+
+  // 8. Proxy5 country landing pages
+  ...TARGET_COUNTRIES.flatMap(c => {
+    const name = COUNTRY_NAME_MAP[c];
+    return name ? [`https://proxy5.net/free-proxy/${name}`] : [];
+  }),
+
+  // 9. Litport country landing pages
+  ...["france", "germany", "netherlands", "turkey", "united-states", "greece", "egypt"].map(c => `https://litport.net/free-proxy/${c}`),
+
+  // 10. Free.geonix.com country landing pages
+  ...TARGET_COUNTRIES.flatMap(c => {
+    const name = COUNTRY_NAME_MAP[c];
+    return name ? [`https://free.geonix.com/en/${name}/`] : [];
+  })
 ];
 
 const SOURCE_STATS = {};
@@ -238,19 +324,26 @@ async function refreshProxyPool() {
   const proxyToSource = new Map(); // proxyUrl -> sourceUrl
   const seenProxies = new Set();
   
-  const batchSize = 10;
+  const batchSize = 25;
   for (let i = 0; i < PROXY_SOURCES.length; i += batchSize) {
     const batch = PROXY_SOURCES.slice(i, i + batchSize);
     await Promise.all(batch.map(async (url) => {
       try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        const res = await fetch(url, { 
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9"
+          },
+          signal: AbortSignal.timeout(8000) 
+        });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
         
         const trimmed = text.trim();
         let parsedJson = false;
         const localProxies = [];
-
+ 
         const addProxy = (ipStr, portVal) => {
           const proxyUrl = `socks5://${ipStr}:${portVal}`;
           if (!seenProxies.has(proxyUrl)) {
@@ -259,7 +352,7 @@ async function refreshProxyPool() {
             localProxies.push(proxyUrl);
           }
         };
-
+ 
         if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
           try {
             const json = JSON.parse(trimmed);
@@ -285,7 +378,7 @@ async function refreshProxyPool() {
             // Fall back to plain text parsing
           }
         }
-
+ 
         if (!parsedJson) {
           const regex = /\b((?:\d{1,3}\.){3}\d{1,3}):(\d{1,5})\b/g;
           let match;
@@ -298,9 +391,11 @@ async function refreshProxyPool() {
             }
           }
         }
-
+ 
         if (localProxies.length > 0) {
-          sourceToProxies.set(url, localProxies);
+          // Trim to the first 50 (latest updated) proxies from this source
+          const trimmedProxies = localProxies.length > 50 ? localProxies.slice(0, 50) : localProxies;
+          sourceToProxies.set(url, trimmedProxies);
         }
       } catch (err) {
         if (!err.message.includes("404")) {
@@ -311,7 +406,7 @@ async function refreshProxyPool() {
     // Stagger batches slightly to avoid rate-limiting on third-party APIs
     await new Promise((resolve) => setTimeout(resolve, 300));
   }
-
+ 
   const totalFetchedCount = seenProxies.size;
   console.log(`[aurora-provider] Fetched ${totalFetchedCount} unique SOCKS5 proxies from all sources.`);
   
@@ -319,46 +414,43 @@ async function refreshProxyPool() {
     proxyStatus = "Failed to fetch any proxies";
     return;
   }
-
+ 
   // Balanced round-robin sampling across all sources
   const sample = [];
   const sourcesArray = Array.from(sourceToProxies.entries()); // [ [url, proxyArray], ... ]
   
-  // Shuffle proxies within each source first
-  for (const [url, proxyArray] of sourcesArray) {
-    proxyArray.sort(() => Math.random() - 0.5);
-  }
+  // NOTE: Shuffling disabled to prioritize the latest/fresh proxies returned first from APIs
   
   let added = true;
   let index = 0;
-  while (added && sample.length < 1200) {
+  while (added && sample.length < 10000) {
     added = false;
     for (const [url, proxyArray] of sourcesArray) {
       if (index < proxyArray.length) {
         sample.push(proxyArray[index]);
         added = true;
-        if (sample.length >= 1200) break;
+        if (sample.length >= 10000) break;
       }
     }
     index++;
   }
-
+ 
   proxyStatus = "Testing proxy latencies...";
   console.log(`[aurora-provider] ${proxyStatus} (Evaluating balanced sample of ${sample.length} proxies)`);
-
+ 
   const results = [];
   const allTestedSuccess = []; // Track all working anonymous proxies regardless of latency
   
   const chunkSize = 150;
   for (let i = 0; i < sample.length; i += chunkSize) {
-    if (results.length >= 100) break;
+    if (results.length >= 300) break; // Find up to 300 proxies under threshold before breaking
     const chunk = sample.slice(i, i + chunkSize);
     const promises = chunk.map(async (proxyUrl) => {
       const source = proxyToSource.get(proxyUrl);
       try {
         const dispatcher = getProxyDispatcher(proxyUrl);
         if (!dispatcher) return;
-
+ 
         let proxyIp = null;
         let latency = 0;
         
@@ -390,7 +482,7 @@ async function refreshProxyPool() {
             // Both failed
           }
         }
-
+ 
         if (proxyIp) {
           // Double check if the proxy actually masked our IP
           if (SERVER_PUBLIC_IP && proxyIp === SERVER_PUBLIC_IP) {
@@ -400,7 +492,7 @@ async function refreshProxyPool() {
             }
             return;
           }
-
+ 
           const existing = PROXY_POOL.find(p => p.url === proxyUrl);
           const proxyObj = {
             url: proxyUrl,
@@ -409,9 +501,9 @@ async function refreshProxyPool() {
             successCount: existing ? existing.successCount : 1,
             failureCount: existing ? existing.failureCount : 0
           };
-
+ 
           allTestedSuccess.push(proxyObj);
-
+ 
           if (latency <= PROXY_LATENCY_THRESHOLD) {
             results.push(proxyObj);
             if (SOURCE_STATS[source]) {
@@ -432,25 +524,25 @@ async function refreshProxyPool() {
     });
     await Promise.all(promises);
   }
-
+ 
   console.log(`[aurora-provider] Testing complete. Found ${results.length} proxies under latency threshold (${PROXY_LATENCY_THRESHOLD}ms), out of ${allTestedSuccess.length} total working anonymous proxies.`);
-
+ 
   let selectedPool = [];
   if (results.length >= 5) {
     selectedPool = results;
   } else if (allTestedSuccess.length > 0) {
     allTestedSuccess.sort((a, b) => a.latency - b.latency);
-    // Take up to 30 fastest working proxies as fallback
-    selectedPool = allTestedSuccess.slice(0, 30);
+    // Take up to 100 fastest working proxies as fallback
+    selectedPool = allTestedSuccess.slice(0, 100);
     console.log(`[aurora-provider] Few proxies met latency threshold (${PROXY_LATENCY_THRESHOLD}ms). Falling back to top ${selectedPool.length} fastest verified working anonymous proxies (latencies up to ${selectedPool[selectedPool.length - 1].latency}ms).`);
   }
-
+ 
   if (selectedPool.length === 0) {
     proxyStatus = "No working proxies under threshold. Using direct connection.";
     PROXY_POOL = [];
     return;
   }
-
+ 
   selectedPool.sort((a, b) => a.latency - b.latency);
   PROXY_POOL = selectedPool.slice(0, 100);
   proxyPoolIndex = 0;
