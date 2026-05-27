@@ -37,9 +37,8 @@ function initTheme() {
 
   function positionDropdown() {
     const rect = btn.getBoundingClientRect();
-    dropdown.style.top  = (rect.bottom + 6) + 'px';
-    dropdown.style.right = (window.innerWidth - rect.right) + 'px';
-    dropdown.style.left = 'auto';
+    dropdown.style.top  = (rect.bottom + window.scrollY + 6) + 'px';
+    dropdown.style.left = (rect.right + window.scrollX - dropdown.offsetWidth) + 'px';
   }
 
   // Toggle dropdown
@@ -47,8 +46,8 @@ function initTheme() {
     e.stopPropagation();
     const isOpen = dropdown.classList.contains('open');
     if (!isOpen) {
-      positionDropdown();
       dropdown.classList.add('open');
+      positionDropdown();
     } else {
       dropdown.classList.remove('open');
     }
@@ -56,7 +55,8 @@ function initTheme() {
 
   // Close on outside click
   document.addEventListener('click', (e) => {
-    if (!document.getElementById('theme-picker-wrapper').contains(e.target)) {
+    const wrapper = document.getElementById('theme-picker-wrapper');
+    if (!wrapper.contains(e.target) && !dropdown.contains(e.target)) {
       dropdown.classList.remove('open');
     }
   });
@@ -68,6 +68,13 @@ function initTheme() {
       applyTheme(themeId, true);
       dropdown.classList.remove('open');
     });
+  });
+
+  // Reposition on window resize
+  window.addEventListener('resize', () => {
+    if (dropdown.classList.contains('open')) {
+      positionDropdown();
+    }
   });
 }
 
@@ -290,6 +297,7 @@ async function loadConfig() {
     config = await fetchJSON('/api/config');
     renderUIPool();
     updateAgentsDropdown();
+    triggerTabLoad(activeTab);
   } catch (err) {
     console.error("Failed to load configs", err);
   }

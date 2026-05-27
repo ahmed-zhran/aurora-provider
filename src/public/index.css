@@ -1082,9 +1082,9 @@ body {
   border-color: var(--color-primary);
 }
 
-/* Fixed-position dropdown — escapes header stacking context */
+/* Absolute-position dropdown — escapes header stacking context */
 .theme-picker-dropdown {
-  position: fixed;
+  position: absolute;
   background: var(--color-card-bg);
   border: 1px solid var(--color-card-border);
   border-radius: var(--border-radius-md);

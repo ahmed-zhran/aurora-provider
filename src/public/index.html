@@ -22,35 +22,12 @@
         <span class="version-tag">v1.0.0</span>
       </div>
       <div class="server-stats">
-        <!-- Theme Picker -->
         <div class="theme-picker-wrapper" id="theme-picker-wrapper">
           <button class="theme-picker-btn" id="theme-picker-btn" title="Change Theme">
             <span id="theme-current-swatch" class="theme-swatch" style="background: #6366f1;"></span>
             <span id="theme-current-label">Deep Space</span>
             <span style="font-size: 0.7rem; opacity: 0.6;">▾</span>
           </button>
-          <div class="theme-picker-dropdown" id="theme-picker-dropdown">
-            <div class="theme-option" data-theme="deep-space">
-              <span class="theme-swatch" style="background: linear-gradient(135deg, #6366f1, #10b981);"></span>
-              Deep Space
-            </div>
-            <div class="theme-option" data-theme="light">
-              <span class="theme-swatch" style="background: linear-gradient(135deg, #4f46e5, #f0f2f8);"></span>
-              Light Mode
-            </div>
-            <div class="theme-option" data-theme="cyberpunk">
-              <span class="theme-swatch" style="background: linear-gradient(135deg, #00ffc8, #ff0078);"></span>
-              Cyberpunk
-            </div>
-            <div class="theme-option" data-theme="aurora">
-              <span class="theme-swatch" style="background: linear-gradient(135deg, #a855f7, #f472b6);"></span>
-              Aurora
-            </div>
-            <div class="theme-option" data-theme="ocean">
-              <span class="theme-swatch" style="background: linear-gradient(135deg, #06b6d4, #10b981);"></span>
-              Ocean
-            </div>
-          </div>
         </div>
       </div>
     </header>
@@ -661,6 +638,28 @@
     </div>
   </div>
 
+  <!-- Theme Picker Dropdown (placed at root level to escape backdrop-filter clipping) -->
+  <div class="theme-picker-dropdown" id="theme-picker-dropdown">
+    <div class="theme-option" data-theme="deep-space">
+      <span class="theme-swatch" style="background: linear-gradient(135deg, #6366f1, #10b981);"></span>
+      Deep Space
+    </div>
+    <div class="theme-option" data-theme="light">
+      <span class="theme-swatch" style="background: linear-gradient(135deg, #4f46e5, #f0f2f8);"></span>
+      Light Mode
+    </div>
+    <div class="theme-option" data-theme="cyberpunk">
+      <span class="theme-swatch" style="background: linear-gradient(135deg, #00ffc8, #ff0078);"></span>
+      Cyberpunk
+    </div>
+    <div class="theme-option" data-theme="aurora">
+      <span class="theme-swatch" style="background: linear-gradient(135deg, #a855f7, #f472b6);"></span>
+      Aurora
+    </div>
+    <div class="theme-option" data-theme="ocean">
+      <span class="theme-swatch" style="background: linear-gradient(135deg, #06b6d4, #10b981);"></span>
+      Ocean
+    </div>
   </div>
 
   <script src="index.js"></script>
