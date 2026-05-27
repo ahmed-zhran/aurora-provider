@@ -232,6 +232,26 @@
         {
           "provider": "google_ai_studio",
           "model": "gemma-4-31b-it"
+        },
+        {
+          "provider": "google_ai_studio",
+          "model": "gemma-4-26b-a4b-it"
+        },
+        {
+          "provider": "sambanova",
+          "model": "Meta-Llama-3.3-70B-Instruct"
+        },
+        {
+          "provider": "sambanova",
+          "model": "Meta-Llama-3.1-405B-Instruct"
+        },
+        {
+          "provider": "groq",
+          "model": "llama-4-scout-17b-16e-instruct"
+        },
+        {
+          "provider": "groq",
+          "model": "deepseek-r1-distill-llama-70b"
         }
       ]
     }

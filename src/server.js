@@ -1147,3 +1147,6 @@ app.listen(PORT, "127.0.0.1", () => {
     console.error(`[aurora-provider] Error on initial proxy load: ${err.message}`);
   });
 });
+
+// Trigger watcher reload to load new agents.json configurations
+

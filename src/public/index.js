@@ -1676,6 +1676,37 @@ async function saveProxySettings() {
   }
 }
 
+function getCleanSourceName(urlStr) {
+  if (!urlStr) return 'Unknown';
+  try {
+    const url = new URL(urlStr);
+    if (url.hostname === 'raw.githubusercontent.com') {
+      const parts = url.pathname.split('/');
+      // pathname starts with '/' so parts[0] is empty. parts[1] is owner, parts[2] is repo, parts[3] is branch/ref.
+      if (parts.length >= 3) {
+        const owner = parts[1];
+        const repo = parts[2];
+        const filename = parts[parts.length - 1];
+        return `${owner}/${repo}/${filename}`;
+      }
+      const filename = parts.pop();
+      return filename || 'github-raw';
+    }
+    let host = url.hostname;
+    if (host.startsWith('api.')) {
+      host = host.substring(4);
+    }
+    return host || 'Unknown';
+  } catch (e) {
+    try {
+      const filename = urlStr.split('/').pop().split('?')[0];
+      return filename || 'Unknown';
+    } catch (err) {
+      return 'Unknown';
+    }
+  }
+}
+
 function renderSourceRankings(rankedBySuccess, rankedByLatency) {
   const successTbody = document.getElementById('proxy-source-success-tbody');
   const latencyTbody = document.getElementById('proxy-source-latency-tbody');
@@ -1686,7 +1717,7 @@ function renderSourceRankings(rankedBySuccess, rankedByLatency) {
       const tr = document.createElement('tr');
       tr.style.borderBottom = '1px solid var(--color-card-border)';
       
-      const sourceName = row.source.split('/').pop().split('?')[0];
+      const sourceName = getCleanSourceName(row.source);
 
       tr.innerHTML = `
         <td style="padding: 6px; font-family: var(--font-mono); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${row.source}">${sourceName}</td>
@@ -1704,7 +1735,7 @@ function renderSourceRankings(rankedBySuccess, rankedByLatency) {
       const tr = document.createElement('tr');
       tr.style.borderBottom = '1px solid var(--color-card-border)';
       
-      const sourceName = row.source.split('/').pop().split('?')[0];
+      const sourceName = getCleanSourceName(row.source);
       const avgSpeed = row.avgLatency > 0 ? `${row.avgLatency}ms` : '—';
 
       tr.innerHTML = `
