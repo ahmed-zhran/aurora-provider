@@ -2,5 +2,6 @@ node_modules/
 config/keys.json
 vault/keys.json
 vault/vault.db
+vault/settings.json
 .env
 *.log
