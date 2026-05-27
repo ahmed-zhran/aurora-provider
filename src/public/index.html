@@ -39,20 +39,20 @@
 
     <!-- Navigation Tabs -->
     <nav class="tabs-nav">
-      <button class="tab-btn active" data-tab="tab-dashboard">Dashboard & Test</button>
+      <button class="tab-btn active" data-tab="tab-dashboard">Dashboard</button>
+      <button class="tab-btn" data-tab="tab-tester">API Tester</button>
       <button class="tab-btn" data-tab="tab-agents">Agents Config</button>
       <button class="tab-btn" data-tab="tab-keys">API Keys</button>
-      <button class="tab-btn" data-tab="tab-usage">Usage Stats</button>
       <button class="tab-btn" data-tab="tab-providers">Provider Config</button>
     </nav>
 
     <!-- Main Content Area -->
     <main class="main-content">
       
-      <!-- TAB 1: Dashboard & Test -->
+      <!-- TAB 1: Dashboard -->
       <section id="tab-dashboard" class="tab-pane active">
         <div class="grid-layout">
-          <!-- Left Column: Key Health & Outbound IPs -->
+          <!-- Left Column: Key Health, Proxy Pool, Logs -->
           <div class="grid-col-left">
             <div class="card glass">
               <h2>Provider Keys Health</h2>
@@ -73,7 +73,7 @@
                   <span class="stat-label">Status:</span>
                   <span class="stat-val text-warning" id="proxy-pool-status">Idle</span>
                 </div>
-                <div class="proxy-list-container mt-2" style="max-height: 180px; overflow-y: auto;">
+                <div class="proxy-list-container mt-2" style="max-height: 150px; overflow-y: auto;">
                   <table class="proxy-table" style="width:100%; border-collapse:collapse; font-size:0.8rem; text-align:left;">
                     <thead>
                       <tr style="border-bottom:1px solid var(--color-card-border); color:var(--color-text-muted);">
@@ -89,12 +89,139 @@
               </div>
             </div>
 
-
+            <!-- Terminal / Live Logs -->
+            <div class="card glass log-card" style="margin-bottom: 0;">
+              <div class="card-header-actions">
+                <h2>Live Server logs</h2>
+                <button class="btn-text-btn" id="clear-logs-btn">Clear</button>
+              </div>
+              <div class="terminal-log" id="logs-terminal" style="height: 180px;">
+                <div class="log-line system">[system] Listening for logs...</div>
+              </div>
+            </div>
           </div>
 
-          <!-- Right Column: API Tester & Live Logs -->
+          <!-- Right Column: Usage Stats & Logs Table -->
           <div class="grid-col-right">
-            <div class="card glass">
+            <!-- Metrics Row -->
+            <div class="metrics-row" style="display: flex; gap: 1.5rem; margin-bottom: 0;">
+              <div class="metric-card glass" style="flex: 1; padding: 1.25rem; background: var(--color-card-bg); border: 1px solid var(--color-card-border); border-radius: var(--border-radius-lg); text-align: center; box-shadow: var(--shadow-premium);">
+                <span class="stat-label" style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 0.25rem;">Total Requests</span>
+                <span class="metric-value" id="stats-total-requests" style="font-size: 2rem; font-weight: 700; color: var(--color-text-main);">0</span>
+              </div>
+              <div class="metric-card glass" style="flex: 1; padding: 1.25rem; background: var(--color-card-bg); border: 1px solid var(--color-card-border); border-radius: var(--border-radius-lg); text-align: center; box-shadow: var(--shadow-premium);">
+                <span class="stat-label" style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 0.25rem;">Success Rate</span>
+                <span class="metric-value" id="stats-success-rate" style="font-size: 2rem; font-weight: 700; color: var(--color-success);">0%</span>
+              </div>
+              <div class="metric-card glass" style="flex: 1; padding: 1.25rem; background: var(--color-card-bg); border: 1px solid var(--color-card-border); border-radius: var(--border-radius-lg); text-align: center; box-shadow: var(--shadow-premium);">
+                <span class="stat-label" style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 0.25rem;">Avg Latency</span>
+                <span class="metric-value" id="stats-avg-latency" style="font-size: 2rem; font-weight: 700; color: var(--color-primary);">0ms</span>
+              </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="charts-row" style="display: flex; gap: 1.5rem; margin-bottom: 0; flex-wrap: wrap;">
+              <div class="card glass chart-card" style="flex: 2 1 400px; min-height: 250px; margin-bottom: 0;">
+                <h2>Requests Over Time</h2>
+                <div class="chart-container" style="position: relative; height: 180px; width: 100%;">
+                  <canvas id="chart-requests-time"></canvas>
+                </div>
+              </div>
+              <div class="card glass chart-card" style="flex: 1 1 220px; min-height: 250px; margin-bottom: 0;">
+                <h2>Provider Distribution</h2>
+                <div class="chart-container" style="position: relative; height: 180px; width: 100%;">
+                  <canvas id="chart-providers-pie"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card glass" style="margin-bottom: 0;">
+              <h2>Filter History</h2>
+              <div class="filters-grid" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
+                <div class="form-group" style="flex: 1 1 120px; margin-bottom: 0;">
+                  <label for="filter-start-date">Start Date</label>
+                  <input type="date" id="filter-start-date" class="form-input">
+                </div>
+                <div class="form-group" style="flex: 1 1 120px; margin-bottom: 0;">
+                  <label for="filter-end-date">End Date</label>
+                  <input type="date" id="filter-end-date" class="form-input">
+                </div>
+                <div class="form-group" style="flex: 1 1 120px; margin-bottom: 0;">
+                  <label for="filter-agent">Agent</label>
+                  <select id="filter-agent" class="form-select">
+                    <option value="">All Agents</option>
+                  </select>
+                </div>
+                <div class="form-group" style="flex: 1 1 120px; margin-bottom: 0;">
+                  <label for="filter-provider">Provider</label>
+                  <select id="filter-provider" class="form-select">
+                    <option value="">All Providers</option>
+                  </select>
+                </div>
+                <div class="form-group" style="flex: 1 1 100px; margin-bottom: 0;">
+                  <label for="filter-source">Source</label>
+                  <select id="filter-source" class="form-select">
+                    <option value="">All Sources</option>
+                    <option value="API">API</option>
+                    <option value="Testing">Testing</option>
+                  </select>
+                </div>
+                <div class="form-group" style="flex: 1 1 100px; margin-bottom: 0;">
+                  <label for="filter-status">Status</label>
+                  <select id="filter-status" class="form-select">
+                    <option value="">All</option>
+                    <option value="Success">Success</option>
+                    <option value="Error">Error</option>
+                  </select>
+                </div>
+                <div style="flex: 1 1 100px;">
+                  <button class="btn btn-primary" id="apply-filters-btn" style="width: 100%; padding: 0.6rem;">Apply</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Logs Table -->
+            <div class="card glass" style="margin-bottom: 0;">
+              <h2>Usage Request Logs</h2>
+              <div class="table-container" style="overflow-x: auto; margin-top: 0.5rem; max-height: 350px;">
+                <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
+                  <thead>
+                    <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
+                      <th style="padding: 8px;">Timestamp</th>
+                      <th style="padding: 8px;">Source</th>
+                      <th style="padding: 8px;">Agent</th>
+                      <th style="padding: 8px;">Provider</th>
+                      <th style="padding: 8px;">Model</th>
+                      <th style="padding: 8px;">Key</th>
+                      <th style="padding: 8px;">Proxy</th>
+                      <th style="padding: 8px;">Status</th>
+                      <th style="padding: 8px; text-align: right;">Latency</th>
+                      <th style="padding: 8px; text-align: center;">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody id="usage-logs-tbody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+              <!-- Pagination -->
+              <div class="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+                <button class="btn btn-secondary btn-sm" id="prev-page-btn" disabled>Previous</button>
+                <span id="pagination-info" style="font-size: 0.8rem; color: var(--color-text-muted);">Page 1 of 1</span>
+                <button class="btn btn-secondary btn-sm" id="next-page-btn" disabled>Next</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: API Tester -->
+      <section id="tab-tester" class="tab-pane">
+        <div class="grid-layout">
+          <!-- Left: API Tester Settings -->
+          <div class="grid-col-left">
+            <div class="card glass" style="margin-bottom: 0;">
               <h2>API Tester</h2>
               <form id="api-test-form">
                 <div class="form-group">
@@ -106,7 +233,7 @@
                 </div>
                 <div class="form-group">
                   <label for="test-prompt">Prompt / Message</label>
-                  <textarea id="test-prompt" class="form-textarea" required placeholder="Type something to test...">Write a hello world program in Python.</textarea>
+                  <textarea id="test-prompt" class="form-textarea" required placeholder="Type something to test..." style="min-height: 180px;">Write a hello world program in Python.</textarea>
                 </div>
                 <div class="form-row">
                   <div class="form-group flex-row">
@@ -117,229 +244,19 @@
                 </div>
               </form>
             </div>
+          </div>
 
-            <!-- JSON Output Screen -->
-            <div class="card glass flex-fill">
+          <!-- Right: API Response (JSON) -->
+          <div class="grid-col-right">
+            <div class="card glass flex-fill" style="margin-bottom: 0; min-height: 480px;">
               <div class="card-header-actions">
                 <h2>API Response (JSON)</h2>
                 <button class="btn-text-btn" id="clear-response-btn">Clear</button>
               </div>
-              <div class="json-viewer-container">
-                <pre id="json-response-output" class="json-output">Ready to test. Run a query above to see the full raw JSON response here.</pre>
+              <div class="json-viewer-container" style="max-height: none; flex: 1;">
+                <pre id="json-response-output" class="json-output">Ready to test. Run a query on the left to see the full raw JSON response here.</pre>
               </div>
             </div>
-
-            <!-- Terminal / Live Logs -->
-            <div class="card glass log-card">
-              <div class="card-header-actions">
-                <h2>Live Server logs</h2>
-                <button class="btn-text-btn" id="clear-logs-btn">Clear</button>
-              </div>
-              <div class="terminal-log" id="logs-terminal">
-                <div class="log-line system">[system] Listening for logs...</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB 2: Agents Config -->
-      <section id="tab-agents" class="tab-pane">
-        <div class="grid-layout">
-          <!-- Left Column: Agents List -->
-          <div class="grid-col-left">
-            <div class="card glass">
-              <h2>Agents</h2>
-              <p class="description">Select an agent to edit, or create a new one.</p>
-              <div class="agents-list" id="agents-selector-container">
-                <!-- Populated dynamically -->
-              </div>
-              <div class="add-agent-row">
-                <input type="text" id="new-agent-name" placeholder="Agent name (e.g. coder)" class="form-input">
-                <button class="btn btn-primary" id="create-agent-btn">Create</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Right Column: Agent Settings -->
-          <div class="grid-col-right" id="agent-settings-card" style="display: none;">
-            <div class="card glass">
-              <div class="agent-title-row">
-                <h2 id="current-agent-title">Agent Settings: Coder</h2>
-                <div class="agent-actions">
-                  <button class="btn btn-secondary btn-sm" id="rename-agent-btn">Rename</button>
-                  <button class="btn btn-danger btn-sm" id="delete-agent-btn">Delete Agent</button>
-                </div>
-              </div>
-
-              <!-- Fallback Chain -->
-              <div class="fallback-section mt-4">
-                <h3>Fallback Chain Priority</h3>
-                <p class="description">Reorder items in the list. The server queries the first provider first, falling back downwards when keys are exhausted or errors occur.</p>
-                
-                <div class="fallback-list-container" id="fallback-chain-list">
-                  <!-- Populated dynamically -->
-                </div>
-
-                <!-- Add Step Form -->
-                <div class="add-fallback-step card bg-dark mt-3">
-                  <h4>Add Fallback Step</h4>
-                  <div class="add-step-fields">
-                    <div class="form-group flex-1">
-                      <label>Provider</label>
-                      <select id="step-provider-select" class="form-select">
-                        <option value="" disabled selected>Select provider</option>
-                      </select>
-                    </div>
-                    <div class="form-group flex-1">
-                      <label>Model</label>
-                      <select id="step-model-select" class="form-select" disabled>
-                        <option value="" disabled selected>Select model</option>
-                      </select>
-                    </div>
-                    <div class="align-bottom">
-                      <button class="btn btn-primary" id="add-step-btn">Add Step</button>
-                    </div>
-                  </div>
-                </div>
-
-                <button class="btn btn-success mt-4" id="save-agents-btn">Save Agents Config</button>
-              </div>
-            </div>
-          </div>
-          
-          <div class="grid-col-right empty-agent-message" id="agent-settings-empty">
-            <div class="card glass flex-center">
-              <p class="text-muted">Select an agent from the list to view and configure its fallback chain.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB 3: API Keys -->
-      <section id="tab-keys" class="tab-pane">
-        <div class="card glass">
-          <div class="card-header-actions">
-            <div>
-              <h2>Provider API Keys</h2>
-              <p class="description">Add one or multiple keys for each provider. Multiple keys are rotated on rate-limiting (429).</p>
-            </div>
-            <button class="btn btn-success" id="save-keys-btn">Save API Keys</button>
-          </div>
-          <div class="keys-grid" id="keys-manager-container">
-            <!-- Populated dynamically -->
-          </div>
-        </div>
-      </section>
-
-    
-      <!-- TAB 4: Usage Stats -->
-      <section id="tab-usage" class="tab-pane">
-        <div class="metrics-row" style="display: flex; gap: 1.5rem; margin-bottom: 1.5rem;">
-          <div class="metric-card glass" style="flex: 1; padding: 1.25rem; background: var(--color-card-bg); border: 1px solid var(--color-card-border); border-radius: var(--border-radius-lg); text-align: center; box-shadow: var(--shadow-premium);">
-            <span class="stat-label" style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 0.25rem;">Total Requests</span>
-            <span class="metric-value" id="stats-total-requests" style="font-size: 2rem; font-weight: 700; color: var(--color-text-main);">0</span>
-          </div>
-          <div class="metric-card glass" style="flex: 1; padding: 1.25rem; background: var(--color-card-bg); border: 1px solid var(--color-card-border); border-radius: var(--border-radius-lg); text-align: center; box-shadow: var(--shadow-premium);">
-            <span class="stat-label" style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 0.25rem;">Success Rate</span>
-            <span class="metric-value" id="stats-success-rate" style="font-size: 2rem; font-weight: 700; color: var(--color-success);">0%</span>
-          </div>
-          <div class="metric-card glass" style="flex: 1; padding: 1.25rem; background: var(--color-card-bg); border: 1px solid var(--color-card-border); border-radius: var(--border-radius-lg); text-align: center; box-shadow: var(--shadow-premium);">
-            <span class="stat-label" style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 0.25rem;">Avg Latency</span>
-            <span class="metric-value" id="stats-avg-latency" style="font-size: 2rem; font-weight: 700; color: var(--color-primary);">0ms</span>
-          </div>
-        </div>
-
-        <div class="charts-row" style="display: flex; gap: 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
-          <div class="card glass chart-card" style="flex: 2 1 600px; min-height: 320px;">
-            <h2>Requests Over Time</h2>
-            <div class="chart-container" style="position: relative; height: 260px; width: 100%;">
-              <canvas id="chart-requests-time"></canvas>
-            </div>
-          </div>
-          <div class="card glass chart-card" style="flex: 1 1 300px; min-height: 320px;">
-            <h2>Provider Distribution</h2>
-            <div class="chart-container" style="position: relative; height: 260px; width: 100%;">
-              <canvas id="chart-providers-pie"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <!-- Filters -->
-        <div class="card glass">
-          <h2>Filter Usage History</h2>
-          <div class="filters-grid" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
-            <div class="form-group" style="flex: 1 1 150px; margin-bottom: 0;">
-              <label for="filter-start-date">Start Date</label>
-              <input type="date" id="filter-start-date" class="form-input">
-            </div>
-            <div class="form-group" style="flex: 1 1 150px; margin-bottom: 0;">
-              <label for="filter-end-date">End Date</label>
-              <input type="date" id="filter-end-date" class="form-input">
-            </div>
-            <div class="form-group" style="flex: 1 1 150px; margin-bottom: 0;">
-              <label for="filter-agent">Agent</label>
-              <select id="filter-agent" class="form-select">
-                <option value="">All Agents</option>
-              </select>
-            </div>
-            <div class="form-group" style="flex: 1 1 150px; margin-bottom: 0;">
-              <label for="filter-provider">Provider</label>
-              <select id="filter-provider" class="form-select">
-                <option value="">All Providers</option>
-              </select>
-            </div>
-            <div class="form-group" style="flex: 1 1 120px; margin-bottom: 0;">
-              <label for="filter-source">Source</label>
-              <select id="filter-source" class="form-select">
-                <option value="">All Sources</option>
-                <option value="API">API</option>
-                <option value="Testing">Testing</option>
-              </select>
-            </div>
-            <div class="form-group" style="flex: 1 1 120px; margin-bottom: 0;">
-              <label for="filter-status">Status</label>
-              <select id="filter-status" class="form-select">
-                <option value="">All Statuses</option>
-                <option value="Success">Success</option>
-                <option value="Error">Error</option>
-              </select>
-            </div>
-            <div style="flex: 1 1 120px;">
-              <button class="btn btn-primary" id="apply-filters-btn" style="width: 100%;">Apply</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Logs Table -->
-        <div class="card glass">
-          <h2>Usage Request Logs</h2>
-          <div class="table-container" style="overflow-x: auto; margin-top: 1rem;">
-            <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
-              <thead>
-                <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
-                  <th style="padding: 10px 8px;">Timestamp</th>
-                  <th style="padding: 10px 8px;">Source</th>
-                  <th style="padding: 10px 8px;">Agent</th>
-                  <th style="padding: 10px 8px;">Provider</th>
-                  <th style="padding: 10px 8px;">Model</th>
-                  <th style="padding: 10px 8px;">Key</th>
-                  <th style="padding: 10px 8px;">Proxy</th>
-                  <th style="padding: 10px 8px;">Status</th>
-                  <th style="padding: 10px 8px; text-align: right;">Latency</th>
-                  <th style="padding: 10px 8px; text-align: center;">Details</th>
-                </tr>
-              </thead>
-              <tbody id="usage-logs-tbody">
-                <!-- Populated dynamically -->
-              </tbody>
-            </table>
-          </div>
-          <!-- Pagination -->
-          <div class="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem;">
-            <button class="btn btn-secondary btn-sm" id="prev-page-btn" disabled>Previous</button>
-            <span id="pagination-info" style="font-size: 0.9rem; color: var(--color-text-muted);">Page 1 of 1</span>
-            <button class="btn btn-secondary btn-sm" id="next-page-btn" disabled>Next</button>
           </div>
         </div>
       </section>

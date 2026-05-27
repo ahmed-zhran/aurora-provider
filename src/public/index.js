@@ -131,13 +131,15 @@ function initTabs() {
 }
 
 function triggerTabLoad(tabName) {
-  if (tabName === 'tab-agents') {
+  if (tabName === 'tab-dashboard') {
+    loadUsageFilters();
+    loadUsageStats();
+  } else if (tabName === 'tab-tester') {
+    updateAgentsDropdown();
+  } else if (tabName === 'tab-agents') {
     renderAgentsTab();
   } else if (tabName === 'tab-keys') {
     renderKeysTab();
-  } else if (tabName === 'tab-usage') {
-    loadUsageFilters();
-    loadUsageStats();
   } else if (tabName === 'tab-providers') {
     renderProvidersTab();
   }
@@ -425,6 +427,7 @@ async function runApiTest(e) {
   } finally {
     runBtn.disabled = false;
     runBtn.textContent = 'Run Test';
+    loadUsageStats();
   }
 }
 
@@ -444,7 +447,7 @@ function renderAgentsTab() {
 
   agentNames.forEach(name => {
     const btn = document.createElement('div');
-    btn.className = `agent-selector-item ${selectedAgentName === name ? 'active' : ''}`;
+    btn.className = `agent-item ${selectedAgentName === name ? 'selected' : ''}`;
     btn.textContent = name;
     btn.addEventListener('click', () => {
       selectedAgentName = name;
@@ -526,23 +529,23 @@ function renderFallbackList() {
 
   fallbacks.forEach((step, idx) => {
     const item = document.createElement('div');
-    item.className = 'fallback-item';
+    item.className = 'fallback-step-item';
 
     const prio = document.createElement('span');
-    prio.className = 'fallback-prio';
+    prio.className = 'step-priority-number';
     prio.textContent = `#${idx + 1}`;
 
     const details = document.createElement('div');
-    details.className = 'fallback-details';
+    details.className = 'step-details';
 
     const provName = config.providers[step.provider]?.name || step.provider;
     details.innerHTML = `
-      <span class="fallback-provider">${provName}</span>
-      <span class="fallback-model">${step.model}</span>
+      <span class="step-provider">${provName}</span>
+      <span class="step-model">${step.model}</span>
     `;
 
     const actions = document.createElement('div');
-    actions.className = 'fallback-actions';
+    actions.className = 'step-actions';
 
     // Move Up Button
     const upBtn = document.createElement('button');
@@ -1133,7 +1136,7 @@ function renderProvidersTab() {
 
   providerKeys.forEach(key => {
     const btn = document.createElement('div');
-    btn.className = `agent-selector-item ${selectedProviderName === key ? 'active' : ''}`;
+    btn.className = `agent-item ${selectedProviderName === key ? 'selected' : ''}`;
     btn.textContent = config.providers[key].name || key;
     btn.addEventListener('click', () => {
       selectedProviderName = key;
