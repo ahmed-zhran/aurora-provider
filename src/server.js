@@ -2,7 +2,7 @@ import express from "express";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { ProxyAgent } from "undici";
+import { ProxyAgent, fetch as undiciFetch } from "undici";
 import dns from "dns";
 import { Database } from "bun:sqlite";
 
@@ -290,7 +290,7 @@ async function refreshProxyPool() {
       try {
         const dispatcher = new ProxyAgent(proxyUrl);
         // We fetch the IP echo service through the proxy to verify it works and masks our IP
-        const res = await fetch("https://api.ipify.org?format=json", {
+        const res = await undiciFetch("https://api.ipify.org?format=json", {
           method: "GET",
           dispatcher,
           signal: AbortSignal.timeout(4000)
@@ -536,7 +536,7 @@ async function attemptRequest(providerName, modelId, body, forcedKeyIndex = null
 
     try {
       const requestStart = Date.now();
-      const res = await fetch(`${baseUrl}/chat/completions`, {
+      const res = await undiciFetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
@@ -916,6 +916,12 @@ app.post("/api/settings", (req, res) => {
     if (typeof latencyThreshold === "number" && latencyThreshold >= 100) {
       PROXY_LATENCY_THRESHOLD = latencyThreshold;
       writeFileSync(join(VAULT_DIR, "settings.json"), JSON.stringify({ latencyThreshold }, null, 2), "utf8");
+      
+      // Auto-trigger a proxy pool refresh to re-evaluate under the new threshold!
+      refreshProxyPool().catch(err => {
+        console.error(`[aurora-provider] Error auto-refreshing proxy pool on threshold change: ${err.message}`);
+      });
+      
       res.json({ success: true });
     } else {
       res.status(400).json({ error: "Invalid latencyThreshold" });
