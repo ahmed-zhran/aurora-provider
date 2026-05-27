@@ -104,6 +104,7 @@ let KEYS_CFG    = loadJSON("keys.json").keys;
 
 // ─── Proxy pool & testing ─────────────────────────────────────────────────────
 let PROXY_POOL = []; // Array of { url, latency, source, successCount, failureCount }
+const PROXY_MAP = new Map(); // Map of url -> proxyObj for O(1) lookup
 let proxyPoolIndex = 0;
 let proxyStatus = "Idle"; // "Scraping...", "Testing...", "Active"
 
@@ -177,7 +178,7 @@ try {
 const TARGET_COUNTRIES = ["TR", "GR", "CY", "NL", "DE", "FR", "SA", "AE"];
 
 const COUNTRY_NAME_MAP = {
-  EG: "egypt",
+  IT: "italy",
   TR: "turkey",
   GR: "greece",
   CY: "cyprus",
@@ -318,38 +319,100 @@ function getNextProxy() {
 // Scrape and test proxies
 let lastAutoRefreshTime = 0;
 
-function insertIntoSortedPool(pool, proxyObj, maxLimit = 200) {
-  const existingIdx = pool.findIndex(p => p.url === proxyObj.url);
-  if (existingIdx !== -1) {
-    if (proxyObj.latency < pool[existingIdx].latency) {
-      pool.splice(existingIdx, 1);
+// O(log N) binary search index finder for insertion
+function binarySearchInsertionIndex(array, latency) {
+  let low = 0;
+  let high = array.length - 1;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    if (array[mid].latency === latency) {
+      return mid;
+    } else if (array[mid].latency < latency) {
+      low = mid + 1;
     } else {
-      return;
+      high = mid - 1;
+    }
+  }
+  return low;
+}
+
+// O(log N) binary search index finder for removal/update
+function findIndexBinary(array, url, latency) {
+  let low = 0;
+  let high = array.length - 1;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    if (array[mid].latency === latency) {
+      if (array[mid].url === url) return mid;
+      // Resolve latency collisions by scanning adjacent items
+      let left = mid - 1;
+      while (left >= 0 && array[left].latency === latency) {
+        if (array[left].url === url) return left;
+        left--;
+      }
+      let right = mid + 1;
+      while (right < array.length && array[right].latency === latency) {
+        if (array[right].url === url) return right;
+        right++;
+      }
+      return -1;
+    } else if (array[mid].latency < latency) {
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+  return -1;
+}
+
+// Sliding window promise concurrency queue (exactly 'limit' concurrent runs)
+async function concurrentMap(array, limit, mapperFn) {
+  const results = [];
+  const executing = new Set();
+  for (const item of array) {
+    const p = Promise.resolve().then(() => mapperFn(item));
+    results.push(p);
+    executing.add(p);
+    const clean = () => executing.delete(p);
+    p.then(clean, clean);
+    if (executing.size >= limit) {
+      await Promise.race(executing);
+    }
+  }
+  return Promise.all(results);
+}
+
+function insertIntoSortedPool(pool, proxyObj, maxLimit = 200) {
+  const oldProxy = PROXY_MAP.get(proxyObj.url);
+  if (oldProxy) {
+    if (proxyObj.latency < oldProxy.latency) {
+      const idx = findIndexBinary(pool, proxyObj.url, oldProxy.latency);
+      if (idx !== -1) {
+        pool.splice(idx, 1);
+      }
+    } else {
+      return; // Existing proxy is already faster/same
     }
   }
 
-  const insertIdx = pool.findIndex(p => p.latency > proxyObj.latency);
-  if (insertIdx === -1) {
-    if (pool.length < maxLimit) {
-      pool.push(proxyObj);
-    }
-  } else {
-    pool.splice(insertIdx, 0, proxyObj);
-  }
+  const insertIdx = binarySearchInsertionIndex(pool, proxyObj.latency);
+  pool.splice(insertIdx, 0, proxyObj);
+  PROXY_MAP.set(proxyObj.url, proxyObj);
 
   if (pool.length > maxLimit) {
-    pool.pop();
+    const removed = pool.pop();
+    PROXY_MAP.delete(removed.url);
   }
 }
 
 // Scrape and test proxies sequentially source-by-source
-async function refreshProxyPool(isManual = false) {
+async function refreshProxyPool(isManual = false, isReplenish = false) {
   if (proxyStatus.startsWith("Scraping") || proxyStatus.startsWith("Testing") || proxyStatus.startsWith("Refreshing")) {
     console.log("[aurora-provider] Proxy refresh already in progress. Skipping.");
     return;
   }
 
-  if (!isManual) {
+  if (!isManual && !isReplenish) {
     const timeSinceLast = Date.now() - lastAutoRefreshTime;
     if (timeSinceLast < 60 * 60 * 1000) { // 1 hour minimum
       console.log(`[aurora-provider] Auto-refresh skipped. Only ${Math.round(timeSinceLast / 60000)} minutes since last refresh (minimum 1 hour).`);
@@ -450,62 +513,59 @@ async function refreshProxyPool(isManual = false) {
       console.log(`[harvest] Parsed ${totalParsed} proxies. Testing first ${slicedProxies.length} candidates.`);
 
       if (slicedProxies.length > 0) {
-        const concurrencyLimit = 25;
-        for (let i = 0; i < slicedProxies.length; i += concurrencyLimit) {
-          const chunk = slicedProxies.slice(i, i + concurrencyLimit);
-          await Promise.all(chunk.map(async (proxyUrl) => {
+        await concurrentMap(slicedProxies, 10, async (proxyUrl) => {
+          try {
+            const dispatcher = getProxyDispatcher(proxyUrl);
+            if (!dispatcher) return;
+
+            let proxyIp = null;
+            let latency = 0;
+            const startReq = Date.now();
+            
             try {
-              const dispatcher = getProxyDispatcher(proxyUrl);
-              if (!dispatcher) return;
-
-              let proxyIp = null;
-              let latency = 0;
-              const startReq = Date.now();
-              
-              try {
-                const resEcho = await undiciFetch("https://checkip.amazonaws.com", {
-                  method: "GET",
-                  dispatcher,
-                  signal: AbortSignal.timeout(2500)
-                });
-                if (resEcho.ok) {
-                  proxyIp = (await resEcho.text()).trim();
-                  latency = Date.now() - startReq;
-                }
-              } catch (e) {
-                // Skip fallback to keep validation extremely fast
+              const resEcho = await undiciFetch("https://checkip.amazonaws.com", {
+                method: "GET",
+                dispatcher,
+                signal: AbortSignal.timeout(2500)
+              });
+              if (resEcho.ok) {
+                proxyIp = (await resEcho.text()).trim();
+                latency = Date.now() - startReq;
               }
+            } catch (e) {
+              // Skip fallback to keep validation extremely fast
+            }
 
-              if (proxyIp) {
-                if (SERVER_PUBLIC_IP && proxyIp === SERVER_PUBLIC_IP) {
-                  if (SOURCE_STATS[url]) SOURCE_STATS[url].failure++;
-                  return;
-                }
-
-                const existing = PROXY_POOL.find(p => p.url === proxyUrl);
-                const proxyObj = {
-                  url: proxyUrl,
-                  latency,
-                  source: url,
-                  successCount: existing ? existing.successCount : 1,
-                  failureCount: existing ? existing.failureCount : 0
-                };
-
-                insertIntoSortedPool(PROXY_POOL, proxyObj, 200);
-                proxyStatus = `Active (${PROXY_POOL.length} proxies)`;
-                
-                if (SOURCE_STATS[url]) {
-                  SOURCE_STATS[url].success++;
-                  SOURCE_STATS[url].totalLatency += latency;
-                }
-              } else {
+            if (proxyIp) {
+              if (SERVER_PUBLIC_IP && proxyIp === SERVER_PUBLIC_IP) {
                 if (SOURCE_STATS[url]) SOURCE_STATS[url].failure++;
+                return;
               }
-            } catch (err) {
+
+              const existing = PROXY_MAP.get(proxyUrl);
+              const proxyObj = {
+                url: proxyUrl,
+                latency,
+                source: url,
+                successCount: existing ? existing.successCount : 1,
+                failureCount: existing ? existing.failureCount : 0
+              };
+
+              insertIntoSortedPool(PROXY_POOL, proxyObj, 200);
+              proxyStatus = `Active (${PROXY_POOL.length} proxies)`;
+              
+              if (SOURCE_STATS[url]) {
+                SOURCE_STATS[url].success++;
+                SOURCE_STATS[url].totalLatency += latency;
+              }
+            } else {
               if (SOURCE_STATS[url]) SOURCE_STATS[url].failure++;
             }
-          }));
-        }
+          } catch (err) {
+            console.error(`[harvest] Exception inside validation handler for ${proxyUrl}:`, err.message, err.stack);
+            if (SOURCE_STATS[url]) SOURCE_STATS[url].failure++;
+          }
+        });
       }
     } catch (err) {
       if (!err.message.includes("404")) {
@@ -528,31 +588,35 @@ async function refreshProxyPool(isManual = false) {
 }
 
 function removeDeadProxy(proxyUrl) {
-  const index = PROXY_POOL.findIndex(p => p.url === proxyUrl);
-  if (index !== -1) {
-    const proxyObj = PROXY_POOL[index];
-    console.warn(`[aurora-provider] Removing dead proxy from pool: ${proxyUrl}`);
-    if (proxyObj.source && SOURCE_STATS[proxyObj.source]) {
-      SOURCE_STATS[proxyObj.source].failure++;
+  const oldProxy = PROXY_MAP.get(proxyUrl);
+  if (oldProxy) {
+    const index = findIndexBinary(PROXY_POOL, proxyUrl, oldProxy.latency);
+    if (index !== -1) {
+      const proxyObj = PROXY_POOL[index];
+      console.warn(`[aurora-provider] Removing dead proxy from pool: ${proxyUrl}`);
+      if (proxyObj.source && SOURCE_STATS[proxyObj.source]) {
+        SOURCE_STATS[proxyObj.source].failure++;
+      }
+      
+      PROXY_POOL.splice(index, 1);
+      if (proxyPoolIndex >= PROXY_POOL.length) {
+        proxyPoolIndex = 0;
+      }
+      if (PROXY_POOL.length === 0) {
+        proxyStatus = "No working proxies remaining. Using direct connection.";
+      } else {
+        proxyStatus = `Active (${PROXY_POOL.length} proxies)`;
+      }
+      
+      const PROXIES_MAX_LIMIT = 200;
+      if (PROXY_POOL.length < (PROXIES_MAX_LIMIT / 2) && !proxyStatus.startsWith("Scraping") && !proxyStatus.startsWith("Testing") && !proxyStatus.startsWith("Refreshing")) {
+        console.log(`[aurora-provider] Proxy pool decreased by > 50% (${PROXY_POOL.length} remaining). Replenishing in background...`);
+        refreshProxyPool(false, true).catch(err => {
+          console.error(`[aurora-provider] Auto-replenish failed: ${err.message}`);
+        });
+      }
     }
-    
-    PROXY_POOL.splice(index, 1);
-    if (proxyPoolIndex >= PROXY_POOL.length) {
-      proxyPoolIndex = 0;
-    }
-    if (PROXY_POOL.length === 0) {
-      proxyStatus = "No working proxies remaining. Using direct connection.";
-    } else {
-      proxyStatus = `Active (${PROXY_POOL.length} proxies)`;
-    }
-    
-    const PROXIES_MAX_LIMIT = 100;
-    if (PROXY_POOL.length < (PROXIES_MAX_LIMIT / 2) && !proxyStatus.startsWith("Scraping") && !proxyStatus.startsWith("Testing")) {
-      console.log(`[aurora-provider] Proxy pool decreased by > 50% (${PROXY_POOL.length} remaining). Replenishing in background...`);
-      refreshProxyPool().catch(err => {
-        console.error(`[aurora-provider] Auto-replenish failed: ${err.message}`);
-      });
-    }
+    PROXY_MAP.delete(proxyUrl);
   }
 }
 
@@ -1207,6 +1271,10 @@ app.post("/v1/chat/completions", async (req, res) => {
     console.log(`[aurora-provider] Server idle for ${Math.round(idleTime / 3600000)} hours. Force refreshing proxy pool...`);
     const beforePrune = PROXY_POOL.length;
     PROXY_POOL = PROXY_POOL.filter(p => p.latency <= PROXY_LATENCY_THRESHOLD);
+    PROXY_MAP.clear();
+    for (const p of PROXY_POOL) {
+      PROXY_MAP.set(p.url, p);
+    }
     console.log(`[aurora-provider] Synchronously pruned ${beforePrune - PROXY_POOL.length} slow proxies.`);
     refreshProxyPool().catch(err => {
       console.error(`[aurora-provider] Forced proxy refresh failed: ${err.message}`);
