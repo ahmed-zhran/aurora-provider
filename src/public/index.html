@@ -52,19 +52,6 @@
             </div>
           </div>
         </div>
-
-        <div class="stat-badge">
-          <span class="stat-label">Status</span>
-          <span class="stat-val text-success" id="server-status">Connecting...</span>
-        </div>
-        <div class="stat-badge">
-          <span class="stat-label">Uptime</span>
-          <span class="stat-val" id="server-uptime">0s</span>
-        </div>
-        <div class="stat-badge">
-          <span class="stat-label">Agents</span>
-          <span class="stat-val" id="server-agents-count">0</span>
-        </div>
       </div>
     </header>
 
@@ -449,6 +436,34 @@
 
       <!-- TAB 6: Live Logs -->
       <section id="tab-logs" class="tab-pane">
+        <!-- Server Info Bar -->
+        <div class="server-info-bar card glass" style="margin-bottom: 1rem; padding: 1rem 1.5rem;">
+          <div class="server-info-inner">
+            <div class="server-info-item">
+              <span class="server-info-label">Server Status</span>
+              <span class="server-info-val" id="server-status">
+                <span class="status-indicator" id="server-status-dot"></span>
+                <span id="server-status-text">Connecting...</span>
+              </span>
+            </div>
+            <div class="server-info-divider"></div>
+            <div class="server-info-item">
+              <span class="server-info-label">Server Uptime</span>
+              <span class="server-info-val" id="server-uptime">—</span>
+            </div>
+            <div class="server-info-divider"></div>
+            <div class="server-info-item">
+              <span class="server-info-label">Active Agents</span>
+              <span class="server-info-val" id="server-agents-count">—</span>
+            </div>
+            <div class="server-info-divider"></div>
+            <div class="server-info-item">
+              <span class="server-info-label">Proxy Pool</span>
+              <span class="server-info-val" id="logs-proxy-status">—</span>
+            </div>
+          </div>
+        </div>
+
         <div class="card glass log-card" style="margin-bottom: 0; min-height: 500px; display: flex; flex-direction: column;">
           <div class="card-header-actions" style="margin-bottom: 1rem;">
             <div>

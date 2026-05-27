@@ -35,10 +35,23 @@ function initTheme() {
   const btn = document.getElementById('theme-picker-btn');
   const dropdown = document.getElementById('theme-picker-dropdown');
 
+  function positionDropdown() {
+    const rect = btn.getBoundingClientRect();
+    dropdown.style.top  = (rect.bottom + 6) + 'px';
+    dropdown.style.right = (window.innerWidth - rect.right) + 'px';
+    dropdown.style.left = 'auto';
+  }
+
   // Toggle dropdown
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
-    dropdown.classList.toggle('open');
+    const isOpen = dropdown.classList.contains('open');
+    if (!isOpen) {
+      positionDropdown();
+      dropdown.classList.add('open');
+    } else {
+      dropdown.classList.remove('open');
+    }
   });
 
   // Close on outside click
@@ -88,10 +101,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Init theme picker
   initTheme();
 
-  // Restore persisted tab if present
-  const persistedTab = localStorage.getItem('activeTab');
+  // Restore persisted tab — use 'aurora-tab' key (resets stale 'activeTab' value)
+  const persistedTab = localStorage.getItem('aurora-tab');
   if (persistedTab && document.getElementById(persistedTab)) {
     activeTab = persistedTab;
+  } else {
+    activeTab = 'tab-dashboard';
   }
 
   initTabs();
@@ -153,7 +168,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Start status polling
   startStatusPolling();
-  startUptimeCounter();
   startProxyStatusPolling();
 });
 
@@ -196,7 +210,7 @@ function initTabs() {
       pane.classList.add('active');
       
       activeTab = targetTab;
-      localStorage.setItem('activeTab', activeTab);
+      localStorage.setItem('aurora-tab', activeTab);
       
       triggerTabLoad(activeTab);
     });
@@ -283,18 +297,16 @@ async function loadConfig() {
 
 // ─── Uptime & Health Polling ──────────────────────────────────────────────────
 
-function startUptimeCounter() {
-  const uptimeSpan = document.getElementById('server-uptime');
-  setInterval(() => {
-    const seconds = Math.floor((Date.now() - startTime) / 1000);
-    if (seconds < 60) {
-      uptimeSpan.textContent = `${seconds}s`;
-    } else if (seconds < 3600) {
-      uptimeSpan.textContent = `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-    } else {
-      uptimeSpan.textContent = `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
-    }
-  }, 1000);
+
+function formatUptime(seconds) {
+  const s = Math.floor(seconds);
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  if (h < 24) return `${h}h ${m}m`;
+  const d = Math.floor(h / 24);
+  return `${d}d ${h % 24}h ${m}m`;
 }
 
 function startStatusPolling() {
@@ -305,16 +317,30 @@ function startStatusPolling() {
 async function updateHealthStatus() {
   try {
     const res = await fetch('/status');
-    if (!res.ok) throw new Error("Offline");
+    if (!res.ok) throw new Error('Offline');
     const data = await res.json();
-    
-    document.getElementById('server-status').textContent = 'Online';
-    document.getElementById('server-status').className = 'stat-val text-success';
-    
+
+    // Update server info bar (Logs tab)
+    const dot = document.getElementById('server-status-dot');
+    const txt = document.getElementById('server-status-text');
+    const uptimeEl = document.getElementById('server-uptime');
+    const agentsEl = document.getElementById('server-agents-count');
+
+    if (dot) { dot.className = 'status-indicator online'; }
+    if (txt) { txt.textContent = 'Online'; txt.style.color = 'var(--color-success)'; }
+    if (uptimeEl) { uptimeEl.textContent = formatUptime(data.uptime); }
+    if (agentsEl) { agentsEl.textContent = Object.keys(config.agents).length + ' agents'; }
+
     renderHealthGrid(data.keyStates);
   } catch (err) {
-    document.getElementById('server-status').textContent = 'Offline';
-    document.getElementById('server-status').className = 'stat-val text-danger';
+    const dot = document.getElementById('server-status-dot');
+    const txt = document.getElementById('server-status-text');
+    const uptimeEl = document.getElementById('server-uptime');
+
+    if (dot) { dot.className = 'status-indicator offline'; }
+    if (txt) { txt.textContent = 'Offline / Crashed'; txt.style.color = 'var(--color-danger)'; }
+    if (uptimeEl) { uptimeEl.textContent = '—'; }
+
     renderHealthGrid({});
   }
 }
@@ -406,7 +432,9 @@ function renderHealthGrid(keyStates) {
 }
 
 function renderUIPool() {
-  document.getElementById('server-agents-count').textContent = Object.keys(config.agents).length;
+  // Agent count reflected in the logs tab server info bar (updated by health polling)
+  const agentsEl = document.getElementById('server-agents-count');
+  if (agentsEl) agentsEl.textContent = Object.keys(config.agents).length + ' agents';
 }
 
 // ─── API Tester ──────────────────────────────────────────────────────────────
@@ -776,39 +804,67 @@ function renderKeysTab() {
 
   Object.keys(config.providers).forEach(provKey => {
     const provider = config.providers[provKey];
-    
-    const box = document.createElement('div');
-    box.className = 'provider-keys-box';
+    const keys = config.keys[provKey] || [];
 
-    const title = document.createElement('h3');
-    title.textContent = provider.name;
-    box.appendChild(title);
+    // Outer accordion card
+    const card = document.createElement('div');
+    card.className = 'keys-accordion-card';
+    card.setAttribute('data-provider', provKey);
+
+    // Header row (always visible)
+    const header = document.createElement('div');
+    header.className = 'keys-accordion-header';
+    header.innerHTML = `
+      <div class="keys-acc-left">
+        <div class="keys-acc-dots">${keys.map((_, i) => {
+          // Use health state if available
+          return `<span class="key-dot available" title="Key ${i+1}"></span>`;
+        }).join('')}${keys.length === 0 ? '<span class="key-dot inactive" title="No keys"></span>' : ''}</div>
+        <div>
+          <span class="keys-acc-name">${provider.name || provKey}</span>
+          <span class="keys-acc-count">${keys.length} key${keys.length !== 1 ? 's' : ''}</span>
+        </div>
+      </div>
+      <div class="keys-acc-right">
+        <span class="keys-acc-chevron">▸</span>
+      </div>
+    `;
+
+    // Body (collapsible)
+    const body = document.createElement('div');
+    body.className = 'keys-accordion-body';
+    body.style.display = 'none';
 
     const list = document.createElement('div');
     list.className = 'keys-inputs-list';
     list.id = `keys-list-${provKey}`;
-    box.appendChild(list);
-
-    const keys = config.keys[provKey] || [];
+    body.appendChild(list);
 
     // Render existing keys
-    keys.forEach((keyVal, idx) => {
-      addKeyInputRow(provKey, keyVal, list);
-    });
+    keys.forEach(keyVal => addKeyInputRow(provKey, keyVal, list));
 
     // Add empty placeholder row if no keys
-    if (keys.length === 0) {
-      addKeyInputRow(provKey, '', list);
-    }
+    if (keys.length === 0) addKeyInputRow(provKey, '', list);
 
     // Add Key Button
     const addBtn = document.createElement('button');
-    addBtn.className = 'btn btn-secondary btn-sm mt-3 align-self-start';
-    addBtn.textContent = 'Add Key';
+    addBtn.className = 'btn btn-secondary btn-sm';
+    addBtn.style.marginTop = '0.75rem';
+    addBtn.textContent = '+ Add Key';
     addBtn.addEventListener('click', () => addKeyInputRow(provKey, '', list));
-    box.appendChild(addBtn);
+    body.appendChild(addBtn);
 
-    container.appendChild(box);
+    card.appendChild(header);
+    card.appendChild(body);
+    container.appendChild(card);
+
+    // Toggle expand/collapse
+    header.addEventListener('click', () => {
+      const isOpen = body.style.display !== 'none';
+      body.style.display = isOpen ? 'none' : 'block';
+      card.classList.toggle('expanded', !isOpen);
+      header.querySelector('.keys-acc-chevron').textContent = isOpen ? '▸' : '▾';
+    });
   });
 }
 
@@ -992,19 +1048,26 @@ async function loadUsageStats() {
     document.getElementById('stats-avg-latency').textContent = `${data.avgLatency}ms`;
     document.getElementById('stats-total-tokens').textContent = data.totalTokens ? data.totalTokens.toLocaleString() : '0';
 
-    // Populate Request Host filter dynamically
+    // Populate Request Host filter — exclude 'Dashboard' (internal testing marker)
     const hostSelect = document.getElementById('filter-host');
     const selectedHost = hostSelect.value;
     hostSelect.innerHTML = '<option value="">All Hosts</option>';
     if (data.uniqueHosts) {
-      data.uniqueHosts.forEach(h => {
-        const opt = document.createElement('option');
-        opt.value = h;
-        opt.textContent = h;
-        hostSelect.appendChild(opt);
-      });
+      data.uniqueHosts
+        .filter(h => h && h !== 'Dashboard')
+        .forEach(h => {
+          const opt = document.createElement('option');
+          opt.value = h;
+          opt.textContent = h;
+          hostSelect.appendChild(opt);
+        });
     }
     hostSelect.value = selectedHost;
+
+    // Disable host filter when source=Testing (they're the same scope)
+    const sourceVal = document.getElementById('filter-source').value;
+    hostSelect.disabled = sourceVal === 'Testing';
+    if (sourceVal === 'Testing') hostSelect.value = '';
 
     // Render paginated logs table
     renderUsageLogsTable(data.logs);
@@ -1467,21 +1530,37 @@ async function updateProxyStatus() {
   try {
     const data = await fetchJSON('/api/proxies');
     const statusVal = document.getElementById('proxy-pool-status');
-    statusVal.textContent = data.status;
+    if (statusVal) {
+      statusVal.textContent = data.status;
+      if (data.status.includes('Active')) {
+        statusVal.className = 'stat-val text-success';
+      } else if (data.status.includes('Scraping') || data.status.includes('Testing')) {
+        statusVal.className = 'stat-val text-warning';
+      } else {
+        statusVal.className = 'stat-val text-danger';
+      }
+    }
 
-    // Apply color class based on status
-    if (data.status.includes('Active')) {
-      statusVal.className = 'stat-val text-success';
-    } else if (data.status.includes('Scraping') || data.status.includes('Testing')) {
-      statusVal.className = 'stat-val text-warning';
-    } else {
-      statusVal.className = 'stat-val text-danger';
+    // Also update the logs tab proxy status
+    const logsProxy = document.getElementById('logs-proxy-status');
+    if (logsProxy) {
+      const poolCount = data.pool ? data.pool.length : 0;
+      logsProxy.textContent = data.status.includes('Active')
+        ? `${poolCount} proxies active`
+        : data.status;
+      logsProxy.style.color = data.status.includes('Active')
+        ? 'var(--color-success)'
+        : data.status.includes('Scraping') || data.status.includes('Testing')
+          ? 'var(--color-warning)'
+          : 'var(--color-danger)';
     }
 
     renderProxyTable(data.pool);
   } catch (err) {
-    document.getElementById('proxy-pool-status').textContent = 'Error';
-    document.getElementById('proxy-pool-status').className = 'stat-val text-danger';
+    const statusVal = document.getElementById('proxy-pool-status');
+    if (statusVal) { statusVal.textContent = 'Error'; statusVal.className = 'stat-val text-danger'; }
+    const logsProxy = document.getElementById('logs-proxy-status');
+    if (logsProxy) { logsProxy.textContent = 'Error'; logsProxy.style.color = 'var(--color-danger)'; }
   }
 }
 

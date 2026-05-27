@@ -1082,17 +1082,17 @@ body {
   border-color: var(--color-primary);
 }
 
+/* Fixed-position dropdown — escapes header stacking context */
 .theme-picker-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  position: fixed;
   background: var(--color-card-bg);
   border: 1px solid var(--color-card-border);
   border-radius: var(--border-radius-md);
   padding: 0.5rem;
   min-width: 180px;
-  z-index: 999;
+  z-index: 99999;
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   box-shadow: var(--shadow-premium);
   display: none;
   flex-direction: column;
@@ -1146,3 +1146,157 @@ body {
 body {
   transition: background-color 0.4s ease, color 0.4s ease;
 }
+
+/* ─── Server Info Bar (Logs Tab) ─── */
+.server-info-bar {
+  padding: 1rem 1.5rem !important;
+}
+
+.server-info-inner {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+}
+
+.server-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.25rem 1.5rem 0.25rem 0;
+  flex: 1;
+  min-width: 120px;
+}
+
+.server-info-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.server-info-val {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-main);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.server-info-divider {
+  width: 1px;
+  height: 36px;
+  background: var(--color-card-border);
+  margin: 0 1.5rem 0 0;
+  flex-shrink: 0;
+}
+
+/* Status indicator dot */
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--color-text-muted);
+  transition: background 0.3s ease;
+}
+
+.status-indicator.online {
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+  animation: pulse-online 2s infinite;
+}
+
+.status-indicator.offline {
+  background: var(--color-danger);
+  box-shadow: 0 0 6px var(--color-danger);
+}
+
+@keyframes pulse-online {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+/* ─── Keys Accordion ─── */
+.keys-accordion-card {
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--border-radius-md);
+  background: rgba(255,255,255,0.02);
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.keys-accordion-card.expanded {
+  border-color: var(--color-primary);
+}
+
+.keys-accordion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.1rem;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.18s ease;
+}
+
+.keys-accordion-header:hover {
+  background: rgba(255,255,255,0.04);
+}
+
+.keys-acc-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.keys-acc-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.keys-acc-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--color-text-main);
+}
+
+.keys-acc-count {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-left: 0.4rem;
+  padding: 2px 6px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 20px;
+}
+
+.keys-acc-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.keys-acc-chevron {
+  font-size: 1rem;
+  color: var(--color-text-muted);
+  transition: color 0.2s ease;
+}
+
+.keys-accordion-card.expanded .keys-acc-chevron {
+  color: var(--color-primary);
+}
+
+.keys-accordion-body {
+  padding: 0 1.1rem 1rem;
+  border-top: 1px solid var(--color-card-border);
+  animation: fadeInDown 0.15s ease;
+}
+
+.key-dot.inactive {
+  background: rgba(255,255,255,0.1);
+}
+
