@@ -1682,6 +1682,9 @@ function getCleanSourceName(urlStr) {
   if (!urlStr) return 'Unknown';
   try {
     const url = new URL(urlStr);
+    const page = url.searchParams.get('page');
+    const pageSuffix = page ? ` (Page ${page})` : '';
+
     if (url.hostname === 'raw.githubusercontent.com') {
       const parts = url.pathname.split('/');
       // pathname starts with '/' so parts[0] is empty. parts[1] is owner, parts[2] is repo, parts[3] is branch/ref.
@@ -1689,16 +1692,19 @@ function getCleanSourceName(urlStr) {
         const owner = parts[1];
         const repo = parts[2];
         const filename = parts[parts.length - 1];
-        return `${owner}/${repo}/${filename}`;
+        return `${owner}/${repo}/${filename}${pageSuffix}`;
       }
       const filename = parts.pop();
-      return filename || 'github-raw';
+      return (filename || 'github-raw') + pageSuffix;
     }
     let host = url.hostname;
     if (host.startsWith('api.')) {
       host = host.substring(4);
     }
-    return host || 'Unknown';
+    if (host.startsWith('proxylist.')) {
+      host = host.substring(10);
+    }
+    return (host || 'Unknown') + pageSuffix;
   } catch (e) {
     try {
       const filename = urlStr.split('/').pop().split('?')[0];
@@ -1715,14 +1721,17 @@ function renderSourceRankings(rankedBySuccess, rankedByLatency) {
 
   if (successTbody && rankedBySuccess) {
     successTbody.innerHTML = '';
-    rankedBySuccess.forEach(row => {
+    rankedBySuccess.forEach((row, idx) => {
       const tr = document.createElement('tr');
       tr.style.borderBottom = '1px solid var(--color-card-border)';
       
       const sourceName = getCleanSourceName(row.source);
 
       tr.innerHTML = `
-        <td style="padding: 6px; font-family: var(--font-mono); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${row.source}">${sourceName}</td>
+        <td style="padding: 6px; color: var(--color-text-muted); font-weight: 500; text-align: center;">${idx + 1}</td>
+        <td style="padding: 6px; font-family: var(--font-mono); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${row.source}">
+          <a href="${row.source}" target="_blank" style="color: var(--color-primary); text-decoration: none;" class="source-link">${sourceName}</a>
+        </td>
         <td style="padding: 6px; text-align: center; color: var(--color-success);">${row.success}</td>
         <td style="padding: 6px; text-align: center; color: var(--color-danger);">${row.failure}</td>
         <td style="padding: 6px; text-align: right; font-weight: 600;">${row.successRate}%</td>
@@ -1733,7 +1742,7 @@ function renderSourceRankings(rankedBySuccess, rankedByLatency) {
 
   if (latencyTbody && rankedByLatency) {
     latencyTbody.innerHTML = '';
-    rankedByLatency.forEach(row => {
+    rankedByLatency.forEach((row, idx) => {
       const tr = document.createElement('tr');
       tr.style.borderBottom = '1px solid var(--color-card-border)';
       
@@ -1741,7 +1750,10 @@ function renderSourceRankings(rankedBySuccess, rankedByLatency) {
       const avgSpeed = row.avgLatency > 0 ? `${row.avgLatency}ms` : '—';
 
       tr.innerHTML = `
-        <td style="padding: 6px; font-family: var(--font-mono); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${row.source}">${sourceName}</td>
+        <td style="padding: 6px; color: var(--color-text-muted); font-weight: 500; text-align: center;">${idx + 1}</td>
+        <td style="padding: 6px; font-family: var(--font-mono); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${row.source}">
+          <a href="${row.source}" target="_blank" style="color: var(--color-primary); text-decoration: none;" class="source-link">${sourceName}</a>
+        </td>
         <td style="padding: 6px; text-align: center;">${row.success}</td>
         <td style="padding: 6px; text-align: right; font-weight: 600; color: ${row.avgLatency > 0 ? 'var(--color-primary)' : 'var(--color-text-muted)'};">${avgSpeed}</td>
       `;

@@ -126,7 +126,32 @@ const PROXY_SOURCES = [
   "https://raw.githubusercontent.com/B4RC0D37/proxy-list/main/SOCKS5.txt",
   "https://raw.githubusercontent.com/officialputuid/socks5-list/master/socks5.txt",
   "https://raw.githubusercontent.com/MuRongPIG/Proxy-Master/main/socks5.txt",
-  "https://raw.githubusercontent.com/rdavydov/proxy-list/main/socks5.txt"
+  "https://raw.githubusercontent.com/rdavydov/proxy-list/main/socks5.txt",
+
+  // 20+ Researched Free Proxy Repositories (TXT feeds)
+  "https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/socks5/data.txt",
+  "https://raw.githubusercontent.com/proxygenerator1/ProxyGenerator/main/MostStable/socks5.txt",
+  "https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/socks5.txt",
+  "https://raw.githubusercontent.com/Ian-Lusule/Proxies/main/proxies/socks5.txt",
+  "https://raw.githubusercontent.com/zloi-user/hideip.me/main/socks5.txt",
+  "https://raw.githubusercontent.com/Tsprnay/Proxy-lists/master/proxies/socks5.txt",
+  "https://raw.githubusercontent.com/komutan234/Proxy-List-Free/main/proxies/socks5.txt",
+  "https://raw.githubusercontent.com/r00tee/Proxy-List/main/Socks5.txt",
+  "https://raw.githubusercontent.com/vmheaven/VMHeaven-Free-Proxy-Updated/main/socks5.txt",
+  "https://raw.githubusercontent.com/Thordata/awesome-free-proxy-list/main/proxies/socks5.txt",
+  "https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/socks5/socks5.txt",
+  "https://raw.githubusercontent.com/Zaeem20/Free-Proxy-List/master/socks5.txt",
+  "https://raw.githubusercontent.com/yem9a/Proxy-List/main/socks5.txt",
+  "https://raw.githubusercontent.com/vakhov/fresh-proxy-list/master/socks5.txt",
+  "https://raw.githubusercontent.com/mmpx12/proxy-list/master/socks5.txt",
+  "https://raw.githubusercontent.com/HyperBeast/ProxyList/master/socks5.txt",
+  "https://raw.githubusercontent.com/casals-ar/proxy-list/main/socks5.txt",
+  "https://raw.githubusercontent.com/UptimerBot/proxy-list/main/proxies/socks5.txt",
+  "https://raw.githubusercontent.com/prxchk/proxy-list/main/socks5.txt",
+  "https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/socks5.txt",
+
+  // 20 Pages of Geonode SOCKS5 Free API (JSON format)
+  ...Array.from({ length: 20 }, (_, i) => `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=${i + 1}&sort_by=lastChecked&sort_type=desc`)
 ];
 
 const SOURCE_STATS = {};
@@ -156,6 +181,28 @@ async function refreshProxyPool() {
       const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
+      
+      const trimmed = text.trim();
+      if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+        try {
+          const json = JSON.parse(trimmed);
+          const dataArray = Array.isArray(json) ? json : (json.data || json.proxies || []);
+          if (Array.isArray(dataArray)) {
+            for (const item of dataArray) {
+              if (item && item.ip && item.port) {
+                const proxyUrl = `socks5://${item.ip.trim()}:${item.port.toString().trim()}`;
+                if (!rawProxyToSource.has(proxyUrl)) {
+                  rawProxyToSource.set(proxyUrl, url);
+                }
+              }
+            }
+            return;
+          }
+        } catch (e) {
+          // Fall back to plain text parsing if JSON parse failed
+        }
+      }
+
       const lines = text.split("\n");
       for (let line of lines) {
         line = line.trim();
