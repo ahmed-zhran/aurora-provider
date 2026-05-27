@@ -249,6 +249,8 @@ function triggerTabLoad(tabName) {
     renderKeysTab();
   } else if (tabName === 'tab-providers') {
     renderProvidersTab();
+  } else if (tabName === 'tab-proxies') {
+    renderProxiesTab();
   }
 }
 
