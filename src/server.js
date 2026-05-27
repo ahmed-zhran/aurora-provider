@@ -109,7 +109,7 @@ try {
   if (existsSync(settingsPath)) {
     const s = JSON.parse(readFileSync(settingsPath, "utf8"));
     if (s.latencyThreshold !== undefined) {
-      PROXY_LATENCY_THRESHOLD = Number(s.latencyThreshold);
+      PROXY_LATENCY_THRESHOLD = Math.max(100, Number(s.latencyThreshold));
     }
   }
 } catch (e) {
@@ -816,7 +816,7 @@ app.get("/api/settings", (req, res) => {
 app.post("/api/settings", (req, res) => {
   try {
     const { latencyThreshold } = req.body;
-    if (typeof latencyThreshold === "number" && latencyThreshold > 0) {
+    if (typeof latencyThreshold === "number" && latencyThreshold >= 100) {
       PROXY_LATENCY_THRESHOLD = latencyThreshold;
       writeFileSync(join(VAULT_DIR, "settings.json"), JSON.stringify({ latencyThreshold }, null, 2), "utf8");
       res.json({ success: true });
