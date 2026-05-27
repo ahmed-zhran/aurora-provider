@@ -2,23 +2,6 @@
   "_comment": "Aurora-Provider agent definitions. Each agent has an ordered fallback chain: provider + model pairs sorted by context size → rate limit generosity → speed.",
   "_version": "1.0.0",
   "agents": {
-    "build": {
-      "_comment": "Orchestrator — delegates only, no direct file edits. Needs strong reasoning + large context.",
-      "fallbacks": [
-        {
-          "provider": "opencode_zen",
-          "model": "big-pickle",
-          "contextWindow": 200000,
-          "reasoning": true
-        },
-        {
-          "provider": "openrouter",
-          "model": "deepseek/deepseek-v4-flash:free",
-          "contextWindow": 1000000,
-          "reasoning": true
-        }
-      ]
-    },
     "coder": {
       "_comment": "Implementation — needs highest reasoning + large context for full codebase edits.",
       "fallbacks": [
@@ -36,7 +19,7 @@
         },
         {
           "provider": "openrouter",
-          "model": "deepseek/deepseek-v4-flash:free",
+          "model": "google/gemma-4-26b-a4b-it:free",
           "contextWindow": 1000000,
           "reasoning": true
         },
@@ -65,14 +48,14 @@
         },
         {
           "provider": "openrouter",
-          "model": "deepseek/deepseek-v4-flash:free",
+          "model": "google/gemma-4-26b-a4b-it:free",
           "contextWindow": 1000000,
           "reasoning": true
         },
         {
           "provider": "openrouter",
-          "model": "meta-llama/llama-4-maverick:free",
-          "contextWindow": 1000000,
+          "model": "meta-llama/llama-3.3-70b-instruct:free",
+          "contextWindow": 128000,
           "reasoning": false
         },
         {
@@ -100,8 +83,8 @@
         },
         {
           "provider": "openrouter",
-          "model": "qwen/qwen3-235b-a22b:free",
-          "contextWindow": 262000,
+          "model": "qwen/qwen3-coder:free",
+          "contextWindow": 128000,
           "reasoning": true
         },
         {
@@ -141,7 +124,7 @@
         },
         {
           "provider": "openrouter",
-          "model": "deepseek/deepseek-v4-flash:free",
+          "model": "google/gemma-4-26b-a4b-it:free",
           "contextWindow": 1000000,
           "reasoning": false
         },
@@ -176,8 +159,8 @@
         },
         {
           "provider": "openrouter",
-          "model": "moonshotai/kimi-k2.6:free",
-          "contextWindow": 262000,
+          "model": "google/gemma-4-26b-a4b-it:free",
+          "contextWindow": 1000000,
           "reasoning": true
         },
         {
@@ -211,14 +194,14 @@
         },
         {
           "provider": "openrouter",
-          "model": "moonshotai/kimi-k2.6:free",
-          "contextWindow": 262000,
+          "model": "google/gemma-4-26b-a4b-it:free",
+          "contextWindow": 1000000,
           "reasoning": true
         },
         {
           "provider": "openrouter",
-          "model": "deepseek/deepseek-v4-flash:free",
-          "contextWindow": 1000000,
+          "model": "qwen/qwen3-coder:free",
+          "contextWindow": 128000,
           "reasoning": true
         }
       ]
@@ -227,7 +210,24 @@
       "fallbacks": [
         {
           "provider": "openrouter",
-          "model": "deepseek/deepseek-v4-flash:free"
+          "model": "google/gemma-4-26b-a4b-it:free"
+        }
+      ]
+    },
+    "seolla-nyx-agent": {
+      "_comment": "Orchestrator — delegates only, no direct file edits. Needs strong reasoning + large context.",
+      "fallbacks": [
+        {
+          "provider": "opencode_zen",
+          "model": "big-pickle",
+          "contextWindow": 200000,
+          "reasoning": true
+        },
+        {
+          "provider": "openrouter",
+          "model": "google/gemma-4-26b-a4b-it:free",
+          "contextWindow": 1000000,
+          "reasoning": true
         }
       ]
     }

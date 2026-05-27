@@ -305,53 +305,84 @@ async function attemptRequest(providerName, modelId, body) {
 
   const payload = { ...body, model: modelId };
 
-  // Outbound routing: Prefer Proxy Pool first, then Outbound IP Rotation, then default connection
-  let dispatcher;
-  const proxyUrl = getNextProxy();
-  if (proxyUrl) {
-    console.log(`[aurora-provider] Routing request through proxy: ${proxyUrl}`);
-    dispatcher = new ProxyAgent(proxyUrl);
-  } else {
-    const ip = getNextIp();
-    dispatcher = getAgentForIp(ip);
-    if (ip) {
-      console.log(`[aurora-provider] Routing request through outbound IP: ${ip}`);
-    }
-  }
+  const maxProxyRetries = 3;
+  let attempts = 0;
 
-  try {
-    const res = await fetch(`${baseUrl}/chat/completions`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-      dispatcher,
-    });
-
-    if (res.status === 429) {
-      // Back-off: first failure = 60s, subsequent = scale up
-      const failures = (keyState[makeKeyId(providerName, keyEntry.keyIndex)]?.failures ?? 0) + 1;
-      const cooldown = Math.min(60_000 * failures, 900_000); // max 15 min
-      markKeyLimited(providerName, keyEntry.keyIndex, cooldown);
-      return { error: "RATE_LIMITED", providerName, modelId };
+  while (attempts <= maxProxyRetries) {
+    // Outbound routing: Prefer Proxy Pool first, then Outbound IP Rotation, then default connection
+    let dispatcher;
+    const proxyUrl = getNextProxy();
+    if (proxyUrl) {
+      console.log(`[aurora-provider] Routing request through proxy: ${proxyUrl} (attempt ${attempts + 1}/${maxProxyRetries + 1})`);
+      dispatcher = new ProxyAgent(proxyUrl);
+    } else {
+      const ip = getNextIp();
+      dispatcher = getAgentForIp(ip);
+      if (ip) {
+        console.log(`[aurora-provider] Routing request through outbound IP: ${ip}`);
+      }
     }
 
-    if (!res.ok) {
-      const text = await res.text();
-      console.error(`[aurora-provider] ${providerName}/${modelId} → HTTP ${res.status}: ${text}`);
-      if (proxyUrl && (res.status === 502 || res.status === 504 || res.status === 403)) {
+    try {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(payload),
+        dispatcher,
+      });
+
+      if (res.status === 429) {
+        // If we used a proxy, it might be the proxy's IP that is rate-limited, not the key itself.
+        if (proxyUrl && attempts < maxProxyRetries) {
+          console.warn(`[aurora-provider] Proxy ${proxyUrl} rate-limited (HTTP 429). Evicting proxy and retrying key ${keyEntry.keyIndex} with another route...`);
+          removeDeadProxy(proxyUrl);
+          attempts++;
+          continue;
+        }
+
+        // If we didn't use a proxy, or we exhausted all proxy retries, we assume the key itself is rate-limited.
+        if (proxyUrl) {
+          console.warn(`[aurora-provider] Exceeded proxy retries for rate limits. Evicting final proxy ${proxyUrl}.`);
+          removeDeadProxy(proxyUrl);
+        }
+        const failures = (keyState[makeKeyId(providerName, keyEntry.keyIndex)]?.failures ?? 0) + 1;
+        const cooldown = Math.min(60_000 * failures, 900_000); // max 15 min
+        markKeyLimited(providerName, keyEntry.keyIndex, cooldown);
+        return { error: "RATE_LIMITED", providerName, modelId };
+      }
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error(`[aurora-provider] ${providerName}/${modelId} → HTTP ${res.status}: ${text}`);
+        
+        if (proxyUrl && (res.status === 502 || res.status === 504 || res.status === 403)) {
+          if (attempts < maxProxyRetries) {
+            console.warn(`[aurora-provider] Proxy ${proxyUrl} failed with HTTP ${res.status}. Evicting proxy and retrying key ${keyEntry.keyIndex}...`);
+            removeDeadProxy(proxyUrl);
+            attempts++;
+            continue;
+          }
+          removeDeadProxy(proxyUrl);
+        }
+        return { error: "HTTP_ERROR", status: res.status, providerName, modelId };
+      }
+
+      // Stream passthrough: return raw Response for streaming
+      return { success: true, response: res, providerName, modelId };
+    } catch (err) {
+      console.error(`[aurora-provider] ${providerName}/${modelId} → Network error via proxy ${proxyUrl || "direct"}: ${err.message}`);
+      
+      if (proxyUrl) {
+        if (attempts < maxProxyRetries) {
+          console.warn(`[aurora-provider] Proxy ${proxyUrl} network error. Evicting proxy and retrying key ${keyEntry.keyIndex}...`);
+          removeDeadProxy(proxyUrl);
+          attempts++;
+          continue;
+        }
         removeDeadProxy(proxyUrl);
       }
-      return { error: "HTTP_ERROR", status: res.status, providerName, modelId };
+      return { error: "NETWORK_ERROR", providerName, modelId };
     }
-
-    // Stream passthrough: return raw Response for streaming
-    return { success: true, response: res, providerName, modelId };
-  } catch (err) {
-    console.error(`[aurora-provider] ${providerName}/${modelId} → Network error: ${err.message}`);
-    if (proxyUrl) {
-      removeDeadProxy(proxyUrl);
-    }
-    return { error: "NETWORK_ERROR", providerName, modelId };
   }
 }
 
