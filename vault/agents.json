@@ -231,7 +231,7 @@
         },
         {
           "provider": "google_ai_studio",
-          "model": "gemma-4-26b"
+          "model": "gemma-4-31b-it"
         }
       ]
     }

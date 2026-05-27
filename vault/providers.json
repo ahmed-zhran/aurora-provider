@@ -165,11 +165,11 @@
           "speed": "very_fast"
         },
         {
-          "id": "gemma-4-26b",
-          "alias": "gemma-4-26b",
-          "name": "Gemma 4 26B",
+          "id": "gemma-4-31b-it",
+          "alias": "gemma-4-31b-it",
+          "name": "Gemma 4 31B (Google)",
           "contextWindow": 1000000,
-          "maxOutput": 32768,
+          "maxOutput": 65536,
           "free": true,
           "permanent": true,
           "reasoning": true,
@@ -177,16 +177,16 @@
           "speed": "fast"
         },
         {
-          "id": "gemma-3-27b",
-          "alias": "gemma-3-27b",
-          "name": "Gemma 3 27B",
+          "id": "gemma-4-26b-a4b-it",
+          "alias": "gemma-4-26b-a4b-it",
+          "name": "Gemma 4 26B A4B (Google)",
           "contextWindow": 1000000,
-          "maxOutput": 32768,
+          "maxOutput": 65536,
           "free": true,
           "permanent": true,
           "reasoning": true,
           "coding": true,
-          "speed": "fast"
+          "speed": "very_fast"
         }
       ]
     },
