@@ -1304,4 +1304,9 @@ body {
   text-decoration: underline !important;
 }
 
+.proxy-table th,
+.proxy-table td {
+  white-space: nowrap;
+}
+
 

@@ -1750,12 +1750,7 @@ async function loadProxyRefreshHistory() {
       if (log.status === 'running') {
         tookTd.textContent = '—';
       } else {
-        const sec = log.running_time * 60;
-        if (sec < 60) {
-          tookTd.textContent = `${Math.round(sec)}s`;
-        } else {
-          tookTd.textContent = `${log.running_time.toFixed(1)}m`;
-        }
+        tookTd.textContent = `${log.running_time.toFixed(2)} min`;
       }
 
       // Harvested count column

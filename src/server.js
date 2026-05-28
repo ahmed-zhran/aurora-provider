@@ -120,6 +120,7 @@ let PROXY_POOL = []; // Array of { url, latency, source, successCount, failureCo
 const PROXY_MAP = new Map(); // Map of url -> proxyObj for O(1) lookup
 let proxyPoolIndex = 0;
 let proxyStatus = "Idle"; // "Scraping...", "Testing...", "Active"
+let isRefreshingProxyPool = false;
 
 let SERVER_PUBLIC_IP = "";
 
@@ -421,7 +422,7 @@ function insertIntoSortedPool(pool, proxyObj, maxLimit = 200) {
 // Scrape and test proxies sequentially source-by-source
 // Scrape and test proxies sequentially source-by-source
 async function refreshProxyPool(triggerCause = "replenishing", bypassCooldown = true) {
-  if (proxyStatus.startsWith("Scraping") || proxyStatus.startsWith("Testing") || proxyStatus.startsWith("Refreshing")) {
+  if (isRefreshingProxyPool) {
     console.log("[aurora-provider] Proxy refresh already in progress. Skipping.");
     return;
   }
@@ -435,6 +436,7 @@ async function refreshProxyPool(triggerCause = "replenishing", bypassCooldown = 
     lastAutoRefreshTime = Date.now();
   }
 
+  isRefreshingProxyPool = true;
   proxyStatus = "Refreshing proxy pool...";
   console.log(`[aurora-provider] ${proxyStatus} (Sequential harvesting + testing) [Cause: ${triggerCause}]`);
 
@@ -587,7 +589,7 @@ async function refreshProxyPool(triggerCause = "replenishing", bypassCooldown = 
                 };
 
                 insertIntoSortedPool(PROXY_POOL, proxyObj, 200);
-                proxyStatus = `Active (${PROXY_POOL.length} proxies)`;
+                proxyStatus = `Refreshing (${PROXY_POOL.length} proxies active)`;
                 
                 if (SOURCE_STATS[url]) {
                   SOURCE_STATS[url].success++;
@@ -627,6 +629,7 @@ async function refreshProxyPool(triggerCause = "replenishing", bypassCooldown = 
       }
     }
 
+    isRefreshingProxyPool = false;
     proxyStatus = `Active (${PROXY_POOL.length} proxies)`;
     console.log(`[aurora-provider] Refresh complete. Active pool size: ${PROXY_POOL.length} proxies. (Duration: ${durationMin.toFixed(2)} min, Harvested: ${totalHarvested}, Passed Anomality: ${totalPassedAnomality})`);
     
@@ -661,7 +664,7 @@ function removeDeadProxy(proxyUrl) {
       }
       
       const PROXIES_MAX_LIMIT = 200;
-      if (PROXY_POOL.length < (PROXIES_MAX_LIMIT / 2) && !proxyStatus.startsWith("Scraping") && !proxyStatus.startsWith("Testing") && !proxyStatus.startsWith("Refreshing")) {
+      if (PROXY_POOL.length < (PROXIES_MAX_LIMIT / 2) && !isRefreshingProxyPool) {
         console.log(`[aurora-provider] Proxy pool decreased by > 50% (${PROXY_POOL.length} remaining). Replenishing in background...`);
         refreshProxyPool("replenishing", true).catch(err => {
           console.error(`[aurora-provider] Auto-replenish failed: ${err.message}`);
