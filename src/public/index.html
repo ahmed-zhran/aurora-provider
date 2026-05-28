@@ -323,7 +323,7 @@
       <!-- TAB 5: Proxy Pool -->
       <section id="tab-proxies" class="tab-pane">
         <div class="grid-layout">
-          <!-- Left Column: Settings and Current Pool Status -->
+          <!-- Left Column: Settings and History -->
           <div class="grid-col-left">
             <div class="card glass">
               <h2>Proxy Configuration</h2>
@@ -335,29 +335,28 @@
                 </div>
                 <button class="btn btn-primary btn-sm mt-2" id="save-proxy-settings-btn" style="align-self: flex-start;">Save Threshold</button>
               </div>
-              <div class="proxy-pool-section mt-4" style="border-top: 1px solid var(--color-card-border); padding-top: 1.5rem;">
-                <div class="card-header-actions" style="margin-bottom: 1rem;">
-                  <h3>Active Pool Status</h3>
-                  <button class="btn btn-secondary btn-sm" id="refresh-proxies-btn">Refresh Proxies</button>
-                </div>
-                <div class="stat-badge flex-row" style="justify-content: space-between; display: flex; margin-bottom: 1rem;">
-                  <span class="stat-label">Status:</span>
-                  <span class="stat-val text-warning" id="proxy-pool-status">Idle</span>
-                </div>
-                <div class="proxy-list-container" style="max-height: 300px; overflow-y: auto;">
-                  <table class="proxy-table" style="width:100%; border-collapse:collapse; font-size:0.8rem; text-align:left;">
-                    <thead>
-                      <tr style="border-bottom:1px solid var(--color-card-border); color:var(--color-text-muted);">
-                        <th style="padding:6px 8px;">Proxy URL</th>
-                        <th style="padding:6px 8px; text-align:right;">Speed</th>
-                        <th style="padding:6px 8px; text-align:center;">Stats (Ok/Fail)</th>
-                      </tr>
-                    </thead>
-                    <tbody id="proxy-pool-table-body">
-                      <!-- Populated dynamically -->
-                    </tbody>
-                  </table>
-                </div>
+            </div>
+
+            <div class="card glass mt-4">
+              <h2>Refresh History</h2>
+              <p class="description">Operations logs for SOCKS5 proxy crawler refreshes.</p>
+              <div class="table-container" style="overflow-x: auto; max-height: 380px; margin-top: 1rem;">
+                <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.72rem; text-align: left;">
+                  <thead>
+                    <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
+                      <th style="padding: 6px 4px;">Cause</th>
+                      <th style="padding: 6px 4px;">Triggered</th>
+                      <th style="padding: 6px 4px; text-align: center;">Before</th>
+                      <th style="padding: 6px 4px; text-align: center;">Status</th>
+                      <th style="padding: 6px 4px; text-align: right;">Took</th>
+                      <th style="padding: 6px 4px; text-align: center;">Scraped</th>
+                      <th style="padding: 6px 4px; text-align: center;">Passed</th>
+                    </tr>
+                  </thead>
+                  <tbody id="proxy-refresh-history-tbody">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -407,6 +406,32 @@
                     </table>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div class="card glass mt-4" style="margin-top: 1.5rem;">
+              <div class="card-header-actions" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                <h2>Active Pool Status</h2>
+                <button class="btn btn-secondary btn-sm" id="refresh-proxies-btn">Refresh Proxies</button>
+              </div>
+              <div class="stat-badge flex-row" style="justify-content: space-between; display: flex; margin-bottom: 1rem; max-width: 200px;">
+                <span class="stat-label">Status:</span>
+                <span class="stat-val text-warning" id="proxy-pool-status">Idle</span>
+              </div>
+              <div class="table-container" style="overflow-x: auto; max-height: 400px; margin-top: 1rem;">
+                <table class="proxy-table" style="width:100%; border-collapse:collapse; font-size:0.8rem; text-align:left;">
+                  <thead>
+                    <tr style="border-bottom:1px solid var(--color-card-border); color:var(--color-text-muted);">
+                      <th style="padding:6px 8px; width: 40px;">#</th>
+                      <th style="padding:6px 8px;">Proxy URL</th>
+                      <th style="padding:6px 8px;">Source URL</th>
+                      <th style="padding:6px 8px; text-align:right;">Latency</th>
+                    </tr>
+                  </thead>
+                  <tbody id="proxy-pool-table-body">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

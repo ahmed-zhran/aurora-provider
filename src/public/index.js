@@ -1586,6 +1586,7 @@ async function updateProxyStatus() {
 
     renderProxyTable(data.pool);
     renderSourceRankings(data.rankedBySuccess, data.rankedByLatency);
+    loadProxyRefreshHistory();
   } catch (err) {
     const statusVal = document.getElementById('proxy-pool-status');
     if (statusVal) { statusVal.textContent = 'Error'; statusVal.className = 'stat-val text-danger'; }
@@ -1599,24 +1600,44 @@ function renderProxyTable(pool) {
   tbody.innerHTML = '';
 
   if (!pool || pool.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="2" class="text-muted" style="padding:1rem; text-align:center;">No active proxies. Direct connections will be used.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="text-muted" style="padding:1rem; text-align:center;">No active proxies. Direct connections will be used.</td></tr>';
     return;
   }
 
-  pool.forEach(proxy => {
+  pool.forEach((proxy, idx) => {
     const tr = document.createElement('tr');
     tr.style.borderBottom = '1px solid var(--color-card-border)';
 
+    // Index column
+    const indexTd = document.createElement('td');
+    indexTd.style.padding = '6px 8px';
+    indexTd.style.color = 'var(--color-text-muted)';
+    indexTd.textContent = idx + 1;
+
+    // Proxy URL column
     const urlTd = document.createElement('td');
     urlTd.style.padding = '6px 8px';
     urlTd.style.fontFamily = 'var(--font-mono)';
     urlTd.textContent = proxy.url;
 
+    // Source URL column (clickable clean name)
+    const sourceTd = document.createElement('td');
+    sourceTd.style.padding = '6px 8px';
+    const sourceLink = document.createElement('a');
+    sourceLink.href = proxy.source;
+    sourceLink.target = '_blank';
+    sourceLink.style.color = 'var(--color-primary)';
+    sourceLink.style.textDecoration = 'none';
+    sourceLink.style.fontWeight = '500';
+    sourceLink.textContent = getCleanSourceName(proxy.source);
+    sourceLink.title = proxy.source;
+    sourceTd.appendChild(sourceLink);
+
+    // Latency speed column
     const speedTd = document.createElement('td');
     speedTd.style.padding = '6px 8px';
     speedTd.style.textAlign = 'right';
     
-    // Format speed color based on latency
     const span = document.createElement('span');
     span.textContent = `${proxy.latency}ms`;
     if (proxy.latency < 500) {
@@ -1628,10 +1649,140 @@ function renderProxyTable(pool) {
     }
     
     speedTd.appendChild(span);
+    tr.appendChild(indexTd);
     tr.appendChild(urlTd);
+    tr.appendChild(sourceTd);
     tr.appendChild(speedTd);
     tbody.appendChild(tr);
   });
+}
+
+async function loadProxyRefreshHistory() {
+  const tbody = document.getElementById('proxy-refresh-history-tbody');
+  if (!tbody) return;
+
+  try {
+    const data = await fetchJSON('/api/proxies/refresh-history');
+    if (!data.success) throw new Error(data.error || 'Unknown error');
+
+    tbody.innerHTML = '';
+    if (!data.logs || data.logs.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="text-muted" style="padding:1rem; text-align:center;">No history available.</td></tr>';
+      return;
+    }
+
+    data.logs.forEach(log => {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid var(--color-card-border)';
+
+      // Cause column
+      const causeTd = document.createElement('td');
+      causeTd.style.padding = '6px 4px';
+      
+      let badgeStyle = '';
+      if (log.trigger_cause === 'replenishing') {
+        badgeStyle = 'background: rgba(59, 130, 246, 0.12); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.25);';
+      } else if (log.trigger_cause === 'onstart_server') {
+        badgeStyle = 'background: rgba(139, 92, 246, 0.12); color: #a78bfa; border: 1px solid rgba(139, 92, 246, 0.25);';
+      } else if (log.trigger_cause === 'user_triggered') {
+        badgeStyle = 'background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25);';
+      }
+      
+      const badge = document.createElement('span');
+      badge.style.cssText = badgeStyle + ' padding: 2px 4px; border-radius: 4px; font-weight: 500; font-size: 0.65rem;';
+      badge.textContent = log.trigger_cause;
+      causeTd.appendChild(badge);
+
+      // Triggered time column
+      const timeTd = document.createElement('td');
+      timeTd.style.padding = '6px 4px';
+      let displayTime = '';
+      try {
+        const d = new Date(log.triggered_time);
+        displayTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      } catch (e) {
+        displayTime = log.triggered_time;
+      }
+      timeTd.textContent = displayTime;
+      timeTd.title = log.triggered_time;
+
+      // Active before column
+      const beforeTd = document.createElement('td');
+      beforeTd.style.padding = '6px 4px';
+      beforeTd.style.textAlign = 'center';
+      beforeTd.textContent = log.active_before;
+
+      // Status column
+      const statusTd = document.createElement('td');
+      statusTd.style.padding = '6px 4px';
+      statusTd.style.textAlign = 'center';
+      
+      const statusSpan = document.createElement('span');
+      if (log.status === 'running') {
+        statusSpan.className = 'text-warning';
+        statusSpan.style.display = 'inline-flex';
+        statusSpan.style.alignItems = 'center';
+        statusSpan.style.gap = '4px';
+        
+        const dot = document.createElement('span');
+        dot.className = 'status-indicator online';
+        dot.style.background = 'var(--color-warning)';
+        dot.style.boxShadow = '0 0 6px var(--color-warning)';
+        statusSpan.appendChild(dot);
+        statusSpan.appendChild(document.createTextNode('running'));
+      } else {
+        statusSpan.className = 'text-success';
+        statusSpan.style.display = 'inline-flex';
+        statusSpan.style.alignItems = 'center';
+        statusSpan.style.gap = '4px';
+        
+        const dot = document.createElement('span');
+        dot.className = 'status-indicator online';
+        statusSpan.appendChild(dot);
+        statusSpan.appendChild(document.createTextNode('done'));
+      }
+      statusTd.appendChild(statusSpan);
+
+      // Running time (Duration)
+      const tookTd = document.createElement('td');
+      tookTd.style.padding = '6px 4px';
+      tookTd.style.textAlign = 'right';
+      if (log.status === 'running') {
+        tookTd.textContent = '—';
+      } else {
+        const sec = log.running_time * 60;
+        if (sec < 60) {
+          tookTd.textContent = `${Math.round(sec)}s`;
+        } else {
+          tookTd.textContent = `${log.running_time.toFixed(1)}m`;
+        }
+      }
+
+      // Harvested count column
+      const scrapedTd = document.createElement('td');
+      scrapedTd.style.padding = '6px 4px';
+      scrapedTd.style.textAlign = 'center';
+      scrapedTd.textContent = log.status === 'running' ? '—' : (log.harvested_count ?? 0);
+
+      // Passed count column
+      const passedTd = document.createElement('td');
+      passedTd.style.padding = '6px 4px';
+      passedTd.style.textAlign = 'center';
+      passedTd.textContent = log.status === 'running' ? '—' : (log.passed_anomality_stage_count ?? 0);
+
+      tr.appendChild(causeTd);
+      tr.appendChild(timeTd);
+      tr.appendChild(beforeTd);
+      tr.appendChild(statusTd);
+      tr.appendChild(tookTd);
+      tr.appendChild(scrapedTd);
+      tr.appendChild(passedTd);
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    console.error('Failed to load proxy refresh history:', err);
+    tbody.innerHTML = `<tr><td colspan="7" class="text-danger" style="padding:1rem; text-align:center;">Failed to load history: ${err.message}</td></tr>`;
+  }
 }
 
 async function triggerProxyRefresh() {
@@ -1662,6 +1813,7 @@ async function renderProxiesTab() {
       slider.value = data.latencyThreshold;
       sliderVal.textContent = data.latencyThreshold + 'ms';
     }
+    loadProxyRefreshHistory();
   } catch (err) {
     console.error("Failed to load proxy settings:", err);
   }
