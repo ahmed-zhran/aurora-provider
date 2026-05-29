@@ -600,6 +600,49 @@
         }
       });
 
+      // Handle internal markdown links gracefully without reloading or 404s
+      docViewport.addEventListener('click', (e) => {
+        const link = e.target.closest('a');
+        if (link) {
+          const href = link.getAttribute('href');
+          if (href) {
+            // Handle links back to the main repository README
+            if (href.includes('README.md')) {
+              e.preventDefault();
+              window.location.href = 'https://github.com/ahmed-zhran/aurora-provider#readme';
+              return;
+            }
+            
+            // Handle links to other documentation pages (e.g. dashboard.md)
+            if (href.includes('.md')) {
+              e.preventDefault();
+              // Split out any hash like dashboard.md#api-keys
+              const [pathPart, hashPart] = href.split('#');
+              const docKey = pathPart.replace('.md', '').replace('./', '');
+              
+              if (window.AURORA_DOCS && window.AURORA_DOCS[docKey]) {
+                // Find corresponding nav button to trigger the same logic
+                const targetBtn = Array.from(navBtns).find(b => b.getAttribute('data-tab') === docKey);
+                
+                if (targetBtn) {
+                  targetBtn.click(); // Triggers the existing logic and changes URL hash
+                  
+                  // If there was a hash in the link, scroll to it after rendering
+                  if (hashPart) {
+                    setTimeout(() => {
+                      const targetEl = document.getElementById(hashPart);
+                      if (targetEl) {
+                        targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }
+                    }, 50); // slight delay to allow markdown render to finish
+                  }
+                }
+              }
+            }
+          }
+        }
+      });
+
       // Handle direct link load via hash or default
       const initialHash = window.location.hash.substring(1);
       if (initialHash && window.AURORA_DOCS[initialHash]) {
