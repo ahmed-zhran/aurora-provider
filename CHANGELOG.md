@@ -12,11 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Features
 - **OpenAI-compatible API server** — drop-in replacement for any OpenAI client
 - **Two-layer fallback system** — key rotation (Layer 1) + provider failover (Layer 2)
-- **11+ free LLM providers** — Google AI Studio, Groq, Cloudflare Workers AI, OpenRouter, Zhipu, Kimi, Cerebras, NVIDIA NIM, GitHub Models, LLM7.io, OpenCode Zen
+- **10+ free LLM providers** — Google AI Studio, Groq, Cloudflare Workers AI, OpenRouter, Zhipu, Kimi, Cerebras, NVIDIA NIM, GitHub Models, OpenCode Zen
 - **Full analytics dashboard** with 6 tabs:
   - Dashboard (KPIs, charts, usage logs)
-  - API Tester (test any agent from browser)
-  - Agents Config (drag-and-drop fallback chain editor)
+  - API Tester (test any aura from browser)
+  - Aura Hub (drag-and-drop fallback chain editor)
   - API Keys & Health (live key status with cooldown timers)
   - Proxy Pool (SOCKS5 proxy management with source rankings)
   - Live Logs (real-time SSE terminal)
@@ -26,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Intelligent rate limit handling** — exponential backoff with background health probes every 15 minutes
 - **SQLite usage tracking** — persistent logging of all requests with full analytics
 - **Streaming support** — full SSE passthrough for streaming responses
-- **Agent-based routing** — 7 pre-configured agents (plan, build, coder, explore, researcher, scribe, reviewer)
+- **Aura-based routing** — Exposes pre-configured fallback models (plan, build, coder, explore, researcher, scribe, reviewer)
 - **Zero-config providers** — unconfigured providers are automatically skipped in fallback chains
 
 #### Infrastructure

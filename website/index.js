@@ -1,0 +1,360 @@
+document.addEventListener('DOMContentLoaded', () => {
+
+  // ─── 1. Quickstart Tab Switcher ───────────────────────────────────────────
+  const tabs = document.querySelectorAll('.selector-tab');
+  const panes = document.querySelectorAll('.code-pane');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      // Remove active from all tabs & panes
+      tabs.forEach(t => t.classList.remove('active'));
+      panes.forEach(p => p.classList.remove('active'));
+
+      // Add active to current
+      tab.classList.add('active');
+      const targetId = tab.getAttribute('data-tab');
+      document.getElementById(targetId).classList.add('active');
+    });
+  });
+
+  // ─── 2. Interactive Fallback Visualizer ────────────────────────────────────
+  const auraSelect = document.getElementById('viz-aura-select');
+  const sendBtn = document.getElementById('viz-send-btn');
+  const chainContainer = document.getElementById('chain-nodes-container');
+  const consoleBody = document.getElementById('viz-console-body');
+  
+  // Elements for status
+  const statRoute = document.getElementById('viz-stat-route');
+  const statLatency = document.getElementById('viz-stat-latency');
+  const shieldOverlay = document.getElementById('proxy-shield-overlay');
+  const shieldIp = document.getElementById('shield-ip');
+
+  // Node Elements
+  const clientNode = document.getElementById('node-client');
+  const routerNode = document.getElementById('node-router');
+
+  // Simulated Proxy IPs
+  const PROXIES = [
+    '45.8.98.142:30010',
+    '185.220.101.5:8080',
+    '78.47.16.122:1080',
+    '198.23.250.28:1085',
+    '95.216.147.202:9050'
+  ];
+
+  // Visualizer configs
+  const AURA_CONFIGS = {
+    coder: [
+      { id: 'v-node-1', provider: 'OpenAI', model: 'gpt-4o', key: 'Key [0]', status: 'Rate Limited (HTTP 429)', type: 'error' },
+      { id: 'v-node-2', provider: 'Anthropic', model: 'claude-3-5-sonnet', key: 'Key [1]', status: 'Success (Masked)', type: 'success', latency: '420ms', response: '// Go fast Fibonacci\nfunc Fib(n int) int {\n  if n <= 1 { return n }\n  a, b := 0, 1\n  for i := 2; i <= n; i++ {\n    a, b = b, a+b\n  }\n  return b\n}' },
+      { id: 'v-node-3', provider: 'Groq', model: 'llama3-70b', key: 'Key [0]', status: 'Not reached', type: 'idle' }
+    ],
+    writer: [
+      { id: 'v-node-1', provider: 'Gemini', model: 'gemini-1.5-pro', key: 'Key [0]', status: 'Expired Key', type: 'error' },
+      { id: 'v-node-2', provider: 'OpenAI', model: 'gpt-4o', key: 'Key [1]', status: 'Success (Masked)', type: 'success', latency: '580ms', response: 'The neon sky over Cairo bled purple as the Aurora Router initialized. "We are online," the console blinked. Ahmed typed rapidly, watching the packets flow...' }
+    ]
+  };
+
+  // Render nodes for active option
+  function renderAuraNodes() {
+    const selected = auraSelect.value;
+    const steps = AURA_CONFIGS[selected];
+    chainContainer.innerHTML = '';
+
+    steps.forEach((step, idx) => {
+      const stepDiv = document.createElement('div');
+      stepDiv.className = 'chain-node';
+      stepDiv.id = step.id;
+      
+      const badge = document.createElement('span');
+      badge.className = 'chain-badge';
+      badge.textContent = `STEP ${idx + 1}: ${step.provider}`;
+      
+      const name = document.createElement('span');
+      name.textContent = step.model;
+      
+      stepDiv.appendChild(badge);
+      stepDiv.appendChild(name);
+      chainContainer.appendChild(stepDiv);
+    });
+  }
+
+  // Monitor select box change
+  auraSelect.addEventListener('change', renderAuraNodes);
+  renderAuraNodes(); // Initial run
+
+  // Logging helpers
+  function clearConsole() {
+    consoleBody.innerHTML = '';
+  }
+
+  function addConsoleLine(text, className = '') {
+    const line = document.createElement('div');
+    line.className = `console-line ${className}`;
+    line.textContent = `> ${text}`;
+    consoleBody.appendChild(line);
+    consoleBody.scrollTop = consoleBody.scrollHeight;
+  }
+
+  async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // Animation timeline
+  let isRunning = false;
+  sendBtn.addEventListener('click', async () => {
+    if (isRunning) return;
+    isRunning = true;
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'Running Trace...';
+
+    const selected = auraSelect.value;
+    const steps = AURA_CONFIGS[selected];
+    const proxyIp = PROXIES[Math.floor(Math.random() * PROXIES.length)];
+
+    // Reset UI
+    clearConsole();
+    shieldOverlay.classList.remove('active');
+    statRoute.textContent = '-';
+    statLatency.textContent = '-';
+    clientNode.className = 'node node-client active';
+    routerNode.className = 'node node-router';
+    document.querySelectorAll('.chain-node').forEach(node => {
+      node.className = 'chain-node';
+    });
+
+    // 1. Client sends request
+    addConsoleLine('Incoming request to /v1/chat/completions', 'text-success');
+    clientNode.className = 'node node-client success';
+    await sleep(600);
+
+    // 2. Router picks up request
+    addConsoleLine(`Model header: "aurora-provider/${selected}". Resolving Aura fallback chain...`);
+    routerNode.className = 'node node-router loading';
+    routerNode.querySelector('.node-status').textContent = 'Routing...';
+    await sleep(800);
+
+    // 3. Trying Step 1
+    const step1 = steps[0];
+    const node1El = document.getElementById(step1.id);
+    addConsoleLine(`[Attempt 1] Routing via ${step1.provider} / ${step1.model} using key: ${step1.key}...`);
+    node1El.className = 'chain-node loading';
+    await sleep(1000);
+
+    // 4. Step 1 Fails
+    node1El.className = 'chain-node failed';
+    addConsoleLine(`[Attempt 1] Provider returned: ${step1.status}`, 'text-danger');
+    addConsoleLine(`Temporarily cooling down ${step1.provider} key. Rotating fallback...`, 'text-warning');
+    await sleep(800);
+
+    // 5. Trying Step 2
+    const step2 = steps[1];
+    const node2El = document.getElementById(step2.id);
+    addConsoleLine(`[Attempt 2] Rotating to ${step2.provider} / ${step2.model} using key: ${step2.key}...`);
+    node2El.className = 'chain-node loading';
+    await sleep(800);
+
+    // 6. Shield triggers
+    addConsoleLine('[Proxy Pool] Masking request IP: Harvesting and assigning active SOCKS5 route...', 'text-cyan');
+    shieldIp.textContent = proxyIp;
+    shieldOverlay.classList.add('active');
+    await sleep(1000);
+
+    // 7. Request succeeds via Proxy
+    shieldOverlay.classList.remove('active');
+    node2El.className = 'chain-node success';
+    routerNode.className = 'node node-router success';
+    routerNode.querySelector('.node-status').textContent = 'Completed';
+    addConsoleLine(`[Attempt 2] Successful connection established via SOCKS5 proxy: ${proxyIp}`, 'text-success');
+    
+    // Type response out
+    addConsoleLine('Streaming response payload:', 'text-success');
+    const responseText = step2.response;
+    const responseDiv = document.createElement('div');
+    responseDiv.className = 'console-line text-success font-mono mt-2';
+    responseDiv.style.whiteSpace = 'pre-wrap';
+    responseDiv.style.borderLeft = '2px solid var(--color-success)';
+    responseDiv.style.paddingLeft = '0.75rem';
+    consoleBody.appendChild(responseDiv);
+
+    // Simulate typing stream
+    let curIndex = 0;
+    const typeSpeed = selected === 'coder' ? 10 : 25;
+    while (curIndex < responseText.length) {
+      responseDiv.textContent += responseText[curIndex];
+      curIndex++;
+      consoleBody.scrollTop = consoleBody.scrollHeight;
+      await sleep(typeSpeed);
+    }
+    
+    // Update stats
+    statRoute.textContent = `${step2.provider} (via Proxy)`;
+    statLatency.textContent = step2.latency;
+
+    addConsoleLine(`Trace completed. Cleaned up connection socket. Status: 200 OK`, 'text-muted');
+
+    isRunning = false;
+    sendBtn.disabled = false;
+    sendBtn.textContent = 'Send Request';
+  });
+
+  // ─── 3. Aura Config Builder ──────────────────────────────────────────────
+  const auraNameInput = document.getElementById('builder-aura-name');
+  const stepsList = document.getElementById('fallback-steps-list');
+  const addStepBtn = document.getElementById('builder-add-step-btn');
+  const saveBtn = document.getElementById('builder-save-btn');
+  const copyBtn = document.getElementById('builder-copy-btn');
+  const codePreview = document.getElementById('builder-code-preview');
+
+  // Available options
+  const PROVIDER_OPTIONS = [
+    { value: 'openai', name: 'OpenAI' },
+    { value: 'anthropic', name: 'Anthropic' },
+    { value: 'gemini', name: 'Google Gemini' },
+    { value: 'groq', name: 'Groq' },
+    { value: 'openrouter', name: 'OpenRouter' },
+    { value: 'cloudflare_workers_ai', name: 'Cloudflare AI' }
+  ];
+
+  // Default steps
+  let builderSteps = [
+    { provider: 'openai', model: 'gpt-4o' },
+    { provider: 'anthropic', model: 'claude-3-5-sonnet' }
+  ];
+
+  function renderBuilderSteps() {
+    stepsList.innerHTML = '';
+    
+    builderSteps.forEach((step, index) => {
+      const stepDiv = document.createElement('div');
+      stepDiv.className = 'fallback-step-item';
+      
+      const numSpan = document.createElement('span');
+      numSpan.className = 'step-num';
+      numSpan.textContent = index + 1;
+      
+      // Select provider
+      const providerSelect = document.createElement('select');
+      PROVIDER_OPTIONS.forEach(opt => {
+        const o = document.createElement('option');
+        o.value = opt.value;
+        o.textContent = opt.name;
+        if (opt.value === step.provider) o.selected = true;
+        providerSelect.appendChild(o);
+      });
+      
+      providerSelect.addEventListener('change', (e) => {
+        builderSteps[index].provider = e.target.value;
+        // Suggest default model
+        if (e.target.value === 'openai') builderSteps[index].model = 'gpt-4o';
+        else if (e.target.value === 'anthropic') builderSteps[index].model = 'claude-3-5-sonnet';
+        else if (e.target.value === 'gemini') builderSteps[index].model = 'gemini-1.5-pro';
+        else if (e.target.value === 'groq') builderSteps[index].model = 'llama3-70b';
+        else if (e.target.value === 'cloudflare_workers_ai') builderSteps[index].model = '@cf/meta/llama-3-8b';
+        else builderSteps[index].model = 'model-id';
+        
+        renderBuilderSteps();
+        updateConfigPreview();
+      });
+
+      // Model input
+      const modelInput = document.createElement('input');
+      modelInput.type = 'text';
+      modelInput.value = step.model;
+      modelInput.placeholder = 'model-id';
+      modelInput.addEventListener('input', (e) => {
+        builderSteps[index].model = e.target.value;
+        updateConfigPreview();
+      });
+
+      // Remove button
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'btn-remove-step';
+      removeBtn.innerHTML = '×';
+      removeBtn.title = 'Remove fallback step';
+      removeBtn.addEventListener('click', () => {
+        if (builderSteps.length <= 1) {
+          alert('You must have at least one fallback step in your chain!');
+          return;
+        }
+        builderSteps.splice(index, 1);
+        renderBuilderSteps();
+        updateConfigPreview();
+      });
+
+      stepDiv.appendChild(numSpan);
+      stepDiv.appendChild(providerSelect);
+      stepDiv.appendChild(modelInput);
+      stepDiv.appendChild(removeBtn);
+      stepsList.appendChild(stepDiv);
+    });
+
+    updateConfigPreview();
+  }
+
+  // Update real-time preview
+  function updateConfigPreview() {
+    const auraName = auraNameInput.value.trim().toLowerCase() || 'scribe';
+    const config = {
+      auras: {
+        [auraName]: {
+          fallbacks: builderSteps.map(step => ({
+            provider: step.provider,
+            model: step.model
+          }))
+        }
+      }
+    };
+    codePreview.textContent = JSON.stringify(config, null, 2);
+  }
+
+  // Monitor name change
+  auraNameInput.addEventListener('input', updateConfigPreview);
+
+  // Add step button
+  addStepBtn.addEventListener('click', () => {
+    builderSteps.push({ provider: 'openai', model: 'gpt-4o' });
+    renderBuilderSteps();
+  });
+
+  // Copy to clipboard
+  copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(codePreview.textContent)
+      .then(() => {
+        const originalText = copyBtn.textContent;
+        copyBtn.textContent = 'Copied!';
+        copyBtn.style.background = 'var(--color-primary-glow)';
+        copyBtn.style.color = 'var(--color-primary)';
+        setTimeout(() => {
+          copyBtn.textContent = originalText;
+          copyBtn.style.background = '';
+          copyBtn.style.color = '';
+        }, 1500);
+      })
+      .catch(err => {
+        alert('Failed to copy config: ' + err.message);
+      });
+  });
+
+  // Save config / download auras.json
+  saveBtn.addEventListener('click', () => {
+    const auraName = auraNameInput.value.trim().toLowerCase() || 'scribe';
+    const configContent = codePreview.textContent;
+    
+    const blob = new Blob([configContent], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${auraName}_aura.json`;
+    document.body.appendChild(a);
+    a.click();
+    
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  // Init builder
+  renderBuilderSteps();
+
+});

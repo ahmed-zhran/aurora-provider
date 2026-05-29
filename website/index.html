@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aurora-Provider — The Smart, Resilient LLM Router</title>
+  <meta name="description" content="A self-hosted, OpenAI-compatible LLM router and API gateway with automatic key rotation, proxy masking, and fallback chains.">
+  
+  <!-- SEO & Social Meta -->
+  <meta property="og:title" content="Aurora-Provider — The Smart, Resilient LLM Router">
+  <meta property="og:description" content="Automatic key rotation, proxy masking, and provider fallback chains for OpenAI-compatible LLM routing.">
+  <meta property="og:type" content="website">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- CSS Link -->
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+  <!-- Background Glows -->
+  <div class="aurora-glow aura-glow-1"></div>
+  <div class="aurora-glow aura-glow-2"></div>
+  <div class="aurora-glow aura-glow-3"></div>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container header-container">
+      <div class="logo">
+        <span class="logo-icon">🌌</span>
+        <span class="logo-text">Aurora<span>Provider</span></span>
+      </div>
+      <nav class="main-nav">
+        <a href="#features">Features</a>
+        <a href="#visualizer">How it Works</a>
+        <a href="#builder">Aura Builder</a>
+        <a href="#quickstart">Quickstart</a>
+        <a href="docs/index.html" class="nav-docs-link">Documentation ↗</a>
+      </nav>
+      <div class="header-actions">
+        <a href="https://github.com/ahmed-zhran/aurora-provider" class="btn btn-secondary btn-icon" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+          GitHub
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="container hero-container">
+      <div class="hero-content">
+        <div class="badge-container">
+          <span class="badge-glow">Version 1.0.0 is Live</span>
+        </div>
+        <h1 class="hero-title">The Smart, Resilient <br><span class="gradient-text">LLM Router</span></h1>
+        <p class="hero-subtitle">
+          Aurora-Provider is a self-hosted, OpenAI-compatible API gateway that orchestrates multiple LLM providers. Define fallbacks, automatically rotate rate-limited API keys, and mask requests behind an active SOCKS5 proxy pool.
+        </p>
+        <div class="hero-buttons">
+          <a href="docs/index.html" class="btn btn-primary">Read the Docs</a>
+          <a href="#visualizer" class="btn btn-secondary">See it in Action</a>
+        </div>
+        <div class="hero-stats">
+          <div class="stat-item">
+            <div class="stat-num">0ms</div>
+            <div class="stat-label">Routing Overhead</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num">100%</div>
+            <div class="stat-label">API Compatibility</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-num">∞</div>
+            <div class="stat-label">Automated Key Rotation</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Interactive Visual Hero Graphic -->
+      <div class="hero-graphic">
+        <div class="dashboard-mockup glass">
+          <div class="mockup-header">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+            <div class="mockup-title">Aurora-Provider Dashboard</div>
+          </div>
+          <div class="mockup-body">
+            <div class="mockup-sidebar">
+              <div class="sidebar-item active">🌌 Overview</div>
+              <div class="sidebar-item">🔌 Providers</div>
+              <div class="sidebar-item">🎭 Auras</div>
+              <div class="sidebar-item">🛡️ Proxy Pool</div>
+              <div class="sidebar-item">📊 Usage Logs</div>
+            </div>
+            <div class="mockup-content">
+              <div class="grid-stats">
+                <div class="mini-card">
+                  <span class="mini-label">ACTIVE AURAS</span>
+                  <span class="mini-val">8</span>
+                </div>
+                <div class="mini-card">
+                  <span class="mini-label">ACTIVE PROXIES</span>
+                  <span class="mini-val">142</span>
+                </div>
+                <div class="mini-card">
+                  <span class="mini-label">SUCCESS RATE</span>
+                  <span class="mini-val text-success">98.4%</span>
+                </div>
+              </div>
+              <div class="chart-mockup">
+                <div class="bar" style="height: 40%"></div>
+                <div class="bar" style="height: 65%"></div>
+                <div class="bar" style="height: 50%"></div>
+                <div class="bar" style="height: 85%"></div>
+                <div class="bar" style="height: 95%"></div>
+                <div class="bar animate-pulse" style="height: 75%"></div>
+              </div>
+              <div class="log-stream-mockup">
+                <div class="log-line"><span class="log-tag tag-success">SUCCESS</span> [aurora] coder → groq/llama3-70b via proxy</div>
+                <div class="log-line"><span class="log-tag tag-error">LIMIT</span> [aurora] 429 Rate Limited on openai/gpt-4o. Rotating key...</div>
+                <div class="log-line"><span class="log-tag tag-info">INFO</span> [proxy] Harvested 150 candidate SOCKS5 proxies</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Core Features Section -->
+  <section id="features" class="features-section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Designed for <span class="gradient-text">Zero-Downtime AI</span></h2>
+        <p class="section-subtitle">A high-performance gateway that wraps your local and remote LLM providers with multiple defense layers.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card glass">
+          <div class="feature-icon">🔌</div>
+          <h3>OpenAI Compatibility</h3>
+          <p>Drop-in replacement for any OpenAI SDK. Just point your client library base URL to your Aurora-Provider host. Zero code changes required.</p>
+        </div>
+        <div class="feature-card glass">
+          <div class="feature-icon">🛡️</div>
+          <h3>Dynamic Proxy Shielding</h3>
+          <p>Scrapes and tests hundreds of SOCKS5 proxies in the background. Routes traffic through validated proxies to mask your IP and prevent origin blocking.</p>
+        </div>
+        <div class="feature-card glass">
+          <div class="feature-icon">🔄</div>
+          <h3>Seamless Key Rotation</h3>
+          <p>Define multiple API keys per provider. Aurora automatically rotates to the next key on 429 Rate Limits, setting cooling periods automatically.</p>
+        </div>
+        <div class="feature-card glass">
+          <div class="feature-icon">🎭</div>
+          <h3>Auras (Routing Profiles)</h3>
+          <p>Map application tasks to logical profiles. A single endpoint `aurora-provider/coder` can fall back from Anthropic to OpenAI, then Gemini, and finally Groq.</p>
+        </div>
+        <div class="feature-card glass">
+          <div class="feature-icon">⚡</div>
+          <h3>Bun + Hono Performance</h3>
+          <p>Engineered with Bun runtime and Hono framework. Consumes less than 30MB of RAM and routes requests with near-zero latency overhead.</p>
+        </div>
+        <div class="feature-card glass">
+          <div class="feature-icon">📊</div>
+          <h3>SQLite Analytics</h3>
+          <p>Maintains robust logging and speed statistics with WAL-mode SQLite database optimizations. Search, filter, and audit usage logs in real time.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Routing Visualizer Section -->
+  <section id="visualizer" class="visualizer-section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Watch the <span class="gradient-text">Fallback Routing Engine</span></h2>
+        <p class="section-subtitle">Click "Send Request" to trigger a simulated completion request and watch how Aurora handles key fatigue and rate limits.</p>
+      </div>
+
+      <div class="visualizer-container glass">
+        <div class="visualizer-sidebar">
+          <div class="sidebar-section-title">1. Configure Request</div>
+          
+          <div class="form-group">
+            <label for="viz-aura-select">Select Aura (Routing Profile)</label>
+            <select id="viz-aura-select">
+              <option value="coder">Coder (Fallback chain: OpenAI → Anthropic → Groq)</option>
+              <option value="writer">Writer (Fallback chain: Gemini → OpenAI)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Prompt</label>
+            <div class="prompt-box">
+              [{"role": "user", "content": "Write a fast Fibonacci function in Go."}]
+            </div>
+          </div>
+
+          <button class="btn btn-primary w-full" id="viz-send-btn">Send Request</button>
+          
+          <div class="visualizer-status-panel">
+            <div class="sidebar-section-title">Engine Uptime metrics</div>
+            <div class="metric-row">
+              <span>Proxies Available</span>
+              <span class="text-success font-mono" id="viz-stat-proxies">142</span>
+            </div>
+            <div class="metric-row">
+              <span>Active Route</span>
+              <span class="font-mono" id="viz-stat-route">-</span>
+            </div>
+            <div class="metric-row">
+              <span>Latency</span>
+              <span class="font-mono" id="viz-stat-latency">-</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="visualizer-stage">
+          <div class="stage-nodes">
+            <!-- Client -->
+            <div class="node node-client active" id="node-client">
+              <div class="node-icon">💻</div>
+              <div class="node-name">Client App</div>
+              <div class="node-status">Ready</div>
+            </div>
+            
+            <!-- Aurora Router -->
+            <div class="node node-router" id="node-router">
+              <div class="node-icon">🌌</div>
+              <div class="node-name">Aurora Router</div>
+              <div class="node-status">Idle</div>
+            </div>
+
+            <!-- Target Chain -->
+            <div class="routing-chain-panel">
+              <div class="chain-title">AURA FALLBACK TARGETS</div>
+              <div class="chain-nodes-container" id="chain-nodes-container">
+                <!-- Nodes populated dynamically by select -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Proxy Shield Visualization Overlay -->
+          <div class="proxy-shield" id="proxy-shield-overlay">
+            <div class="shield-indicator">
+              <span class="shield-lock">🔒</span>
+              <span class="shield-desc">SOCKS5 Proxy Masking Active: <span id="shield-ip">45.8.98.142:30010</span></span>
+            </div>
+          </div>
+
+          <!-- Console Output Mockup -->
+          <div class="visualizer-console">
+            <div class="console-header">
+              <span class="console-title">Server Logs & Output Stream</span>
+              <span class="console-dots">•••</span>
+            </div>
+            <div class="console-body" id="viz-console-body">
+              <div class="console-line text-muted">&gt; Ready. Click "Send Request" to begin routing trace.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Aura Config Builder Section -->
+  <section id="builder" class="builder-section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Configure Your <span class="gradient-text">Aura Routing Config</span></h2>
+        <p class="section-subtitle">Visually construct fallback chains and output a clean `auras.json` file for your server.</p>
+      </div>
+
+      <div class="builder-container grid">
+        <div class="builder-editor glass">
+          <h3 class="editor-title">Aura Config Editor</h3>
+          
+          <div class="form-group">
+            <label for="builder-aura-name">Aura Name</label>
+            <input type="text" id="builder-aura-name" value="scribe" placeholder="e.g. coder, scribe, reviewer">
+          </div>
+
+          <div class="fallback-steps-container">
+            <label>Ordered Fallback Chain (First to Last)</label>
+            <div id="fallback-steps-list">
+              <!-- Dynamically populated steps -->
+            </div>
+            <button class="btn btn-secondary btn-sm mt-3" id="builder-add-step-btn">+ Add Provider Step</button>
+          </div>
+          
+          <div class="builder-actions mt-4">
+            <button class="btn btn-primary" id="builder-save-btn">Download auras.json</button>
+            <button class="btn btn-secondary" id="builder-copy-btn">Copy Config</button>
+          </div>
+        </div>
+
+        <div class="builder-preview">
+          <div class="preview-header">
+            <span class="preview-title">auras.json Preview</span>
+            <span class="preview-file-icon">{}</span>
+          </div>
+          <pre class="preview-code"><code id="builder-code-preview" class="language-json"></code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quickstart Guide Section -->
+  <section id="quickstart" class="quickstart-section">
+    <div class="container">
+      <div class="section-header">
+        <h2 class="section-title">Get Started in <span class="gradient-text">60 Seconds</span></h2>
+        <p class="section-subtitle">Start routing LLM requests with automatic resilience and proxy shielding locally.</p>
+      </div>
+
+      <div class="quickstart-container glass">
+        <div class="code-selector">
+          <button class="selector-tab active" data-tab="tab-install">1. Clone & Setup</button>
+          <button class="selector-tab" data-tab="tab-keys">2. Set Keys</button>
+          <button class="selector-tab" data-tab="tab-run">3. Boot Server</button>
+          <button class="selector-tab" data-tab="tab-use">4. Consume API</button>
+        </div>
+        
+        <div class="code-content-container">
+          <div class="code-pane active" id="tab-install">
+            <p class="pane-description">Clone the repository and install dependencies using Bun.</p>
+            <pre class="code-block"><code>git clone https://github.com/ahmed-zhran/aurora-provider.git
+cd aurora-provider
+bun install</code></pre>
+          </div>
+          
+          <div class="code-pane" id="tab-keys">
+            <p class="pane-description">Rename the example keys file and configure your LLM provider API keys.</p>
+            <pre class="code-block"><code>cp vault/keys.example.json vault/keys.json
+nano vault/keys.json</code></pre>
+          </div>
+          
+          <div class="code-pane" id="tab-run">
+            <p class="pane-description">Boot up the router server. Background SOCKS5 proxy harvesting starts automatically.</p>
+            <pre class="code-block"><code>bun run src/server.js</code></pre>
+          </div>
+          
+          <div class="code-pane" id="tab-use">
+            <p class="pane-description">Direct any OpenAI-compatible client (e.g. Python) to your local server.</p>
+            <pre class="code-block"><code>from openai import OpenAI
+
+client = OpenAI(
+    api_key="any-string-works",
+    base_url="http://127.0.0.1:8550/v1"
+)
+
+# Route request through the "coder" fallback chain
+response = client.chat.completions.create(
+    model="aurora-provider/coder",
+    messages=[{"role": "user", "content": "Hello Aurora"}]
+)
+
+print(response.choices[0].message.content)</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <div class="container footer-container">
+      <div class="footer-left">
+        <div class="logo">
+          <span class="logo-icon">🌌</span>
+          <span class="logo-text">Aurora<span>Provider</span></span>
+        </div>
+        <p class="footer-desc">Open-source resilient gateway for OpenAI-compatible LLM router and API rotation shield.</p>
+      </div>
+      <div class="footer-right">
+        <div class="footer-links">
+          <h4>Resources</h4>
+          <a href="docs/index.html">Documentation</a>
+          <a href="https://github.com/ahmed-zhran/aurora-provider/blob/main/LICENSE">License</a>
+          <a href="https://github.com/ahmed-zhran/aurora-provider/issues">Support & Issues</a>
+        </div>
+        <div class="footer-links">
+          <h4>Repository</h4>
+          <a href="https://github.com/ahmed-zhran/aurora-provider">GitHub Repo</a>
+          <a href="https://github.com/ahmed-zhran/aurora-provider/stargazers">Stars</a>
+          <a href="https://github.com/ahmed-zhran/aurora-provider/network/members">Forks</a>
+        </div>
+      </div>
+    </div>
+    <div class="container footer-bottom">
+      <p>&copy; 2026 Ahmed Zhran. Released under the MIT License.</p>
+    </div>
+  </footer>
+
+  <!-- Script Link -->
+  <script src="index.js"></script>
+</body>
+</html>

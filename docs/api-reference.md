@@ -14,7 +14,7 @@
 - [Dashboard REST APIs](#dashboard-rest-apis)
   - [GET /api/config](#get-apiconfig)
   - [POST /api/keys](#post-apikeys)
-  - [POST /api/agents](#post-apiagents)
+  - [POST /api/auras](#post-apiauras)
   - [POST /api/providers](#post-apiproviders)
   - [GET /api/usage](#get-apiusage)
   - [GET /api/proxies](#get-apiproxies)
@@ -34,9 +34,9 @@
 | Method | Path | Description |
 |--------|------|-------------|
 | `POST` | `/v1/chat/completions` | Main inference endpoint (streaming supported) |
-| `GET` | `/v1/models` | List all agents as OpenAI model objects |
+| `GET` | `/v1/models` | List all auras as OpenAI model objects |
 
-**Model naming:** Use `aurora-provider/<agent-name>` as the model ID.
+**Model naming:** Use `aurora-provider/<aura-name>` as the model ID.
 
 Examples: `aurora-provider/coder`, `aurora-provider/hermes`, `aurora-provider/build`
 
@@ -63,7 +63,7 @@ curl http://127.0.0.1:8550/v1/chat/completions \
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `model` | string | Yes | Agent model ID (e.g. `aurora-provider/coder`) |
+| `model` | string | Yes | Aura model ID (e.g. `aurora-provider/coder`) |
 | `messages` | array | Yes | Array of message objects with `role` and `content` |
 | `stream` | boolean | No | Enable SSE streaming (default: `false`) |
 | `max_tokens` | integer | No | Maximum tokens in the response |
@@ -117,7 +117,7 @@ data: [DONE]
 
 ### GET /v1/models
 
-Lists all configured agents as OpenAI-compatible model objects.
+Lists all configured auras as OpenAI-compatible model objects.
 
 **Request:**
 
@@ -144,9 +144,9 @@ curl http://127.0.0.1:8550/v1/models
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/config` | Get all providers, agents, keys |
+| `GET` | `/api/config` | Get all providers, auras, keys |
 | `POST` | `/api/keys` | Save API keys |
-| `POST` | `/api/agents` | Save agent definitions |
+| `POST` | `/api/auras` | Save aura definitions |
 | `POST` | `/api/providers` | Save provider configs |
 | `GET` | `/api/usage` | Query usage stats & logs (filterable) |
 | `GET` | `/api/proxies` | Get proxy pool status and source rankings |
@@ -155,13 +155,13 @@ curl http://127.0.0.1:8550/v1/models
 | `POST` | `/api/settings` | Update proxy latency threshold |
 | `GET` | `/api/logs-stream` | SSE stream of server logs |
 | `GET` | `/status` | Key states and server uptime |
-| `GET` | `/health` | Health check (status, version, agents) |
+| `GET` | `/health` | Health check (status, version, auras) |
 
 ---
 
 ### GET /api/config
 
-Returns all providers, agents, and keys configuration.
+Returns all providers, auras, and keys configuration.
 
 ```bash
 curl http://127.0.0.1:8550/api/config
@@ -181,14 +181,14 @@ curl -X POST http://127.0.0.1:8550/api/keys \
 
 ---
 
-### POST /api/agents
+### POST /api/auras
 
-Saves agent definitions and fallback chains.
+Saves aura definitions and fallback chains.
 
 ```bash
-curl -X POST http://127.0.0.1:8550/api/agents \
+curl -X POST http://127.0.0.1:8550/api/auras \
   -H "Content-Type: application/json" \
-  -d '{"coder": {"fallbacks": [{"provider": "groq", "model": "llama-3.3-70b"}]}}'
+  -d '{"auras": {"coder": {"fallbacks": [{"provider": "groq", "model": "llama-3.3-70b"}]}}}'
 ```
 
 ---
@@ -210,7 +210,7 @@ curl -X POST http://127.0.0.1:8550/api/providers \
 Query usage statistics and logs with filtering and pagination.
 
 ```bash
-curl "http://127.0.0.1:8550/api/usage?startDate=2026-01-01&agent=coder&status=Success&page=1&limit=50"
+curl "http://127.0.0.1:8550/api/usage?startDate=2026-01-01&aura=coder&status=Success&page=1&limit=50"
 ```
 
 See [Query Parameters](#query-parameters--apiusage) below for full parameter list.
@@ -284,7 +284,7 @@ curl http://127.0.0.1:8550/status | jq
 
 ### GET /health
 
-Basic health check returning status, version, and configured agents.
+Basic health check returning status, version, and configured auras.
 
 ```bash
 curl http://127.0.0.1:8550/health
@@ -298,7 +298,7 @@ curl http://127.0.0.1:8550/health
 |-----------|-------------|
 | `startDate` | Filter from date (YYYY-MM-DD) |
 | `endDate` | Filter to date (YYYY-MM-DD) |
-| `agent` | Exact agent name |
+| `aura` | Exact aura name |
 | `provider` | Exact provider name |
 | `source` | `Testing`, `API`, or hostname |
 | `status` | `Success` or `Error` |

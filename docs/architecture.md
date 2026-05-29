@@ -13,7 +13,7 @@
 - [Request Lifecycle Flow](#request-lifecycle-flow)
   - [Proxy Pool Lifecycle](#proxy-pool-lifecycle)
 - [Core Entities](#core-entities)
-  - [Agent](#agent)
+  - [Aura](#aura)
   - [Provider](#provider)
   - [API Key](#api-key)
   - [Proxy Entry](#proxy-entry)
@@ -62,8 +62,8 @@
 │  │  Aider,etc)│              dispatch()                             │
 │  └────────────┘                   │                                 │
 │                    ┌──────────────▼───────────────────────────┐    │
-│                    │           Agent Fallback Chain            │    │
-│                    │  Agent config → try provider[0] → ...    │    │
+│                    │           Aura Fallback Chain            │    │
+│                    │  Aura config → try provider[0] → ...     │    │
 │                    │  → on failure: try provider[1] → ...     │    │
 │                    └──────────────┬───────────────────────────┘    │
 │                                   │                                 │
@@ -83,7 +83,7 @@
 │                                                                     │
 │  ┌─────────────────────────────────────────────────────────────┐  │
 │  │                    vault/                                    │  │
-│  │   vault.db (SQLite)  keys.json  agents.json  providers.json │  │
+│  │   vault.db (SQLite)  keys.json  auras.json   providers.json │  │
 │  └─────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -107,12 +107,10 @@ Client Request: POST /v1/chat/completions
                     └───────┬────────┘
                             │
                     ┌───────▼────────┐
-                    │ Resolve Agent  │   model="aurora-provider/coder"
-                    │                │   → agentName = "coder"
-                    └───────┬────────┘
-                            │
-                    ┌───────▼────────┐
-                    │  dispatch()    │   Load agent.fallbacks chain
+                    │ Resolve Aura   │   model="aurora-provider/coder"
+                    │                │   → auraName = "coder"
+                    ├────────────────┤
+                    │  dispatch()    │   Load aura.fallbacks chain
                     │  Fallback Loop │   e.g. [openrouter, opencode_zen, cloudflare]
                     └───────┬────────┘
                             │
@@ -153,7 +151,7 @@ Client Request: POST /v1/chat/completions
                             │
                     ┌───────▼────────┐
                     │ Log to SQLite  │   Insert full request record:
-                    │ usage_logs     │   agent, provider, model, key,
+                    │ usage_logs     │   aura, provider, model, key,
                     │                │   proxy, tokens, latency, source
                     └───────┬────────┘
                             │
@@ -182,9 +180,9 @@ Client Request: POST /v1/chat/completions
 
 ## Core Entities
 
-### Agent
+### Aura
 
-An **Agent** is a named virtual model that maps to an ordered fallback chain of real providers and models.
+An **Aura** is a named virtual model that maps to an ordered fallback chain of real providers and models.
 
 ```json
 {
@@ -270,7 +268,7 @@ Every request generates one record in `vault.db`:
 |--------|------|-------------|
 | `id` | INTEGER | Auto-increment primary key |
 | `timestamp` | DATETIME | Local time of request |
-| `agent` | TEXT | Agent name (e.g. `coder`) |
+| `aura` | TEXT | Aura name (e.g. `coder`) |
 | `provider` | TEXT | Provider used (e.g. `openrouter`) |
 | `model` | TEXT | Exact model ID sent upstream |
 | `key_index` | INTEGER | Index of key in provider's key array |
@@ -298,7 +296,7 @@ All mutable data lives in `vault/`:
 vault/
 ├── vault.db          # SQLite database — usage_logs table
 ├── keys.json         # API keys per provider
-├── agents.json       # Agent definitions and fallback chains
+├── auras.json        # Aura definitions and fallback chains
 ├── providers.json    # Provider catalog, endpoints, models
 └── settings.json     # Proxy latency threshold setting
 ```
@@ -311,7 +309,7 @@ vault/
 CREATE TABLE IF NOT EXISTS usage_logs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   timestamp    DATETIME DEFAULT (datetime('now', 'localtime')),
-  agent        TEXT,
+  aura         TEXT,
   provider     TEXT,
   model        TEXT,
   key_index    INTEGER,

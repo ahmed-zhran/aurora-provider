@@ -30,9 +30,11 @@ jobs:
         run: |
           pip install mkdocs-material
 
-      - name: Build site
+      - name: Build site with custom landing page
         run: |
-          mkdocs build --site-dir _site
+          mkdir -p _site
+          cp -r website/* _site/
+          mkdocs build --site-dir _site/docs
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3

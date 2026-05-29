@@ -20,7 +20,6 @@
   - [Kimi (Moonshot)](#kimi-moonshot)
   - [GitHub Models](#github-models)
   - [NVIDIA NIM](#nvidia-nim)
-  - [LLM7.io](#llm7io)
 - [Deprecated Providers](#deprecated-providers)
 - [Key Configuration Format](#key-configuration-format)
 - [Tips](#tips)
@@ -41,7 +40,6 @@
 | **Kimi (Moonshot)** | Kimi K2.5 | 262K | 3 RPM / 1.5M TPD | Medium | No |
 | **GitHub Models** | Grok 3, Llama 3.3 70B, 45+ | 128K | 8K in / 4K out | Fast | Yes |
 | **NVIDIA NIM** | Kimi K2, DeepSeek V3.2, Nemotron 3 | 32K–262K | ~5 RPM | Fast | No |
-| **LLM7.io** | DeepSeek R1 Distill, Qwen3, Llama 3.1 405B | 128K–131K | 2 RPM per IP | Slow–Medium | Yes (no signup) |
 
 **Legend:**
 - **RPM** = Requests per minute
@@ -177,11 +175,9 @@
 | **Permanent** | ⚠️ No (limited time offer) |
 
 **Steps:**
-1. Install [OpenCode](https://opencode.ai) TUI
-2. Run the `/connect` command inside the OpenCode TUI
-3. Follow the authentication flow to get your Zen API key
-4. Copy the key
-5. Add to `vault/keys.json` under `opencode_zen`
+1. Go to [OpenCode](https://opencode.ai/zen)
+2. Obtain your Zen API key from the platform/dashboard
+3. Add the key to `vault/keys.json` under `opencode_zen`
 
 > **Tip:** OpenCode Zen offers generous rate limits with access to powerful models like Big Pickle and DeepSeek V4 Flash. However, this is a limited-time free offering.
 
@@ -272,24 +268,6 @@
 
 ---
 
-### LLM7.io
-
-| | |
-|---|---|
-| **Signup URL** | [https://token.llm7.io](https://token.llm7.io) |
-| **Free Tier** | 2 RPM per IP, no signup needed for anonymous access |
-| **Key Format** | Any string (token-based) |
-| **Permanent** | ✅ Yes (no signup required) |
-
-**Steps:**
-1. Go to [LLM7 Token Page](https://token.llm7.io)
-2. Get a free token (or use any string for anonymous access)
-3. Add to `vault/keys.json` under `llm7`
-
-> **Tip:** LLM7 is the easiest provider to set up — no account creation needed. Any string works as a key. Rate limit is 2 RPM per IP.
-
----
-
 ## Deprecated Providers
 
 | Provider | Status | Notes |
@@ -316,8 +294,7 @@ All keys are stored in `vault/keys.json`. Here's the structure:
     "cerebras": ["your-cerebras-key"],
     "kimi": ["your-kimi-key"],
     "github_models": ["ghp_your-github-token"],
-    "nvidia_nim": ["nvapi-your-nvidia-key"],
-    "llm7": ["any-string-works"]
+    "nvidia_nim": ["nvapi-your-nvidia-key"]
   }
 }
 ```
@@ -338,7 +315,7 @@ See [`vault/keys.example.json`](../vault/keys.example.json) for a ready-to-copy 
 2. **Create multiple accounts** for providers that allow it (especially Google AI Studio) to get more keys
 3. **Monitor key health** from the Dashboard's [API Keys & Health tab](dashboard.md#api-keys--health-tab) to see which keys are cooling down
 4. **Adjust cooldown times** per provider in the [Provider Config tab](dashboard.md#provider-config-tab) if the defaults don't match the actual rate limits
-5. **Use the proxy pool** to bypass IP-level rate limits — some providers (like LLM7) rate-limit by IP address
+5. **Use the proxy pool** to bypass IP-level rate limits — some providers rate-limit by IP address
 
 ---
 

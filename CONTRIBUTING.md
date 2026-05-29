@@ -11,7 +11,7 @@ Whether you're fixing a bug, adding a new LLM provider, improving documentation,
   - [Reporting Bugs](#reporting-bugs)
   - [Suggesting Features](#suggesting-features)
   - [Adding a New LLM Provider](#adding-a-new-llm-provider)
-  - [Adding a New Agent](#adding-a-new-agent)
+  - [Adding a New Aura](#adding-a-new-aura)
   - [Improving Documentation](#improving-documentation)
 - [Development Setup](#development-setup)
 - [Code Style](#code-style)
@@ -97,9 +97,9 @@ Add your test API keys under the provider's ID:
 
 > **⚠️ Do NOT commit `vault/keys.json`** — it is gitignored for a reason.
 
-#### Step 3: Add to agent fallback chains
+#### Step 3: Add to aura fallback chains
 
-Edit `vault/agents.json` and add the new provider + model to relevant agents' fallback chains. Place it according to the fallback priority guidelines:
+Edit `vault/auras.json` and add the new provider + model to relevant auras' fallback chains. Place it according to the fallback priority guidelines:
 
 1. **Context size** (largest first)
 2. **Rate limit generosity** (unlimited/daily > RPM-limited)
@@ -129,16 +129,16 @@ Verify that:
 - Key rotation works on 429 errors
 - Fallback to the next provider works when all keys are exhausted
 
-### Adding a New Agent
+### Adding a New Aura
 
-Agents are named routing profiles (like `plan`, `build`, `coder`) with their own fallback chains.
+Auras are named routing profiles (like `plan`, `build`, `coder`) with their own fallback chains.
 
-#### Step 1: Add agent entry to `vault/agents.json`
+#### Step 1: Add aura entry to `vault/auras.json`
 
 ```json
 {
-  "id": "my-agent",
-  "name": "My Agent",
+  "id": "my-aura",
+  "name": "My Aura",
   "fallbacks": [
     { "provider": "opencode_zen", "model": "big-pickle" },
     { "provider": "google_ai_studio", "model": "gemini-2.5-flash" }
@@ -195,7 +195,7 @@ The server will start at `http://127.0.0.1:8550`.
 |---|---|
 | `GET /health` | Quick health check |
 | `GET /status` | Key states, cooldowns, uptime |
-| `GET /v1/models` | List all registered agents |
+| `GET /v1/models` | List all registered auras |
 | `POST /v1/chat/completions` | Main completions endpoint |
 
 ---
@@ -207,7 +207,7 @@ Aurora-Provider follows these conventions:
 - **ES Modules** — The project uses `"type": "module"` in `package.json`. Use `import`/`export`, not `require()`.
 - **Single server file** — All routing logic lives in `src/server.js`. Keep it that way unless there's a strong reason to split.
 - **Hono framework** — We use [Hono](https://hono.dev/) for HTTP routing. Follow Hono patterns for adding endpoints.
-- **Configuration over code** — Providers, agents, and keys are defined in JSON files under `vault/`. Adding a new provider or agent should **not** require changes to `src/server.js`.
+- **Configuration over code** — Providers, auras, and keys are defined in JSON files under `vault/`. Adding a new provider or aura should **not** require changes to `src/server.js`.
 - **No transpilation** — The code runs directly on Bun or Node.js without a build step.
 - **Descriptive variable names** — Prefer clarity over brevity.
 - **Console logging** — Use `console.log` / `console.error` with descriptive prefixes (e.g., `[Aurora]`, `[KeyRotation]`).

@@ -14,7 +14,7 @@
   - [Charts](#charts)
   - [Usage Request Logs Table](#usage-request-logs-table)
 - [API Tester Tab](#api-tester-tab)
-- [Agents Config Tab](#agents-config-tab)
+- [Aura Hub](#aura-hub)
 - [API Keys & Health Tab](#api-keys--health-tab)
   - [Provider Keys Health (Left Panel)](#provider-keys-health-left-panel)
   - [Provider API Keys (Right Panel)](#provider-api-keys-right-panel)
@@ -39,7 +39,7 @@ The Dashboard is the primary analytics view. **All metrics and charts are contro
 |--------|-------------|
 | Start Date | Lower bound on `timestamp` |
 | End Date | Upper bound on `timestamp` |
-| Agent | Filter by agent name |
+| Aura | Filter by aura name |
 | Provider | Filter by LLM provider |
 | Request Host | Filter by client IP/hostname |
 | Source | `API` / `Testing` / specific hostname |
@@ -63,7 +63,7 @@ Click **Apply Filters** to refresh all KPIs, charts, and the log table simultane
 
 Paginated table (15 rows/page) showing all matching records with columns:
 
-`Timestamp | Request Host | Source | Agent | Provider | Model | Tokens | Key | Proxy | Status | Latency | Details`
+`Timestamp | Request Host | Source | Aura | Provider | Model | Tokens | Key | Proxy | Status | Latency | Details`
 
 - **Details** button opens a modal with full prompt and response text
 - Pagination is server-side with `LIMIT/OFFSET` SQL
@@ -72,9 +72,9 @@ Paginated table (15 rows/page) showing all matching records with columns:
 
 ## API Tester Tab
 
-Allows testing any configured agent directly from the browser:
+Allows testing any configured aura directly from the browser:
 
-- Select an agent from the dropdown
+- Select an aura from the dropdown
 - Type a prompt
 - Toggle streaming on/off
 - Click **Run Test** — sends `POST /v1/chat/completions` with `X-Request-Source: Testing`
@@ -84,16 +84,16 @@ Allows testing any configured agent directly from the browser:
 
 ---
 
-## Agents Config Tab
+## Aura Hub
 
-Manage the fallback chains for all virtual agents:
+Manage the fallback chains for all virtual auras:
 
-- **Left panel**: List all agents; click to select
-- **Right panel**: Edit the selected agent's fallback chain
+- **Left panel**: List all auras; click to select
+- **Right panel**: Edit the selected aura's fallback chain
   - Drag/reorder fallback steps using ↑↓ arrows
   - Add steps by selecting Provider + Model → **Add Step**
-  - Delete individual steps or the entire agent
-  - **Save Agents Config** → persists to `vault/agents.json`
+  - Delete individual steps or the entire aura
+  - **Save Auras Config** → persists to `vault/auras.json`
 
 > **Note:** Changes take effect immediately — server reloads config from the in-memory object.
 
