@@ -74,7 +74,8 @@ db.run(`
     prompt_tokens INTEGER,
     completion_tokens INTEGER,
     total_tokens INTEGER,
-    request_host TEXT
+    request_host TEXT,
+    proxy_enabled INTEGER DEFAULT 0
   )
 `);
 
@@ -102,7 +103,8 @@ try {
     { name: "prompt_tokens", type: "INTEGER" },
     { name: "completion_tokens", type: "INTEGER" },
     { name: "total_tokens", type: "INTEGER" },
-    { name: "request_host", type: "TEXT" }
+    { name: "request_host", type: "TEXT" },
+    { name: "proxy_enabled", type: "INTEGER DEFAULT 0" }
   ];
 
   for (const col of migrations) {
@@ -153,8 +155,8 @@ const stmts = {
   insertUsageLog: db.prepare(`
     INSERT INTO usage_logs (
       aura, provider, model, key_index, key_name, key_email, proxy, source, prompt, response, status, error_message, latency_ms,
-      prompt_tokens, completion_tokens, total_tokens, request_host
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      prompt_tokens, completion_tokens, total_tokens, request_host, proxy_enabled
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
   insertProxyRefreshLog: db.prepare(`
     INSERT INTO proxy_refresh_logs (trigger_cause, active_before, status)
@@ -184,8 +186,8 @@ const stmts = {
     FROM usage_logs
     WHERE request_host IS NOT NULL AND request_host != ''
   `),
-  countMaskedRequests: db.prepare("SELECT count(*) as count FROM usage_logs WHERE proxy IS NOT NULL AND proxy != '' AND proxy != 'direct'"),
-  countSuccessMaskedRequests: db.prepare("SELECT count(*) as count FROM usage_logs WHERE proxy IS NOT NULL AND proxy != '' AND proxy != 'direct' AND status = 'Success'"),
+  countMaskedRequests: db.prepare("SELECT count(*) as count FROM usage_logs WHERE proxy_enabled = 1"),
+  countSuccessMaskedRequests: db.prepare("SELECT count(*) as count FROM usage_logs WHERE proxy_enabled = 1 AND proxy IS NOT NULL AND proxy != '' AND proxy != 'direct' AND status = 'Success'"),
   countDirectRequests: db.prepare("SELECT count(*) as count FROM usage_logs WHERE proxy IS NULL OR proxy = '' OR proxy = 'direct'"),
 };
 
@@ -1946,7 +1948,7 @@ app.post("/v1/chat/completions", async (c) => {
     const errorMsg = `Unknown model/aura: "${model}". Available: ${Object.keys(AURAS).map((a) => `aurora-provider/${a}`).join(", ")}`;
     
     try {
-      stmts.insertUsageLog.run(null, null, model, null, null, null, null, source, prompt, null, "Error", errorMsg, 0, estimatedPromptTokens, 0, estimatedPromptTokens, requestHost);
+      stmts.insertUsageLog.run(null, null, model, null, null, null, null, source, prompt, null, "Error", errorMsg, 0, estimatedPromptTokens, 0, estimatedPromptTokens, requestHost, ENABLE_PROXY ? 1 : 0);
     } catch (err) {
       console.error("[aurora-provider] DB Error logging invalid model request:", err.message);
     }
@@ -1967,7 +1969,7 @@ app.post("/v1/chat/completions", async (c) => {
     const latency = Date.now() - start;
     
     try {
-      stmts.insertUsageLog.run(auraName, result.providerName || null, result.modelId || null, result.keyIndex !== undefined ? result.keyIndex : null, result.keyName || null, result.keyEmail || null, result.proxy || null, source, prompt, null, "Error", result.error, latency, estimatedPromptTokens, 0, estimatedPromptTokens, requestHost);
+      stmts.insertUsageLog.run(auraName, result.providerName || null, result.modelId || null, result.keyIndex !== undefined ? result.keyIndex : null, result.keyName || null, result.keyEmail || null, result.proxy || null, source, prompt, null, "Error", result.error, latency, estimatedPromptTokens, 0, estimatedPromptTokens, requestHost, ENABLE_PROXY ? 1 : 0);
     } catch (err) {
       console.error("[aurora-provider] DB Error logging dispatch error:", err.message);
     }
@@ -2009,7 +2011,7 @@ app.post("/v1/chat/completions", async (c) => {
 
       try {
         const responseForDb = cleanResponse.length > 500 ? cleanResponse.substring(0, 500) + "...[truncated]" : cleanResponse;
-        stmts.insertUsageLog.run(auraName, result.providerName, result.modelId, result.keyIndex, result.keyName, result.keyEmail, result.proxy, source, prompt, responseForDb, "Success", null, latency, promptTokens, completionTokens, totalTokens, requestHost);
+        stmts.insertUsageLog.run(auraName, result.providerName, result.modelId, result.keyIndex, result.keyName, result.keyEmail, result.proxy, source, prompt, responseForDb, "Success", null, latency, promptTokens, completionTokens, totalTokens, requestHost, ENABLE_PROXY ? 1 : 0);
       } catch (err) {
         console.error("[aurora-provider] DB Error logging stream success:", err.message);
       }
@@ -2026,7 +2028,7 @@ app.post("/v1/chat/completions", async (c) => {
 
       const responseForDb = responseText.length > 500 ? responseText.substring(0, 500) + "...[truncated]" : responseText;
       try {
-        stmts.insertUsageLog.run(auraName, result.providerName, result.modelId, result.keyIndex, result.keyName, result.keyEmail, result.proxy, source, prompt, responseForDb, "Success", null, latency, promptTokens, completionTokens, totalTokens, requestHost);
+        stmts.insertUsageLog.run(auraName, result.providerName, result.modelId, result.keyIndex, result.keyName, result.keyEmail, result.proxy, source, prompt, responseForDb, "Success", null, latency, promptTokens, completionTokens, totalTokens, requestHost, ENABLE_PROXY ? 1 : 0);
       } catch (err) {
         console.error("[aurora-provider] DB Error logging JSON success:", err.message);
       }

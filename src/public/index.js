@@ -1,13 +1,13 @@
 // Global State
 let config = {
   providers: {},
-  agents: {},
+  auras: {},
   keys: {},
   ips: []
 };
 
 let activeTab = 'tab-dashboard';
-let selectedAgentName = null;
+let selectedAuraName = null;
 let selectedProviderName = null;
 let healthTimer = null;
 let uptimeTimer = null;
@@ -130,13 +130,13 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
 
-  // Agents event listeners
-  document.getElementById('create-agent-btn').addEventListener('click', createAgent);
-  document.getElementById('rename-agent-btn').addEventListener('click', renameSelectedAgent);
-  document.getElementById('delete-agent-btn').addEventListener('click', deleteSelectedAgent);
+  // Auras event listeners
+  document.getElementById('create-aura-btn').addEventListener('click', createAura);
+  document.getElementById('rename-aura-btn').addEventListener('click', renameSelectedAura);
+  document.getElementById('delete-aura-btn').addEventListener('click', deleteSelectedAura);
   document.getElementById('step-provider-select').addEventListener('change', updateStepModelsDropdown);
   document.getElementById('add-step-btn').addEventListener('click', addFallbackStep);
-  document.getElementById('save-agents-btn').addEventListener('click', saveAgentsConfig);
+  document.getElementById('save-auras-btn').addEventListener('click', saveAurasConfig);
 
   // Keys event listeners
   document.getElementById('save-keys-btn').addEventListener('click', saveKeysConfig);
@@ -318,9 +318,9 @@ function triggerTabLoad(tabName) {
     loadUsageFilters();
     loadUsageStats();
   } else if (tabName === 'tab-tester') {
-    updateAgentsDropdown();
-  } else if (tabName === 'tab-agents') {
-    renderAgentsTab();
+    updateAurasDropdown();
+  } else if (tabName === 'tab-auras') {
+    renderAurasTab();
   } else if (tabName === 'tab-keys') {
     renderKeysTab();
   } else if (tabName === 'tab-providers') {
@@ -365,7 +365,7 @@ async function loadConfig() {
     visibleProvidersInKeysTab = Object.keys(config.providers).filter(provId => hasApiKey(provId));
 
     renderUIPool();
-    updateAgentsDropdown();
+    updateAurasDropdown();
     triggerTabLoad(activeTab);
   } catch (err) {
     console.error("Failed to load configs", err);
@@ -452,12 +452,12 @@ async function updateHealthStatus() {
     const dot = document.getElementById('server-status-dot');
     const txt = document.getElementById('server-status-text');
     const uptimeEl = document.getElementById('server-uptime');
-    const agentsEl = document.getElementById('server-agents-count');
+    const aurasEl = document.getElementById('server-agents-count'); // Keep DOM ID but update variable and label
 
     if (dot) { dot.className = 'status-indicator online'; }
     if (txt) { txt.textContent = 'Online'; txt.style.color = 'var(--color-success)'; }
     if (uptimeEl) { uptimeEl.textContent = formatUptime(data.uptime); }
-    if (agentsEl) { agentsEl.textContent = Object.keys(config.agents).length + ' agents'; }
+    if (aurasEl) { aurasEl.textContent = Object.keys(config.auras).length + ' auras'; }
 
     renderHealthGrid(data.keyStates);
   } catch (err) {
@@ -565,29 +565,30 @@ function renderUIPool() {
 
 // ─── API Tester ──────────────────────────────────────────────────────────────
 
-function updateAgentsDropdown() {
-  const select = document.getElementById('test-agent-select');
+function updateAurasDropdown() {
+  const select = document.getElementById('test-aura-select');
+  if (!select) return;
   select.innerHTML = '';
 
-  const agentNames = Object.keys(config.agents);
-  if (agentNames.length === 0) {
-    select.innerHTML = '<option value="" disabled selected>No agents configured</option>';
+  const auraNames = Object.keys(config.auras);
+  if (auraNames.length === 0) {
+    select.innerHTML = '<option value="" disabled selected>No auras configured</option>';
     select.disabled = true;
-    document.getElementById('agent-warning').style.display = 'block';
+    document.getElementById('aura-warning').style.display = 'block';
     return;
   }
 
   select.disabled = false;
-  document.getElementById('agent-warning').style.display = 'none';
+  document.getElementById('aura-warning').style.display = 'none';
 
   const placeholder = document.createElement('option');
   placeholder.value = '';
   placeholder.disabled = true;
   placeholder.selected = true;
-  placeholder.textContent = 'Select an agent...';
+  placeholder.textContent = 'Select an aura...';
   select.appendChild(placeholder);
 
-  agentNames.forEach(name => {
+  auraNames.forEach(name => {
     const opt = document.createElement('option');
     opt.value = name;
     opt.textContent = `aurora-provider/${name}`;
@@ -597,14 +598,14 @@ function updateAgentsDropdown() {
 
 async function runApiTest(e) {
   e.preventDefault();
-  const agent = document.getElementById('test-agent-select').value;
+  const aura = document.getElementById('test-aura-select').value;
   const prompt = document.getElementById('test-prompt').value;
   const stream = document.getElementById('test-stream').checked;
   const output = document.getElementById('json-response-output');
   const runBtn = document.getElementById('run-test-btn');
 
-  if (!agent) {
-    alert("Please select an agent to test.");
+  if (!aura) {
+    alert("Please select an aura to test.");
     return;
   }
 
@@ -614,7 +615,7 @@ async function runApiTest(e) {
 
   try {
     const payload = {
-      model: `aurora-provider/${agent}`,
+      model: `aurora-provider/${aura}`,
       messages: [{ role: 'user', content: prompt }],
       stream
     };
@@ -658,43 +659,44 @@ async function runApiTest(e) {
   }
 }
 
-// ─── TAB 2: Agents Config ────────────────────────────────────────────────────
+// ─── TAB 2: Aura Hub ────────────────────────────────────────────────────
 
-function renderAgentsTab() {
-  const container = document.getElementById('agents-selector-container');
+function renderAurasTab() {
+  const container = document.getElementById('auras-selector-container');
+  if (!container) return;
   container.innerHTML = '';
 
-  const agentNames = Object.keys(config.agents);
-  if (agentNames.length === 0) {
-    container.innerHTML = '<div class="text-muted p-3">No agents defined yet. Create one below!</div>';
-    document.getElementById('agent-settings-card').style.display = 'none';
-    document.getElementById('agent-settings-empty').style.display = 'block';
+  const auraNames = Object.keys(config.auras);
+  if (auraNames.length === 0) {
+    container.innerHTML = '<div class="text-muted p-3">No auras defined yet. Create one below!</div>';
+    document.getElementById('aura-settings-card').style.display = 'none';
+    document.getElementById('aura-settings-empty').style.display = 'block';
     return;
   }
 
-  agentNames.forEach(name => {
+  auraNames.forEach(name => {
     const btn = document.createElement('div');
-    btn.className = `agent-item ${selectedAgentName === name ? 'selected' : ''}`;
+    btn.className = `agent-item ${selectedAuraName === name ? 'selected' : ''}`;
     btn.textContent = name;
     btn.addEventListener('click', () => {
-      selectedAgentName = name;
-      renderAgentsTab();
-      renderAgentSettings();
+      selectedAuraName = name;
+      renderAurasTab();
+      renderAuraSettings();
     });
     container.appendChild(btn);
   });
 }
 
-function renderAgentSettings() {
-  if (!selectedAgentName || !config.agents[selectedAgentName]) {
-    document.getElementById('agent-settings-card').style.display = 'none';
-    document.getElementById('agent-settings-empty').style.display = 'block';
+function renderAuraSettings() {
+  if (!selectedAuraName || !config.auras[selectedAuraName]) {
+    document.getElementById('aura-settings-card').style.display = 'none';
+    document.getElementById('aura-settings-empty').style.display = 'block';
     return;
   }
 
-  document.getElementById('agent-settings-card').style.display = 'block';
-  document.getElementById('agent-settings-empty').style.display = 'none';
-  document.getElementById('current-agent-title').textContent = `Agent Settings: ${selectedAgentName}`;
+  document.getElementById('aura-settings-card').style.display = 'block';
+  document.getElementById('aura-settings-empty').style.display = 'none';
+  document.getElementById('current-aura-title').textContent = `Aura Settings: ${selectedAuraName}`;
 
   // Populate fallback chain
   renderFallbackList();
@@ -778,7 +780,7 @@ function renderFallbackList() {
   const chainContainer = document.getElementById('fallback-chain-list');
   chainContainer.innerHTML = '';
 
-  const fallbacks = config.agents[selectedAgentName].fallbacks || [];
+  const fallbacks = config.auras[selectedAuraName].fallbacks || [];
   if (fallbacks.length === 0) {
     chainContainer.innerHTML = '<div class="text-muted p-2">Fallback chain is empty. Add a step below!</div>';
     return;
@@ -837,7 +839,7 @@ function renderFallbackList() {
 }
 
 function moveStep(index, direction) {
-  const fallbacks = config.agents[selectedAgentName].fallbacks;
+  const fallbacks = config.auras[selectedAuraName].fallbacks;
   const targetIndex = index + direction;
   if (targetIndex < 0 || targetIndex >= fallbacks.length) return;
 
@@ -846,12 +848,12 @@ function moveStep(index, direction) {
   fallbacks[index] = fallbacks[targetIndex];
   fallbacks[targetIndex] = temp;
 
-  renderAgentSettings();
+  renderAuraSettings();
 }
 
 function removeStep(index) {
-  config.agents[selectedAgentName].fallbacks.splice(index, 1);
-  renderAgentSettings();
+  config.auras[selectedAuraName].fallbacks.splice(index, 1);
+  renderAuraSettings();
 }
 
 function addFallbackStep() {
@@ -863,18 +865,18 @@ function addFallbackStep() {
     return;
   }
 
-  if (!config.agents[selectedAgentName].fallbacks) {
-    config.agents[selectedAgentName].fallbacks = [];
+  if (!config.auras[selectedAuraName].fallbacks) {
+    config.auras[selectedAuraName].fallbacks = [];
   }
 
   // Check if same pair already exists
-  const exists = config.agents[selectedAgentName].fallbacks.some(s => s.provider === provider && s.model === model);
+  const exists = config.auras[selectedAuraName].fallbacks.some(s => s.provider === provider && s.model === model);
   if (exists) {
     alert("This provider/model pair is already in the fallback list.");
     return;
   }
 
-  config.agents[selectedAgentName].fallbacks.push({
+  config.auras[selectedAuraName].fallbacks.push({
     provider: provider,
     model: model
   });
@@ -884,71 +886,72 @@ function addFallbackStep() {
   document.getElementById('step-model-select').innerHTML = '<option value="" disabled selected>Select model</option>';
   document.getElementById('step-model-select').disabled = true;
 
-  renderAgentSettings();
+  renderAuraSettings();
 }
 
-function createAgent() {
-  const input = document.getElementById('new-agent-name');
+function createAura() {
+  const input = document.getElementById('new-aura-name');
+  if (!input) return;
   const name = input.value.trim().toLowerCase();
   
   if (!name) return;
-  if (config.agents[name]) {
-    alert("An agent with this name already exists.");
+  if (config.auras[name]) {
+    alert("An aura with this name already exists.");
     return;
   }
 
-  config.agents[name] = {
+  config.auras[name] = {
     fallbacks: []
   };
 
   input.value = '';
-  selectedAgentName = name;
-  renderAgentsTab();
-  renderAgentSettings();
-  updateAgentsDropdown();
+  selectedAuraName = name;
+  renderAurasTab();
+  renderAuraSettings();
+  updateAurasDropdown();
 }
 
-function renameSelectedAgent() {
-  if (!selectedAgentName) return;
-  const newName = prompt(`Enter new name for agent "${selectedAgentName}":`, selectedAgentName);
+function renameSelectedAura() {
+  if (!selectedAuraName) return;
+  const newName = prompt(`Enter new name for aura "${selectedAuraName}":`, selectedAuraName);
   if (!newName) return;
   const cleanedName = newName.trim().toLowerCase();
-  if (cleanedName === selectedAgentName) return;
+  if (cleanedName === selectedAuraName) return;
   
-  if (config.agents[cleanedName]) {
-    alert("An agent with this name already exists.");
+  if (config.auras[cleanedName]) {
+    alert("An aura with this name already exists.");
     return;
   }
 
-  config.agents[cleanedName] = config.agents[selectedAgentName];
-  delete config.agents[selectedAgentName];
+  config.auras[cleanedName] = config.auras[selectedAuraName];
+  delete config.auras[selectedAuraName];
 
-  selectedAgentName = cleanedName;
-  renderAgentsTab();
-  renderAgentSettings();
-  updateAgentsDropdown();
+  selectedAuraName = cleanedName;
+  renderAurasTab();
+  renderAuraSettings();
+  updateAurasDropdown();
 }
 
-function deleteSelectedAgent() {
-  if (!selectedAgentName) return;
-  if (!confirm(`Are you sure you want to delete the agent "${selectedAgentName}"?`)) return;
+function deleteSelectedAura() {
+  if (!selectedAuraName) return;
+  if (!confirm(`Are you sure you want to delete the aura "${selectedAuraName}"?`)) return;
 
-  delete config.agents[selectedAgentName];
-  selectedAgentName = null;
-  renderAgentsTab();
-  updateAgentsDropdown();
+  delete config.auras[selectedAuraName];
+  selectedAuraName = null;
+  renderAurasTab();
+  updateAurasDropdown();
 }
 
-async function saveAgentsConfig() {
+async function saveAurasConfig() {
   try {
-    await fetchJSON('/api/agents', {
+    await fetchJSON('/api/auras', {
       method: 'POST',
-      body: JSON.stringify({ agents: config.agents })
+      body: JSON.stringify({ auras: config.auras })
     });
-    alert('Agents configuration saved successfully!');
+    alert('Auras configuration saved successfully!');
     loadConfig();
   } catch (e) {
-    alert('Failed to save agents configuration: ' + e.message);
+    alert('Failed to save auras configuration: ' + e.message);
   }
 }
 
@@ -1168,17 +1171,18 @@ async function saveKeysConfig() {
 // ─── TAB 4: Usage Stats & Logs Dashboard (New) ──────────────────────────────
 
 async function loadUsageFilters() {
-  // Populate Agent filter dropdown
-  const agentSelect = document.getElementById('filter-agent');
-  const originalVal = agentSelect.value;
-  agentSelect.innerHTML = '<option value="">All Agents</option>';
-  Object.keys(config.agents).forEach(name => {
+  // Populate Aura filter dropdown
+  const auraSelect = document.getElementById('filter-aura');
+  if (!auraSelect) return;
+  const originalVal = auraSelect.value;
+  auraSelect.innerHTML = '<option value="">All Auras</option>';
+  Object.keys(config.auras).forEach(name => {
     const opt = document.createElement('option');
     opt.value = name;
     opt.textContent = name;
-    agentSelect.appendChild(opt);
+    auraSelect.appendChild(opt);
   });
-  agentSelect.value = originalVal;
+  auraSelect.value = originalVal;
 
   // Populate Provider filter dropdown
   const provSelect = document.getElementById('filter-provider');
@@ -1196,7 +1200,7 @@ async function loadUsageFilters() {
 async function loadUsageStats() {
   const startDate = document.getElementById('filter-start-date').value;
   const endDate = document.getElementById('filter-end-date').value;
-  const agent = document.getElementById('filter-agent').value;
+  const aura = document.getElementById('filter-aura').value;
   const provider = document.getElementById('filter-provider').value;
   const host = document.getElementById('filter-host').value;
   const source = document.getElementById('filter-source').value;
@@ -1208,7 +1212,7 @@ async function loadUsageStats() {
   });
   if (startDate) params.append('startDate', startDate);
   if (endDate) params.append('endDate', endDate);
-  if (agent) params.append('agent', agent);
+  if (aura) params.append('aura', aura);
   if (provider) params.append('provider', provider);
   if (host) params.append('host', host);
   if (source) params.append('source', source);
@@ -1289,9 +1293,9 @@ function renderUsageLogsTable(logs) {
     sourceSpan.textContent = log.source;
     sourceTd.appendChild(sourceSpan);
 
-    const agentTd = document.createElement('td');
-    agentTd.style.padding = '8px';
-    agentTd.textContent = log.agent || '-';
+    const auraTd = document.createElement('td');
+    auraTd.style.padding = '8px';
+    auraTd.textContent = log.aura || '-';
 
     const provTd = document.createElement('td');
     provTd.style.padding = '8px';
@@ -1368,7 +1372,7 @@ function renderUsageLogsTable(logs) {
 function showLogDetails(log) {
   document.getElementById('modal-timestamp').textContent = log.timestamp;
   document.getElementById('modal-source').textContent = log.source;
-  document.getElementById('modal-agent').textContent = log.agent || '-';
+  document.getElementById('modal-aura').textContent = log.aura || '-';
   document.getElementById('modal-prov-model').textContent = `${log.provider || '-'} / ${log.model || '-'}`;
   document.getElementById('modal-key').textContent = log.key_name 
     ? `${log.key_name} (${log.key_email || 'No email'})` 
