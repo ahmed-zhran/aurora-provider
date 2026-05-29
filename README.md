@@ -4,7 +4,7 @@
     <strong>The Self-Hosted Ultra-Provider Gateway. Expose rotated keys, proxy pools, and free provider fallback chains as OpenAI-compatible "Auras".</strong>
   </p>
   <p align="center">
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-Personal_&_Non--Commercial-blue.svg" alt="License: Personal & Non-Commercial"></a>
     <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen" alt="Node.js"></a>
     <a href="https://bun.sh"><img src="https://img.shields.io/badge/bun-compatible-f472b6" alt="Bun compatible"></a>
     <a href="https://github.com/ahmed-zhran/aurora-provider/stargazers"><img src="https://img.shields.io/github/stars/ahmed-zhran/aurora-provider?style=social" alt="GitHub stars"></a>
@@ -16,10 +16,10 @@
 Aurora-Provider is an **ultra-provider gateway** designed for single-user self-hosting. It allows you to define unlimited **Auras** (virtual OpenAI-compatible models) backed by complex, automated fallback chains. You will never have to pay for LLMs, write complex model switching logic, or manage API keys in your daily coding tools again.
 
 ### 🌟 Key Advertising: The Aura Hub
-- **Create Your Aura**: Define virtual endpoints in the **Aura Hub** (e.g. `coder`, `scribe`, `plan`). Each Aura acts as a drop-in OpenAI-compatible model (like `aurora-provider/coder`) for your coding agents or IDE extensions.
+- **Create Your Aura**: Define virtual endpoints in the **Aura Hub** (e.g. `coder`, `scribe`, `plan`). Each Aura acts as a drop-in OpenAI-compatible model (like `aurora-provider/coder`) for your coding tools.
 - **Provider Fallback Chains**: If the primary model or provider is rate-limited, Aurora-Provider instantly and transparently switches to the next fallback option in the chain.
 - **Multi-Key API Rotation**: Add multiple free-tier API keys per provider. Aurora automatically rotates keys on rate-limits (429) and cools them down.
-- **Proxy Pooling (IP Masking)**: Bypasses IP-bound rate limiting by routing requests through a dynamically harvested and tested SOCKS5 proxy pool.
+- **Proxy Pooling (Beta)**: Bypasses IP-bound rate limiting by routing requests through a dynamically harvested and tested SOCKS5 proxy pool.
 - **Beautiful Analytics Dashboard**: Real-time request log inspection, token metrics, latency charts, and live key status views with 5 premium themes.
 
 ---
@@ -61,7 +61,7 @@ You should see:
 ## 🤔 How It Works
 
 ```
-Cursor / Aider / Continue / Any Coding Agent
+Cursor / Continue / Cline / Roo Code / Any Coding Tool
   │
   │  POST /v1/chat/completions
   │  model: "aurora-provider/coder"
@@ -124,8 +124,7 @@ Add credentials to increase rate limits. Providers with no keys configured are a
     "openrouter": ["sk-or-key-here"],
     "cloudflare_workers_ai": [
       { "apiToken": "cf-token-here", "accountId": "cf-account-id-here" }
-    ],
-    "opencode_zen": ["zen-key-here"]
+    ]
   }
 }
 ```
@@ -156,7 +155,6 @@ All supported providers offer completely free tiers (no credit cards required):
 - [**Groq**](https://console.groq.com) — Llama 3.3 70B, DeepSeek R1 (Ultra fast, 1000 req/day)
 - [**Cloudflare Workers AI**](https://dash.cloudflare.com) — Kimi, Qwen, DeepSeek, Llama (10K neurons/day)
 - [**OpenRouter**](https://openrouter.ai) — Dozens of free models (rotated by OpenRouter)
-- [**OpenCode Zen**](https://opencode.ai/zen) — Big Pickle, DeepSeek V4 Flash (200K context, generous limits)
 - [**Cerebras**](https://cloud.cerebras.ai) — Llama 3.3 70B (1M tokens/day)
 - [**NVIDIA NIM**](https://build.nvidia.com) — Extensive catalog of models (~5 RPM)
 - [**GitHub Models**](https://github.com/marketplace/models) — Grok 3, Llama 3.3 (Fast free limits)
@@ -207,10 +205,7 @@ print(response.choices[0].message.content)
 ---
 
 ## 📖 Extended Documentation
-- [Architecture & Flow Details](docs/architecture.md)
-- [Web Dashboard Guide](docs/dashboard.md)
-- [API Route Reference](docs/api-reference.md)
-- [Provider Setup Guide](docs/providers-guide.md)
+For extensive documentation, run Aurora-Provider and click the **Docs** link in the guest website or navigate to `website/docs.html`.
 
 ---
 
@@ -218,4 +213,4 @@ print(response.choices[0].message.content)
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## 📄 License
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [Personal and Non-Commercial License](LICENSE).
