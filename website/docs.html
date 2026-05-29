@@ -486,6 +486,7 @@
   
   <!-- Import Marked.js for parsing Markdown to HTML -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked-gfm-heading-id/lib/index.umd.js"></script>
   
   <!-- Import Prism.js for code highlight -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
@@ -503,10 +504,10 @@
       const menuToggle = document.getElementById('menuToggle');
 
       // Setup Marked options (allow safe HTML/headings etc.)
+      marked.use(markedGfmHeadingId.gfmHeadingId());
       marked.setOptions({
         gfm: true,
-        breaks: true,
-        headerIds: true
+        breaks: true
       });
 
       // Post-process HTML to render GitHub Markdown Alerts beautifully
@@ -610,6 +611,17 @@
             if (href.includes('README.md')) {
               e.preventDefault();
               window.location.href = 'https://github.com/ahmed-zhran/aurora-provider#readme';
+              return;
+            }
+
+            // Handle internal hash links (e.g. #api-keys--health-tab)
+            if (href.startsWith('#')) {
+              e.preventDefault();
+              const hashPart = href.substring(1);
+              const targetEl = document.getElementById(hashPart);
+              if (targetEl) {
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
               return;
             }
             
