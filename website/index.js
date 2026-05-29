@@ -61,6 +61,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const steps = AURA_CONFIGS[selected];
     chainContainer.innerHTML = '';
 
+    // Update router node text dynamically based on selected option
+    const routerIconEl = document.getElementById('router-node-icon');
+    if (routerIconEl) {
+      routerIconEl.textContent = selected;
+    }
+
     steps.forEach((step, idx) => {
       const stepDiv = document.createElement('div');
       stepDiv.className = 'chain-node';
