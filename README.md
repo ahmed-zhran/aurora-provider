@@ -34,12 +34,11 @@ cd aurora-provider
 # 2. Install dependencies
 bun install    # or: npm install
 
-# 3. Configure API keys
-cp vault/keys.example.json vault/keys.json
-# Edit vault/keys.json with your API keys (see "Getting API Keys" below)
-
-# 4. Start the gateway
+# 3. Start the gateway
 bun run start  # or: npm start
+
+# 4. Configure via Dashboard
+# Open http://127.0.0.1:8550 in your browser to add API Keys and create Auras!
 ```
 
 You should see:
