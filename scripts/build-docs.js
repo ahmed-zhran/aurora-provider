@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const docsDir = './docs';
+const docsDir = './website/docs';
 const outputFile = './website/docs-data.js';
 
 const files = {

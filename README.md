@@ -1,5 +1,5 @@
 <p align="center">
-  <h1 align="center">🌌 Aurora-Provider</h1>
+  <h1 align="center">Aurora-Provider</h1>
   <p align="center">
     <strong>The Self-Hosted Ultra-Provider Gateway. Expose rotated keys, proxy pools, and free provider fallback chains as OpenAI-compatible "Auras".</strong>
   </p>
