@@ -1,11 +1,16 @@
-import express from "express";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { compress } from "hono/compress";
+import { bodyLimit } from "hono/body-limit";
+import { stream, streamSSE } from "hono/streaming";
+import { getConnInfo } from "hono/bun";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { fetch as undiciFetch } from "undici";
 import { socksDispatcher } from "fetch-socks";
 import dns from "dns";
-import Database from "better-sqlite3";
+import { Database } from "bun:sqlite";
 
 dns.setDefaultResultOrder("ipv4first");
 
@@ -18,7 +23,7 @@ if (!existsSync(VAULT_DIR)) {
 }
 
 // Migrate configuration files to vault on boot
-const configFiles = ["providers.json", "agents.json", "keys.json"];
+const configFiles = ["providers.json", "auras.json", "keys.json", "model_settings.json"];
 for (const file of configFiles) {
   const dest = join(VAULT_DIR, file);
   if (!existsSync(dest)) {
@@ -34,7 +39,7 @@ for (const file of configFiles) {
       console.log(`[aurora-provider] Initializing empty ${file} in vault...`);
       let defaultVal = {};
       if (file === "keys.json") defaultVal = { keys: {} };
-      else if (file === "agents.json") defaultVal = { agents: {} };
+      else if (file === "auras.json") defaultVal = { auras: {} };
       else if (file === "providers.json") defaultVal = { providers: {} };
       writeFileSync(dest, JSON.stringify(defaultVal, null, 2), "utf8");
     }
@@ -43,6 +48,9 @@ for (const file of configFiles) {
 
 // ─── Database loading ─────────────────────────────────────────────────────────
 const db = new Database(join(VAULT_DIR, "vault.db"));
+db.exec('PRAGMA journal_mode = WAL');
+db.exec('PRAGMA synchronous = NORMAL');
+db.exec('PRAGMA cache_size = -8000');
 db.run = function (sql) {
   return this.exec(sql);
 };
@@ -50,7 +58,7 @@ db.run(`
   CREATE TABLE IF NOT EXISTS usage_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp DATETIME DEFAULT (datetime('now', 'localtime')),
-    agent TEXT,
+    aura TEXT,
     provider TEXT,
     model TEXT,
     key_index INTEGER,
@@ -79,6 +87,7 @@ db.run(`
     status TEXT,
     running_time REAL,
     harvested_count INTEGER,
+    tested_count INTEGER DEFAULT 0,
     passed_anomality_stage_count INTEGER
   )
 `);
@@ -89,6 +98,7 @@ try {
   const columnNames = columns.map(c => c.name);
 
   const migrations = [
+    { name: "aura", type: "TEXT" },
     { name: "prompt_tokens", type: "INTEGER" },
     { name: "completion_tokens", type: "INTEGER" },
     { name: "total_tokens", type: "INTEGER" },
@@ -101,9 +111,83 @@ try {
       db.run(`ALTER TABLE usage_logs ADD COLUMN ${col.name} ${col.type}`);
     }
   }
+
+  // Backfill aura column from legacy agent column if agent exists
+  if (columnNames.includes("agent") && columnNames.includes("aura")) {
+    db.run("UPDATE usage_logs SET aura = agent WHERE aura IS NULL OR aura = ''");
+  }
 } catch (err) {
   console.error("[aurora-provider] Error running database migrations:", err.message);
 }
+
+// Migrate proxy_refresh_logs for tested_count
+try {
+  const columns = db.prepare("PRAGMA table_info(proxy_refresh_logs)").all();
+  const columnNames = columns.map(c => c.name);
+  if (!columnNames.includes("tested_count")) {
+    console.log("[aurora-provider] Migrating: Adding column tested_count to proxy_refresh_logs");
+    db.run("ALTER TABLE proxy_refresh_logs ADD COLUMN tested_count INTEGER DEFAULT 0");
+  }
+} catch (err) {
+  console.error("[aurora-provider] Error running database migrations for proxy_refresh_logs:", err.message);
+}
+
+// Startup Stuck Proxy Fix: Reset stuck running proxy refresh logs to failed/interrupted on boot
+try {
+  db.run("UPDATE proxy_refresh_logs SET status = 'failed/interrupted' WHERE status = 'running'");
+  console.log("[aurora-provider] Reset stuck running proxy refresh logs to 'failed/interrupted'");
+} catch (err) {
+  console.error("[aurora-provider] Failed to reset stuck proxy refresh logs:", err.message);
+}
+
+// ─── Database indexes ─────────────────────────────────────────────────────────
+db.run('CREATE INDEX IF NOT EXISTS idx_usage_timestamp ON usage_logs(timestamp)');
+db.run('CREATE INDEX IF NOT EXISTS idx_usage_status ON usage_logs(status)');
+db.run('DROP INDEX IF EXISTS idx_usage_agent');
+db.run('CREATE INDEX IF NOT EXISTS idx_usage_aura ON usage_logs(aura)');
+db.run('CREATE INDEX IF NOT EXISTS idx_usage_provider ON usage_logs(provider)');
+db.run('CREATE INDEX IF NOT EXISTS idx_usage_proxy ON usage_logs(proxy)');
+
+// ─── Prepared statement cache ─────────────────────────────────────────────────
+const stmts = {
+  insertUsageLog: db.prepare(`
+    INSERT INTO usage_logs (
+      aura, provider, model, key_index, key_name, key_email, proxy, source, prompt, response, status, error_message, latency_ms,
+      prompt_tokens, completion_tokens, total_tokens, request_host
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `),
+  insertProxyRefreshLog: db.prepare(`
+    INSERT INTO proxy_refresh_logs (trigger_cause, active_before, status)
+    VALUES (?, ?, ?)
+  `),
+  updateProxyRefreshProgress: db.prepare(`
+    UPDATE proxy_refresh_logs
+    SET harvested_count = ?,
+        tested_count = ?,
+        passed_anomality_stage_count = ?
+    WHERE id = ?
+  `),
+  updateProxyRefreshDone: db.prepare(`
+    UPDATE proxy_refresh_logs
+    SET status = 'done',
+        running_time = ?,
+        harvested_count = ?,
+        tested_count = ?,
+        passed_anomality_stage_count = ?
+    WHERE id = ?
+  `),
+  deleteUsageLogs: db.prepare('DELETE FROM usage_logs'),
+  selectProxyRefreshHistory: db.prepare('SELECT * FROM proxy_refresh_logs ORDER BY id DESC LIMIT 50'),
+  deleteProxyRefreshLogs: db.prepare('DELETE FROM proxy_refresh_logs'),
+  selectDistinctHosts: db.prepare(`
+    SELECT DISTINCT request_host
+    FROM usage_logs
+    WHERE request_host IS NOT NULL AND request_host != ''
+  `),
+  countMaskedRequests: db.prepare("SELECT count(*) as count FROM usage_logs WHERE proxy IS NOT NULL AND proxy != '' AND proxy != 'direct'"),
+  countSuccessMaskedRequests: db.prepare("SELECT count(*) as count FROM usage_logs WHERE proxy IS NOT NULL AND proxy != '' AND proxy != 'direct' AND status = 'Success'"),
+  countDirectRequests: db.prepare("SELECT count(*) as count FROM usage_logs WHERE proxy IS NULL OR proxy = '' OR proxy = 'direct'"),
+};
 
 // ─── Config loading ───────────────────────────────────────────────────────────
 
@@ -112,19 +196,336 @@ function loadJSON(file) {
 }
 
 const PROVIDERS = loadJSON("providers.json").providers;
-let AGENTS      = loadJSON("agents.json").agents;
+let AURAS       = loadJSON("auras.json").auras;
 let KEYS_CFG    = loadJSON("keys.json").keys;
+
+// ─── Model cache and dynamic fetching helpers ─────────────────────────────────
+const MODELS_CACHE = {};
+const MODEL_SETTINGS_FILE = join(VAULT_DIR, "model_settings.json");
+let _modelSettingsCache = null;
+
+function loadModelSettings() {
+  if (_modelSettingsCache !== null) return _modelSettingsCache;
+  try {
+    if (existsSync(MODEL_SETTINGS_FILE)) {
+      _modelSettingsCache = JSON.parse(readFileSync(MODEL_SETTINGS_FILE, "utf8"));
+      return _modelSettingsCache;
+    }
+  } catch (e) {
+    console.error("[aurora-provider] Failed to load model_settings.json:", e.message);
+  }
+  _modelSettingsCache = {};
+  return _modelSettingsCache;
+}
+
+function saveModelSettings(settings) {
+  _modelSettingsCache = settings;
+  try {
+    writeFileSync(MODEL_SETTINGS_FILE, JSON.stringify(settings, null, 2), "utf8");
+  } catch (e) {
+    console.error("[aurora-provider] Failed to save model_settings.json:", e.message);
+  }
+}
+
+function getHeuristicMetadata(providerId, modelId) {
+  const idL = modelId.toLowerCase();
+  
+  let contextWindow = 128000;
+  let maxOutput = 4096;
+  let reasoning = false;
+  let capabilities = ["text"];
+  
+  // 1. Modalities / Capabilities
+  if (idL.includes("vision") || 
+      idL.includes("-vl") || 
+      idL.includes("multimodal") || 
+      idL.includes("image") || 
+      idL.includes("video") || 
+      idL.includes("audio") || 
+      idL.includes("gpt-4o") ||
+      idL.includes("gemini") ||
+      idL.includes("claude-3-5")) {
+    capabilities = ["text", "image"];
+    if (idL.includes("video") || idL.includes("gemini")) {
+      capabilities.push("video");
+    }
+    if (idL.includes("audio") || idL.includes("gemini") || idL.includes("gpt-4o") || idL.includes("claude")) {
+      capabilities.push("audio");
+    }
+  }
+  
+  // 2. Reasoning support
+  if (idL.includes("reasoner") || 
+      idL.includes("reasoning") || 
+      idL.includes("thinking") || 
+      idL.includes("qwq") || 
+      idL.includes("o1") || 
+      idL.includes("o3") || 
+      idL.includes("deepseek-r1") || 
+      idL.includes("-r1")) {
+    reasoning = true;
+  }
+  
+  // 3. Context & Max Output limits
+  if (idL.includes("gemini-2.5-pro") || idL.includes("gemini-1.5-pro")) {
+    contextWindow = 2000000;
+    maxOutput = 8192;
+  } else if (idL.includes("gemini-2.5-flash") || idL.includes("gemini-1.5-flash") || idL.includes("gemini-3.1-flash-lite")) {
+    contextWindow = 1000000;
+    maxOutput = 8192;
+  } else if (idL.includes("gemma")) {
+    contextWindow = 1000000;
+    maxOutput = 8192;
+  } else if (idL.includes("claude-3-5")) {
+    contextWindow = 200000;
+    maxOutput = 8192;
+  } else if (idL.includes("claude-3")) {
+    contextWindow = 200000;
+    maxOutput = 4096;
+  } else if (idL.includes("gpt-4o") || idL.includes("gpt-4-turbo")) {
+    contextWindow = 128000;
+    maxOutput = 4096;
+  } else if (idL.includes("llama-3.3") || idL.includes("llama-3.1")) {
+    contextWindow = 128000;
+    maxOutput = 4096;
+  } else if (idL.includes("llama-3") || idL.includes("llama3")) {
+    contextWindow = 8192;
+    maxOutput = 2048;
+  } else if (idL.includes("deepseek-chat") || idL.includes("deepseek-v3")) {
+    contextWindow = 64000;
+    maxOutput = 8192;
+  } else if (idL.includes("deepseek-reasoner") || idL.includes("deepseek-r1")) {
+    contextWindow = 64000;
+    maxOutput = 8192;
+  } else if (idL.includes("glm-4")) {
+    contextWindow = 128000;
+    maxOutput = 4096;
+  } else if (idL.includes("qwen")) {
+    contextWindow = 32000;
+    maxOutput = 4096;
+  }
+  
+  return { contextWindow, maxOutput, reasoning, capabilities };
+}
+
+function mapApiModel(providerId, apiModel, markFreeMap) {
+  const modelId = apiModel.id;
+  const markFreeKey = `${providerId}:${modelId}`;
+  
+  const heuristics = getHeuristicMetadata(providerId, modelId);
+  
+  let name = apiModel.name || apiModel.id.split("/").pop() || apiModel.id;
+  
+  let contextWindow = apiModel.context_length || apiModel.contextWindow || heuristics.contextWindow;
+  if (apiModel.top_provider && apiModel.top_provider.context_length) {
+    contextWindow = apiModel.top_provider.context_length;
+  }
+  
+  let maxOutput = heuristics.maxOutput;
+  if (apiModel.top_provider && apiModel.top_provider.max_completion_tokens) {
+    maxOutput = apiModel.top_provider.max_completion_tokens;
+  }
+  
+  let reasoning = heuristics.reasoning;
+  if (apiModel.supported_parameters && (apiModel.supported_parameters.includes("reasoning") || apiModel.supported_parameters.includes("include_reasoning"))) {
+    reasoning = true;
+  }
+  if (apiModel.reasoning !== undefined) {
+    reasoning = !!apiModel.reasoning;
+  }
+
+  let capabilities = heuristics.capabilities;
+  if (apiModel.architecture && apiModel.architecture.input_modalities) {
+    capabilities = [...apiModel.architecture.input_modalities];
+  }
+
+  let pricing = apiModel.pricing || null;
+  
+  let isFreeDefault = false;
+  if (pricing && parseFloat(pricing.prompt) === 0 && parseFloat(pricing.completion) === 0) {
+    isFreeDefault = true;
+  }
+  if (modelId.includes(":free")) {
+    isFreeDefault = true;
+  }
+  
+  const staticProv = PROVIDERS[providerId];
+  if (staticProv && staticProv.models) {
+    const staticModel = staticProv.models.find(m => m.id === modelId);
+    if (staticModel && staticModel.free) {
+      isFreeDefault = true;
+    }
+  }
+
+  const markFree = markFreeMap[markFreeKey] !== undefined ? !!markFreeMap[markFreeKey].markFree : isFreeDefault;
+
+  return {
+    id: modelId,
+    name,
+    contextWindow,
+    maxOutput,
+    reasoning,
+    capabilities,
+    pricing,
+    markFree
+  };
+}
+
+async function getModelsForProvider(providerId, forceRefresh = false) {
+  if (!forceRefresh && MODELS_CACHE[providerId]) {
+    const markFreeMap = loadModelSettings();
+    return MODELS_CACHE[providerId].map(model => {
+      const markFreeKey = `${providerId}:${model.id}`;
+      return {
+        ...model,
+        markFree: markFreeMap[markFreeKey] !== undefined ? !!markFreeMap[markFreeKey].markFree : model.markFree
+      };
+    });
+  }
+
+  const keys = KEYS_CFG[providerId];
+  const markFreeMap = loadModelSettings();
+
+  if (!keys || keys.length === 0) {
+    const staticModels = PROVIDERS[providerId]?.models || [];
+    let settingsChanged = false;
+    const mapped = staticModels.map(m => {
+      const model = mapApiModel(providerId, m, markFreeMap);
+      const markFreeKey = `${providerId}:${model.id}`;
+      if (model.markFree && markFreeMap[markFreeKey] === undefined) {
+        markFreeMap[markFreeKey] = { markFree: true };
+        settingsChanged = true;
+      }
+      return model;
+    });
+    if (settingsChanged) {
+      saveModelSettings(markFreeMap);
+    }
+    return mapped;
+  }
+
+  try {
+    const keyEntry = keys[0];
+    const keyVal = typeof keyEntry === "object" && keyEntry !== null && 'key' in keyEntry ? keyEntry.key : keyEntry;
+    const name = typeof keyEntry === "object" && keyEntry !== null && 'name' in keyEntry ? keyEntry.name : `Key 0`;
+    const email = typeof keyEntry === "object" && keyEntry !== null && 'email' in keyEntry ? keyEntry.email : "";
+    const activeKeyEntry = { key: keyVal, keyIndex: 0, name, email };
+
+    const baseUrl = buildBaseUrl(providerId, activeKeyEntry);
+    const headers = {
+      "Content-Type": "application/json",
+      ...buildAuthHeader(providerId, activeKeyEntry)
+    };
+
+    const response = await undiciFetch(`${baseUrl}/models`, {
+      method: "GET",
+      headers,
+      signal: AbortSignal.timeout(6000)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error ${response.status}`);
+    }
+
+    const data = await response.json();
+    let apiModels = [];
+    if (data && Array.isArray(data.data)) {
+      apiModels = data.data;
+    } else if (data && Array.isArray(data)) {
+      apiModels = data;
+    }
+
+    if (apiModels.length === 0) {
+      throw new Error("No models returned by API");
+    }
+
+    let settingsChanged = false;
+    const mapped = apiModels.map(m => {
+      const model = mapApiModel(providerId, m, markFreeMap);
+      const markFreeKey = `${providerId}:${model.id}`;
+      if (model.markFree && markFreeMap[markFreeKey] === undefined) {
+        markFreeMap[markFreeKey] = { markFree: true };
+        settingsChanged = true;
+      }
+      return model;
+    });
+    if (settingsChanged) {
+      saveModelSettings(markFreeMap);
+    }
+
+    MODELS_CACHE[providerId] = mapped;
+    return mapped;
+
+  } catch (err) {
+    console.warn(`[aurora-provider] Failed to fetch models dynamically for ${providerId}: ${err.message}. Falling back to static config.`);
+    const staticModels = PROVIDERS[providerId]?.models || [];
+    let settingsChanged = false;
+    const mapped = staticModels.map(m => {
+      const model = mapApiModel(providerId, m, markFreeMap);
+      const markFreeKey = `${providerId}:${model.id}`;
+      if (model.markFree && markFreeMap[markFreeKey] === undefined) {
+        markFreeMap[markFreeKey] = { markFree: true };
+        settingsChanged = true;
+      }
+      return model;
+    });
+    if (settingsChanged) {
+      saveModelSettings(markFreeMap);
+    }
+    return mapped;
+  }
+}
 
 // ─── Proxy pool & testing ─────────────────────────────────────────────────────
 let PROXY_POOL = []; // Array of { url, latency, source, successCount, failureCount }
 const PROXY_MAP = new Map(); // Map of url -> proxyObj for O(1) lookup
-let proxyPoolIndex = 0;
 let proxyStatus = "Idle"; // "Scraping...", "Testing...", "Active"
+let proxyPoolIndex = 0;
 let isRefreshingProxyPool = false;
+
+const ACTIVE_PROXIES_FILE = join(VAULT_DIR, "active_proxies.json");
+let saveProxiesTimeout = null;
+
+function saveActiveProxiesToDisk() {
+  if (saveProxiesTimeout) return;
+  saveProxiesTimeout = setTimeout(() => {
+    saveProxiesTimeout = null;
+    try {
+      writeFileSync(ACTIVE_PROXIES_FILE, JSON.stringify(PROXY_POOL, null, 2), "utf8");
+    } catch (e) {
+      console.error("[aurora-provider] Failed to persist active proxies:", e.message);
+    }
+  }, 250);
+}
+
+function loadActiveProxiesFromDisk() {
+  try {
+    if (existsSync(ACTIVE_PROXIES_FILE)) {
+      const data = JSON.parse(readFileSync(ACTIVE_PROXIES_FILE, "utf8"));
+      if (Array.isArray(data)) {
+        PROXY_POOL = data;
+        PROXY_MAP.clear();
+        for (const p of PROXY_POOL) {
+          PROXY_MAP.set(p.url, p);
+        }
+        proxyStatus = `Active (${PROXY_POOL.length} proxies loaded from disk)`;
+        console.log(`[aurora-provider] Loaded ${PROXY_POOL.length} active proxies from disk.`);
+      }
+    }
+  } catch (e) {
+    console.error("[aurora-provider] Failed to load active proxies from disk:", e.message);
+  }
+}
+
+// Initial load from disk at boot
+loadActiveProxiesFromDisk();
+const dispatcherCache = new Map(); // Cache SOCKS dispatchers to avoid re-creation
 
 let SERVER_PUBLIC_IP = "";
 
 function getProxyDispatcher(proxyUrl) {
+  const cached = dispatcherCache.get(proxyUrl);
+  if (cached) return cached;
   try {
     const url = new URL(proxyUrl);
     const host = url.hostname;
@@ -140,11 +541,18 @@ function getProxyDispatcher(proxyUrl) {
     if (url.password) {
       options.password = decodeURIComponent(url.password);
     }
-    return socksDispatcher(options, {
+    const dispatcher = socksDispatcher(options, {
       connect: {
         timeout: 2500
       }
     });
+    dispatcherCache.set(proxyUrl, dispatcher);
+    // Evict oldest if cache grows too large
+    if (dispatcherCache.size > 250) {
+      const firstKey = dispatcherCache.keys().next().value;
+      dispatcherCache.delete(firstKey);
+    }
+    return dispatcher;
   } catch (e) {
     console.error(`[aurora-provider] Failed to parse proxy URL: ${proxyUrl}`, e.message);
     return null;
@@ -177,12 +585,16 @@ async function detectServerPublicIp() {
 }
 
 let PROXY_LATENCY_THRESHOLD = 1500; // default 1500ms
+let ENABLE_PROXY = true;
 try {
   const settingsPath = join(VAULT_DIR, "settings.json");
   if (existsSync(settingsPath)) {
     const s = JSON.parse(readFileSync(settingsPath, "utf8"));
     if (s.latencyThreshold !== undefined) {
       PROXY_LATENCY_THRESHOLD = Math.max(100, Number(s.latencyThreshold));
+    }
+    if (s.enableProxy !== undefined) {
+      ENABLE_PROXY = !!s.enableProxy;
     }
   }
 } catch (e) {
@@ -196,7 +608,6 @@ const COUNTRY_NAME_MAP = {
   TR: "turkey",
   GR: "greece",
   CY: "cyprus",
-  IT: "italy",
   NL: "netherlands",
   DE: "germany",
   FR: "france",
@@ -323,6 +734,19 @@ for (const src of PROXY_SOURCES) {
 let lastRequestTime = Date.now();
 
 function getNextProxy() {
+  if (!ENABLE_PROXY) return null;
+
+  // Pre-use pool health check: if pool is below 50% of max capacity and no refresh
+  // is running, trigger one in the background. This catches the empty-pool-on-boot
+  // case where the on-start refresh was killed before completion.
+  const PROXIES_MAX_LIMIT = 200;
+  if (PROXY_POOL.length < (PROXIES_MAX_LIMIT / 2) && !isRefreshingProxyPool) {
+    console.log(`[aurora-provider] Pool health check: ${PROXY_POOL.length}/${PROXIES_MAX_LIMIT} proxies. Triggering background refresh...`);
+    refreshProxyPool("pool_health_check", true).catch(err => {
+      console.error(`[aurora-provider] Pool health check refresh failed: ${err.message}`);
+    });
+  }
+
   if (!PROXY_POOL || PROXY_POOL.length === 0) return null;
   const activeLimit = Math.min(PROXY_POOL.length, 10);
   const proxy = PROXY_POOL[proxyPoolIndex % activeLimit];
@@ -417,11 +841,14 @@ function insertIntoSortedPool(pool, proxyObj, maxLimit = 200) {
     const removed = pool.pop();
     PROXY_MAP.delete(removed.url);
   }
+  saveActiveProxiesToDisk();
 }
 
-// Scrape and test proxies sequentially source-by-source
-// Scrape and test proxies sequentially source-by-source
 async function refreshProxyPool(triggerCause = "replenishing", bypassCooldown = true) {
+  if (!ENABLE_PROXY) {
+    console.log("[aurora-provider] Proxy usage is disabled. Skipping proxy pool refresh.");
+    return;
+  }
   if (isRefreshingProxyPool) {
     console.log("[aurora-provider] Proxy refresh already in progress. Skipping.");
     return;
@@ -445,16 +872,14 @@ async function refreshProxyPool(triggerCause = "replenishing", bypassCooldown = 
   let logId = null;
 
   try {
-    const info = db.prepare(`
-      INSERT INTO proxy_refresh_logs (trigger_cause, active_before, status)
-      VALUES (?, ?, ?)
-    `).run(triggerCause, activeBefore, "running");
+    const info = stmts.insertProxyRefreshLog.run(triggerCause, activeBefore, "running");
     logId = info.lastInsertRowid;
   } catch (dbErr) {
     console.error("[aurora-provider] Failed to log refresh startup to DB:", dbErr.message);
   }
 
   let totalHarvested = 0;
+  let totalTested = 0;
   let totalPassedAnomality = 0;
 
   try {
@@ -545,6 +970,7 @@ async function refreshProxyPool(triggerCause = "replenishing", bypassCooldown = 
         const totalParsed = localProxies.length;
         totalHarvested += totalParsed;
         const slicedProxies = localProxies.slice(0, 50);
+        totalTested += slicedProxies.length;
         console.log(`[harvest] Parsed ${totalParsed} proxies. Testing first ${slicedProxies.length} candidates.`);
 
         if (slicedProxies.length > 0) {
@@ -585,7 +1011,8 @@ async function refreshProxyPool(triggerCause = "replenishing", bypassCooldown = 
                   latency,
                   source: url,
                   successCount: existing ? existing.successCount : 1,
-                  failureCount: existing ? existing.failureCount : 0
+                  failureCount: existing ? existing.failureCount : 0,
+                  createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString()
                 };
 
                 insertIntoSortedPool(PROXY_POOL, proxyObj, 200);
@@ -610,20 +1037,22 @@ async function refreshProxyPool(triggerCause = "replenishing", bypassCooldown = 
         }
       }
 
+      // Update database in real-time after each source
+      if (logId) {
+        try {
+          stmts.updateProxyRefreshProgress.run(totalHarvested, totalTested, totalPassedAnomality, logId);
+        } catch (dbErr) {
+          // ignore
+        }
+      }
+
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
   } finally {
     const durationMin = ((Date.now() - startTime) / (1000 * 60)); // running-time in minutes
     if (logId) {
       try {
-        db.prepare(`
-          UPDATE proxy_refresh_logs
-          SET status = 'done',
-              running_time = ?,
-              harvested_count = ?,
-              passed_anomality_stage_count = ?
-          WHERE id = ?
-        `).run(durationMin, totalHarvested, totalPassedAnomality, logId);
+        stmts.updateProxyRefreshDone.run(durationMin, totalHarvested, totalTested, totalPassedAnomality, logId);
       } catch (dbErr) {
         console.error("[aurora-provider] Failed to log refresh completion to DB:", dbErr.message);
       }
@@ -662,6 +1091,7 @@ function removeDeadProxy(proxyUrl) {
       } else {
         proxyStatus = `Active (${PROXY_POOL.length} proxies)`;
       }
+      saveActiveProxiesToDisk();
       
       const PROXIES_MAX_LIMIT = 200;
       if (PROXY_POOL.length < (PROXIES_MAX_LIMIT / 2) && !isRefreshingProxyPool) {
@@ -672,15 +1102,23 @@ function removeDeadProxy(proxyUrl) {
       }
     }
     PROXY_MAP.delete(proxyUrl);
+    dispatcherCache.delete(proxyUrl);
   }
 }
 
 // ─── SSE Log Broadcaster ──────────────────────────────────────────────────────
-const sseClients = [];
+const sseClients = new Set();
 function broadcastLog(level, message) {
+  if (sseClients.size === 0) return;
   const data = JSON.stringify({ timestamp: new Date().toISOString(), level, message });
-  for (const res of sseClients) {
-    res.write(`data: ${data}\n\n`);
+  for (const streamInstance of sseClients) {
+    try {
+      streamInstance.writeSSE({
+        data: data
+      });
+    } catch (e) {
+      sseClients.delete(streamInstance);
+    }
   }
 }
 
@@ -702,7 +1140,6 @@ console.error = (...args) => {
 };
 
 // ─── Rate-limit tracker ───────────────────────────────────────────────────────
-// Tracks per-key health: { [providerKey]: { key, hitAt, cooldownUntil, failures } }
 
 const keyState = {}; // Map<string, KeyState>
 
@@ -737,7 +1174,6 @@ function resetKey(provider, keyIndex) {
 
 // ─── Key rotation ─────────────────────────────────────────────────────────────
 
-// Returns { key, keyIndex, name, email } or null if all keys exhausted
 function getAvailableKey(providerName) {
   const keys = KEYS_CFG[providerName];
   if (!keys || keys.length === 0) return null;
@@ -751,7 +1187,7 @@ function getAvailableKey(providerName) {
       return { key: keyVal, keyIndex: i, name, email };
     }
   }
-  return null; // all keys rate-limited
+  return null;
 }
 
 // ─── Request builder ──────────────────────────────────────────────────────────
@@ -760,7 +1196,6 @@ function buildBaseUrl(providerName, keyEntry) {
   const prov = PROVIDERS[providerName];
   let url = prov.baseUrl;
 
-  // Cloudflare needs accountId interpolated
   if (providerName === "cloudflare_workers_ai" && typeof keyEntry.key === "object") {
     url = url.replace("{ACCOUNT_ID}", keyEntry.key.accountId);
   }
@@ -808,7 +1243,6 @@ async function attemptRequest(providerName, modelId, body, forcedKeyIndex = null
   let attempts = 0;
 
   while (attempts <= maxProxyRetries) {
-    // Outbound routing: Prefer Proxy Pool first, then Outbound IP Rotation, then default connection
     let dispatcher;
     const proxyUrl = getNextProxy();
     const currentProxy = proxyUrl || "direct";
@@ -827,7 +1261,6 @@ async function attemptRequest(providerName, modelId, body, forcedKeyIndex = null
       });
 
       if (res.status === 429) {
-        // If we used a proxy, it might be the proxy's IP that is rate-limited, not the key itself.
         if (proxyUrl && attempts < maxProxyRetries) {
           console.warn(`[aurora-provider] Proxy ${proxyUrl} rate-limited (HTTP 429). Evicting proxy and retrying key ${keyEntry.keyIndex} with another route...`);
           removeDeadProxy(proxyUrl);
@@ -835,7 +1268,6 @@ async function attemptRequest(providerName, modelId, body, forcedKeyIndex = null
           continue;
         }
 
-        // If we didn't use a proxy, or we exhausted all proxy retries, we assume the key itself is rate-limited.
         if (proxyUrl) {
           console.warn(`[aurora-provider] Exceeded proxy retries for rate limits. Evicting final proxy ${proxyUrl}.`);
           removeDeadProxy(proxyUrl);
@@ -845,7 +1277,7 @@ async function attemptRequest(providerName, modelId, body, forcedKeyIndex = null
         const customCooldownSec = provCfg?.cooldownTime;
         const cooldown = customCooldownSec
           ? customCooldownSec * 1000
-          : Math.min(60_000 * failures, 900_000); // max 15 min default
+          : Math.min(60_000 * failures, 900_000);
         markKeyLimited(providerName, keyEntry.keyIndex, cooldown);
         return { error: "RATE_LIMITED", providerName, modelId, keyIndex: keyEntry.keyIndex, keyName: keyEntry.name, keyEmail: keyEntry.email, proxy: currentProxy };
       }
@@ -867,7 +1299,7 @@ async function attemptRequest(providerName, modelId, body, forcedKeyIndex = null
       }
 
       if (proxyUrl) {
-        const pObj = PROXY_POOL.find(p => p.url === proxyUrl);
+        const pObj = PROXY_MAP.get(proxyUrl);
         if (pObj) {
           pObj.successCount++;
           if (pObj.source && SOURCE_STATS[pObj.source]) {
@@ -877,7 +1309,6 @@ async function attemptRequest(providerName, modelId, body, forcedKeyIndex = null
         }
       }
 
-      // Stream passthrough: return raw Response for streaming
       return { success: true, response: res, providerName, modelId, keyIndex: keyEntry.keyIndex, keyName: keyEntry.name, keyEmail: keyEntry.email, proxy: currentProxy };
 
     } catch (err) {
@@ -897,33 +1328,31 @@ async function attemptRequest(providerName, modelId, body, forcedKeyIndex = null
   }
 }
 
-// ─── Agent-aware dispatch with fallback chain ─────────────────────────────────
+// ─── Aura-aware dispatch with fallback chain ─────────────────────────────────
 
-async function dispatch(agentName, body) {
-  const agentConfig = AGENTS[agentName];
-  if (!agentConfig) {
-    return { error: `Unknown agent: ${agentName}` };
+async function dispatch(auraName, body) {
+  const auraConfig = AURAS[auraName];
+  if (!auraConfig) {
+    return { error: `Unknown aura: ${auraName}` };
   }
 
-  const chain = agentConfig.fallbacks;
+  const chain = auraConfig.fallbacks;
 
   for (const step of chain) {
     const { provider, model } = step;
 
-    // Check if provider has any keys configured
     const keys = KEYS_CFG[provider];
     if (!keys || keys.length === 0) {
       console.log(`[aurora-provider] Skipping ${provider} — no keys configured`);
       continue;
     }
 
-    // Try all available keys for this provider
     let providerExhausted = false;
     while (true) {
       const result = await attemptRequest(provider, model, body);
 
       if (result.success) {
-        console.log(`[aurora-provider] ✓ ${agentName} → ${provider}/${model}`);
+        console.log(`[aurora-provider] ✓ ${auraName} → ${provider}/${model}`);
         return result;
       }
 
@@ -933,7 +1362,6 @@ async function dispatch(agentName, body) {
       }
 
       if (result.error === "RATE_LIMITED") {
-        // Try next key (loop continues — getAvailableKey will skip this one)
         const nextKey = getAvailableKey(provider);
         if (!nextKey) {
           providerExhausted = true;
@@ -942,7 +1370,6 @@ async function dispatch(agentName, body) {
         continue;
       }
 
-      // HTTP error or network error — move to next fallback
       break;
     }
 
@@ -951,42 +1378,79 @@ async function dispatch(agentName, body) {
     }
   }
 
-  return { error: "ALL_FALLBACKS_EXHAUSTED", agentName };
+  return { error: "ALL_FALLBACKS_EXHAUSTED", auraName };
 }
 
-// ─── Model-name → agent resolver ──────────────────────────────────────────────
-// OpenCode sends model names like "aurora-provider/build" or "auroraprovider/coder"
-// We parse the suffix as the agent name.
+// ─── Model-name → aura resolver ──────────────────────────────────────────────
 
-function resolveAgent(modelId) {
+function resolveAura(modelId) {
   if (!modelId) return null;
-  // Accepts: "aurora-provider/build", "auroraprovider/build", "ap/build", "build"
   const parts = modelId.split("/");
   const suffix = parts[parts.length - 1].toLowerCase();
-  return AGENTS[suffix] ? suffix : null;
+  return AURAS[suffix] ? suffix : null;
 }
 
-// ─── Express server ───────────────────────────────────────────────────────────
+// ─── Hono App & Middlewares ───────────────────────────────────────────────────
 
-const app = express();
-app.use(express.json({ limit: "10mb" }));
+const app = new Hono();
 
-// Serve UI
-app.use(express.static(join(ROOT, "src", "public")));
+// Global middlewares
+app.use("*", cors());
+app.use("*", compress());
+app.use(
+  "*",
+  bodyLimit({
+    maxSize: 2 * 1024 * 1024, // 2MB limit
+    onError: (c) => {
+      return c.json({ error: "Payload Too Large" }, 413);
+    },
+  })
+);
+
+// UI Static Routes via ultra-fast Bun.file()
+app.get("/", async (c) => {
+  try {
+    const html = await Bun.file(join(ROOT, "src", "public", "index.html")).text();
+    return c.html(html);
+  } catch (e) {
+    return c.text("UI Index Not Found", 404);
+  }
+});
+
+app.get("/index.js", async (c) => {
+  try {
+    const js = await Bun.file(join(ROOT, "src", "public", "index.js")).text();
+    return new Response(js, {
+      headers: { "Content-Type": "application/javascript" },
+    });
+  } catch (e) {
+    return c.text("Not Found", 404);
+  }
+});
+
+app.get("/index.css", async (c) => {
+  try {
+    const css = await Bun.file(join(ROOT, "src", "public", "index.css")).text();
+    return new Response(css, {
+      headers: { "Content-Type": "text/css" },
+    });
+  } catch (e) {
+    return c.text("Not Found", 404);
+  }
+});
 
 // Config APIs
-app.get("/api/config", (req, res) => {
-  res.json({
+app.get("/api/config", (c) => {
+  return c.json({
     providers: PROVIDERS,
-    agents: AGENTS,
+    auras: AURAS,
     keys: KEYS_CFG
   });
 });
 
-app.post("/api/keys", (req, res) => {
+app.post("/api/keys", async (c) => {
   try {
-    const { keys } = req.body;
-    // Clear and assign new keys
+    const { keys } = await c.req.json();
     for (const key of Object.keys(KEYS_CFG)) {
       delete KEYS_CFG[key];
     }
@@ -997,37 +1461,35 @@ app.post("/api/keys", (req, res) => {
       _security: "Keep this file out of version control. Add to .gitignore.",
       keys
     }, null, 2), "utf8");
-    res.json({ success: true });
+    return c.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return c.json({ error: err.message }, 500);
   }
 });
 
-app.post("/api/agents", (req, res) => {
+app.post("/api/auras", async (c) => {
   try {
-    const { agents } = req.body;
-    AGENTS = agents;
-    writeFileSync(join(VAULT_DIR, "agents.json"), JSON.stringify({
-      _comment: "Aurora-Provider agent definitions. Each agent has an ordered fallback chain: provider + model pairs sorted by context size → rate limit generosity → speed.",
+    const { auras } = await c.req.json();
+    AURAS = auras;
+    writeFileSync(join(VAULT_DIR, "auras.json"), JSON.stringify({
+      _comment: "Aurora-Provider aura definitions. Each aura has an ordered fallback chain: provider + model pairs sorted by context size → rate limit generosity → speed.",
       _version: "1.0.0",
-      agents
+      auras
     }, null, 2), "utf8");
-    res.json({ success: true });
+    return c.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return c.json({ error: err.message }, 500);
   }
 });
 
 // Providers API
-app.get("/api/providers", (req, res) => {
-  res.json({ providers: PROVIDERS });
+app.get("/api/providers", (c) => {
+  return c.json({ providers: PROVIDERS });
 });
 
-app.post("/api/providers", (req, res) => {
+app.post("/api/providers", async (c) => {
   try {
-    const { providers } = req.body;
-    
-    // Clear and assign new providers
+    const { providers } = await c.req.json();
     for (const key of Object.keys(PROVIDERS)) {
       delete PROVIDERS[key];
     }
@@ -1037,16 +1499,63 @@ app.post("/api/providers", (req, res) => {
       _comment: "Aurora-Provider supported LLM providers catalog and models metadata.",
       providers
     }, null, 2), "utf8");
-    res.json({ success: true });
+    return c.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.get("/api/providers/:providerId/models", async (c) => {
+  try {
+    const providerId = c.req.param("providerId");
+    const forceRefresh = c.req.query("refresh") === "true";
+    const models = await getModelsForProvider(providerId, forceRefresh);
+    return c.json({ models });
+  } catch (err) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.post("/api/providers/:providerId/models/settings", async (c) => {
+  try {
+    const providerId = c.req.param("providerId");
+    const { modelId, markFree } = await c.req.json();
+    
+    if (!modelId) {
+      return c.json({ error: "modelId is required" }, 400);
+    }
+
+    const settings = loadModelSettings();
+    const markFreeKey = `${providerId}:${modelId}`;
+    
+    settings[markFreeKey] = { markFree: !!markFree };
+    saveModelSettings(settings);
+
+    if (MODELS_CACHE[providerId]) {
+      const idx = MODELS_CACHE[providerId].findIndex(m => m.id === modelId);
+      if (idx !== -1) {
+        MODELS_CACHE[providerId][idx].markFree = !!markFree;
+      }
+    }
+
+    return c.json({ success: true });
+  } catch (err) {
+    return c.json({ error: err.message }, 500);
   }
 });
 
 // Usage statistics and logs query API
-app.get("/api/usage", (req, res) => {
+app.get("/api/usage", (c) => {
   try {
-    const { startDate, endDate, agent, provider, source, status, host, page = 1, limit = 50 } = req.query;
+    const startDate = c.req.query("startDate");
+    const endDate = c.req.query("endDate");
+    const aura = c.req.query("aura");
+    const provider = c.req.query("provider");
+    const source = c.req.query("source");
+    const status = c.req.query("status");
+    const host = c.req.query("host");
+    const page = parseInt(c.req.query("page") || "1", 10);
+    const limit = parseInt(c.req.query("limit") || "50", 10);
 
     const clauses = [];
     const params = [];
@@ -1059,9 +1568,9 @@ app.get("/api/usage", (req, res) => {
       clauses.push("timestamp <= ?");
       params.push(endDate + " 23:59:59");
     }
-    if (agent) {
-      clauses.push("agent = ?");
-      params.push(agent);
+    if (aura) {
+      clauses.push("aura = ?");
+      params.push(aura);
     }
     if (provider) {
       clauses.push("provider = ?");
@@ -1101,9 +1610,7 @@ app.get("/api/usage", (req, res) => {
     `).get(...params).sum || 0;
 
     // Paginated logs
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
-    const offset = (pageNum - 1) * limitNum;
+    const offset = (page - 1) * limit;
     
     const logsSql = `
       SELECT * FROM usage_logs 
@@ -1111,7 +1618,7 @@ app.get("/api/usage", (req, res) => {
       ORDER BY id DESC 
       LIMIT ? OFFSET ?
     `;
-    const paginatedLogs = db.prepare(logsSql).all(...params, limitNum, offset);
+    const paginatedLogs = db.prepare(logsSql).all(...params, limit, offset);
 
     // Stats for Charts
     const providersData = db.prepare(`
@@ -1144,14 +1651,9 @@ app.get("/api/usage", (req, res) => {
     `;
     const timeData = db.prepare(timeSql).all(...params);
 
-    // Get all distinct request hosts for filter populating
-    const uniqueHosts = db.prepare(`
-      SELECT DISTINCT request_host 
-      FROM usage_logs 
-      WHERE request_host IS NOT NULL AND request_host != ''
-    `).all().map(r => r.request_host);
+    const uniqueHosts = stmts.selectDistinctHosts.all().map(r => r.request_host);
 
-    res.json({
+    return c.json({
       success: true,
       logs: paginatedLogs,
       totalCount,
@@ -1167,55 +1669,98 @@ app.get("/api/usage", (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.post("/api/usage/clear", (c) => {
+  try {
+    stmts.deleteUsageLogs.run();
+    return c.json({ success: true, message: "Request logs history cleared." });
+  } catch (err) {
+    return c.json({ error: err.message }, 500);
   }
 });
 
 // Logs stream (Server-Sent Events)
-app.get("/api/logs-stream", (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.flushHeaders();
+app.get("/api/logs-stream", (c) => {
+  c.header("Content-Type", "text/event-stream");
+  c.header("Cache-Control", "no-cache");
+  c.header("Connection", "keep-alive");
 
-  sseClients.push(res);
-
-  req.on("close", () => {
-    const index = sseClients.indexOf(res);
-    if (index !== -1) {
-      sseClients.splice(index, 1);
+  return streamSSE(c, async (streamInstance) => {
+    sseClients.add(streamInstance);
+    streamInstance.onAbort(() => {
+      sseClients.delete(streamInstance);
+    });
+    while (true) {
+      await streamInstance.sleep(10000);
     }
   });
 });
 
 // Settings API
-app.get("/api/settings", (req, res) => {
-  res.json({ latencyThreshold: PROXY_LATENCY_THRESHOLD });
+app.get("/api/settings", (c) => {
+  return c.json({ latencyThreshold: PROXY_LATENCY_THRESHOLD, enableProxy: ENABLE_PROXY });
 });
 
-app.post("/api/settings", (req, res) => {
+app.post("/api/settings", async (c) => {
   try {
-    const { latencyThreshold } = req.body;
-    if (typeof latencyThreshold === "number" && latencyThreshold >= 100) {
-      PROXY_LATENCY_THRESHOLD = latencyThreshold;
-      writeFileSync(join(VAULT_DIR, "settings.json"), JSON.stringify({ latencyThreshold }, null, 2), "utf8");
-      
-      // Auto-trigger a proxy pool refresh to re-evaluate under the new threshold!
-      refreshProxyPool("user_triggered", true).catch(err => {
-        console.error(`[aurora-provider] Error auto-refreshing proxy pool on threshold change: ${err.message}`);
-      });
-      
-      res.json({ success: true });
+    const { latencyThreshold, enableProxy } = await c.req.json();
+    let updated = {};
+
+    if (latencyThreshold !== undefined) {
+      if (typeof latencyThreshold === "number" && latencyThreshold >= 100) {
+        PROXY_LATENCY_THRESHOLD = latencyThreshold;
+        updated.latencyThreshold = PROXY_LATENCY_THRESHOLD;
+      } else {
+        return c.json({ error: "Invalid latencyThreshold" }, 400);
+      }
+    }
+
+    let proxyToggledOn = false;
+    if (enableProxy !== undefined) {
+      if (typeof enableProxy === "boolean") {
+        if (enableProxy && !ENABLE_PROXY) {
+          proxyToggledOn = true;
+        }
+        ENABLE_PROXY = enableProxy;
+        updated.enableProxy = ENABLE_PROXY;
+      } else {
+        return c.json({ error: "Invalid enableProxy value" }, 400);
+      }
+    }
+
+    if (Object.keys(updated).length > 0) {
+      const settingsPath = join(VAULT_DIR, "settings.json");
+      let currentSettings = {};
+      if (existsSync(settingsPath)) {
+        try {
+          currentSettings = JSON.parse(readFileSync(settingsPath, "utf8"));
+        } catch (e) {
+          // ignore
+        }
+      }
+      const newSettings = { ...currentSettings, ...updated };
+      writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), "utf8");
+
+      if (ENABLE_PROXY && (updated.latencyThreshold !== undefined || proxyToggledOn)) {
+        refreshProxyPool("user_triggered", true).catch(err => {
+          console.error(`[aurora-provider] Error auto-refreshing proxy pool: ${err.message}`);
+        });
+      }
+
+      return c.json({ success: true });
     } else {
-      res.status(400).json({ error: "Invalid latencyThreshold" });
+      return c.json({ error: "No valid settings provided" }, 400);
     }
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    return c.json({ error: e.message }, 500);
   }
 });
 
 // Proxies API
-app.get("/api/proxies", (req, res) => {
+app.get("/api/proxies", (c) => {
   const sourceRankings = PROXY_SOURCES.map(src => {
     const stats = SOURCE_STATS[src] || { success: 0, failure: 0, totalLatency: 0 };
     const total = stats.success + stats.failure;
@@ -1240,38 +1785,59 @@ app.get("/api/proxies", (req, res) => {
     return b.successRate - a.successRate;
   });
 
-  res.json({
-    status: proxyStatus,
+  const totalMaskedRequests = stmts.countMaskedRequests.get().count;
+  const successfulMaskedRequests = stmts.countSuccessMaskedRequests.get().count;
+  const directRequests = stmts.countDirectRequests.get().count;
+
+  return c.json({
+    status: ENABLE_PROXY ? proxyStatus : "Disabled (IP Masking Off)",
     pool: PROXY_POOL,
     latencyThreshold: PROXY_LATENCY_THRESHOLD,
     rankedByLatency,
-    rankedBySuccess
+    rankedBySuccess,
+    analytics: {
+      totalMaskedRequests,
+      successfulMaskedRequests,
+      directRequests
+    }
   });
 });
 
-app.post("/api/proxies/refresh", (req, res) => {
+app.post("/api/proxies/refresh", (c) => {
+  if (!ENABLE_PROXY) {
+    return c.json({ error: "Cannot refresh proxy pool when IP Masking (Proxy Pool) is disabled." }, 400);
+  }
   refreshProxyPool("user_triggered", true).catch(err => {
     console.error(`[aurora-provider] Error refreshing proxy pool: ${err.message}`);
   });
-  res.json({ success: true, message: "Proxy refresh started in background." });
+  return c.json({ success: true, message: "Proxy refresh started in background." });
 });
 
-app.get("/api/proxies/refresh-history", (req, res) => {
+app.get("/api/proxies/refresh-history", (c) => {
   try {
-    const logs = db.prepare("SELECT * FROM proxy_refresh_logs ORDER BY id DESC LIMIT 50").all();
-    res.json({ success: true, logs });
+    const logs = stmts.selectProxyRefreshHistory.all();
+    return c.json({ success: true, logs });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.post("/api/proxies/refresh-history/clear", (c) => {
+  try {
+    stmts.deleteProxyRefreshLogs.run();
+    return c.json({ success: true, message: "Proxy refresh logs history cleared." });
+  } catch (err) {
+    return c.json({ error: err.message }, 500);
   }
 });
 
 // Health check
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", version: "1.0.0", agents: Object.keys(AGENTS) });
+app.get("/health", (c) => {
+  return c.json({ status: "ok", version: "1.0.0", auras: Object.keys(AURAS) });
 });
 
 // Key state dashboard
-app.get("/status", (req, res) => {
+app.get("/status", (c) => {
   const summary = {};
   for (const [providerName, keys] of Object.entries(KEYS_CFG)) {
     if (!keys || keys.length === 0) continue;
@@ -1281,18 +1847,18 @@ app.get("/status", (req, res) => {
       state: keyState[makeKeyId(providerName, i)] ?? null,
     }));
   }
-  res.json({ keyStates: summary, uptime: process.uptime() });
+  return c.json({ keyStates: summary, uptime: process.uptime() });
 });
 
-// List models — returns all agent names as fake "models"
-app.get("/v1/models", (req, res) => {
-  const models = Object.keys(AGENTS).map((name) => ({
+// List models — returns all aura names as fake "models"
+app.get("/v1/models", (c) => {
+  const models = Object.keys(AURAS).map((name) => ({
     id: `aurora-provider/${name}`,
     object: "model",
     created: 1716000000,
     owned_by: "aurora-provider",
   }));
-  res.json({ object: "list", data: models });
+  return c.json({ object: "list", data: models });
 });
 
 function parseTextFromSse(sseData) {
@@ -1324,10 +1890,10 @@ function parseTextFromSse(sseData) {
 }
 
 // Main completions endpoint
-app.post("/v1/chat/completions", async (req, res) => {
-  const { model, stream, ...rest } = req.body;
+app.post("/v1/chat/completions", async (c) => {
+  const body = await c.req.json();
+  const { model, stream: isStream, ...rest } = body;
   
-  // Inactivity check
   const idleTime = Date.now() - lastRequestTime;
   lastRequestTime = Date.now();
   
@@ -1340,21 +1906,23 @@ app.post("/v1/chat/completions", async (req, res) => {
       PROXY_MAP.set(p.url, p);
     }
     console.log(`[aurora-provider] Synchronously pruned ${beforePrune - PROXY_POOL.length} slow proxies.`);
+    saveActiveProxiesToDisk();
     refreshProxyPool("replenishing", false).catch(err => {
       console.error(`[aurora-provider] Forced proxy refresh failed: ${err.message}`);
     });
   }
   
   // Client Host capture
-  let clientIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "";
+  const conn = getConnInfo(c);
+  let clientIp = c.req.header("x-forwarded-for") || conn.remoteAddress || "127.0.0.1";
   if (clientIp.startsWith("::ffff:")) {
     clientIp = clientIp.substring(7);
   }
   clientIp = clientIp.split(",")[0].trim();
 
-  let source = req.headers["x-request-source"];
+  let source = c.req.header("x-request-source");
   if (!source) {
-    const origin = req.headers["origin"] || req.headers["referer"];
+    const origin = c.req.header("origin") || c.req.header("referer");
     if (origin) {
       try {
         const url = new URL(origin);
@@ -1368,105 +1936,87 @@ app.post("/v1/chat/completions", async (req, res) => {
   }
   const requestHost = source === "Testing" ? "Dashboard" : clientIp;
 
-  const prompt = req.body.messages ? JSON.stringify(req.body.messages) : "";
-  const promptText = req.body.messages ? req.body.messages.map(m => m.content || "").join(" ") : "";
+  const promptRaw = body.messages ? JSON.stringify(body.messages) : "";
+  const prompt = promptRaw.length > 500 ? promptRaw.substring(0, 500) + "...[truncated]" : promptRaw;
+  const promptText = body.messages ? body.messages.map(m => m.content || "").join(" ") : "";
   const estimatedPromptTokens = Math.max(1, Math.round(promptText.length / 4));
 
-  const agentName = resolveAgent(model);
-  if (!agentName) {
-    const errorMsg = `Unknown model/agent: "${model}". Available: ${Object.keys(AGENTS).map((a) => `aurora-provider/${a}`).join(", ")}`;
+  const auraName = resolveAura(model);
+  if (!auraName) {
+    const errorMsg = `Unknown model/aura: "${model}". Available: ${Object.keys(AURAS).map((a) => `aurora-provider/${a}`).join(", ")}`;
     
-    // Log invalid request error to SQLite
     try {
-      const stmt = db.prepare(`
-        INSERT INTO usage_logs (
-          agent, provider, model, key_index, key_name, key_email, proxy, source, prompt, response, status, error_message, latency_ms,
-          prompt_tokens, completion_tokens, total_tokens, request_host
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      stmt.run(null, null, model, null, null, null, null, source, prompt, null, "Error", errorMsg, 0, estimatedPromptTokens, 0, estimatedPromptTokens, requestHost);
+      stmts.insertUsageLog.run(null, null, model, null, null, null, null, source, prompt, null, "Error", errorMsg, 0, estimatedPromptTokens, 0, estimatedPromptTokens, requestHost);
     } catch (err) {
       console.error("[aurora-provider] DB Error logging invalid model request:", err.message);
     }
 
-    return res.status(400).json({
+    return c.json({
       error: {
         message: errorMsg,
         type: "invalid_request_error",
       },
-    });
+    }, 400);
   }
 
   const start = Date.now();
-  const body = { ...rest, stream: stream ?? false };
-  const result = await dispatch(agentName, body);
+  const payload = { ...rest, stream: isStream ?? false };
+  const result = await dispatch(auraName, payload);
 
   if (result.error) {
     const latency = Date.now() - start;
     
-    // Log dispatch error to SQLite
     try {
-      const stmt = db.prepare(`
-        INSERT INTO usage_logs (
-          agent, provider, model, key_index, key_name, key_email, proxy, source, prompt, response, status, error_message, latency_ms,
-          prompt_tokens, completion_tokens, total_tokens, request_host
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      stmt.run(agentName, result.providerName || null, result.modelId || null, result.keyIndex !== undefined ? result.keyIndex : null, result.keyName || null, result.keyEmail || null, result.proxy || null, source, prompt, null, "Error", result.error, latency, estimatedPromptTokens, 0, estimatedPromptTokens, requestHost);
+      stmts.insertUsageLog.run(auraName, result.providerName || null, result.modelId || null, result.keyIndex !== undefined ? result.keyIndex : null, result.keyName || null, result.keyEmail || null, result.proxy || null, source, prompt, null, "Error", result.error, latency, estimatedPromptTokens, 0, estimatedPromptTokens, requestHost);
     } catch (err) {
       console.error("[aurora-provider] DB Error logging dispatch error:", err.message);
     }
 
-    return res.status(503).json({
+    return c.json({
       error: {
-        message: `Aurora-Provider: ${result.error} for agent "${agentName}"`,
+        message: `Aurora-Provider: ${result.error} for aura "${auraName}"`,
         type: "service_unavailable",
       },
-    });
+    }, 503);
   }
 
-  // Pass response through
   const upstream = result.response;
+  const ct = upstream.headers.get("content-type") || "text/plain";
 
-  // Copy status and headers
-  res.status(upstream.status);
-  const ct = upstream.headers.get("content-type");
-  if (ct) res.setHeader("Content-Type", ct);
-  res.setHeader("X-Aurora-Provider", `${result.providerName}/${result.modelId}`);
+  c.status(upstream.status);
+  c.header("X-Aurora-Provider", `${result.providerName}/${result.modelId}`);
 
-  if (stream || (ct && ct.includes("text/event-stream"))) {
-    let fullResponseText = "";
-    // Stream passthrough
-    for await (const chunk of upstream.body) {
-      res.write(chunk);
-      fullResponseText += chunk.toString();
-    }
-    res.end();
+  if (isStream || ct.includes("text/event-stream")) {
+    c.header("Content-Type", ct);
+    c.header("Cache-Control", "no-cache");
+    c.header("Connection", "keep-alive");
 
-    const latency = Date.now() - start;
-    const { text: cleanResponse, usage: streamUsage } = parseTextFromSse(fullResponseText);
-    
-    const promptTokens = streamUsage?.prompt_tokens || estimatedPromptTokens;
-    const completionTokens = streamUsage?.completion_tokens || Math.max(1, Math.round(cleanResponse.length / 4));
-    const totalTokens = streamUsage?.total_tokens || (promptTokens + completionTokens);
+    return stream(c, async (streamInstance) => {
+      let fullResponseText = "";
+      const decoder = new TextDecoder();
+      
+      for await (const chunk of upstream.body) {
+        await streamInstance.write(chunk);
+        fullResponseText += decoder.decode(chunk, { stream: true });
+      }
+      
+      const latency = Date.now() - start;
+      const { text: cleanResponse, usage: streamUsage } = parseTextFromSse(fullResponseText);
+      
+      const promptTokens = streamUsage?.prompt_tokens || estimatedPromptTokens;
+      const completionTokens = streamUsage?.completion_tokens || Math.max(1, Math.round(cleanResponse.length / 4));
+      const totalTokens = streamUsage?.total_tokens || (promptTokens + completionTokens);
 
-    // Log successful stream request to SQLite
-    try {
-      const stmt = db.prepare(`
-        INSERT INTO usage_logs (
-          agent, provider, model, key_index, key_name, key_email, proxy, source, prompt, response, status, error_message, latency_ms,
-          prompt_tokens, completion_tokens, total_tokens, request_host
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      stmt.run(agentName, result.providerName, result.modelId, result.keyIndex, result.keyName, result.keyEmail, result.proxy, source, prompt, cleanResponse, "Success", null, latency, promptTokens, completionTokens, totalTokens, requestHost);
-    } catch (err) {
-      console.error("[aurora-provider] DB Error logging stream success:", err.message);
-    }
+      try {
+        const responseForDb = cleanResponse.length > 500 ? cleanResponse.substring(0, 500) + "...[truncated]" : cleanResponse;
+        stmts.insertUsageLog.run(auraName, result.providerName, result.modelId, result.keyIndex, result.keyName, result.keyEmail, result.proxy, source, prompt, responseForDb, "Success", null, latency, promptTokens, completionTokens, totalTokens, requestHost);
+      } catch (err) {
+        console.error("[aurora-provider] DB Error logging stream success:", err.message);
+      }
+    });
   } else {
     try {
       const data = await upstream.json();
-      res.json(data);
-
       const latency = Date.now() - start;
       const responseText = data.choices?.[0]?.message?.content || "";
 
@@ -1474,27 +2024,25 @@ app.post("/v1/chat/completions", async (req, res) => {
       const completionTokens = data.usage?.completion_tokens || Math.max(1, Math.round(responseText.length / 4));
       const totalTokens = data.usage?.total_tokens || (promptTokens + completionTokens);
 
-      // Log successful JSON request to SQLite
-      const stmt = db.prepare(`
-        INSERT INTO usage_logs (
-          agent, provider, model, key_index, key_name, key_email, proxy, source, prompt, response, status, error_message, latency_ms,
-          prompt_tokens, completion_tokens, total_tokens, request_host
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-      stmt.run(agentName, result.providerName, result.modelId, result.keyIndex, result.keyName, result.keyEmail, result.proxy, source, prompt, responseText, "Success", null, latency, promptTokens, completionTokens, totalTokens, requestHost);
+      const responseForDb = responseText.length > 500 ? responseText.substring(0, 500) + "...[truncated]" : responseText;
+      try {
+        stmts.insertUsageLog.run(auraName, result.providerName, result.modelId, result.keyIndex, result.keyName, result.keyEmail, result.proxy, source, prompt, responseForDb, "Success", null, latency, promptTokens, completionTokens, totalTokens, requestHost);
+      } catch (err) {
+        console.error("[aurora-provider] DB Error logging JSON success:", err.message);
+      }
+
+      return c.json(data);
     } catch (err) {
       console.error("[aurora-provider] Error parsing JSON upstream or DB log:", err.message);
-      if (!res.headersSent) {
-        res.status(500).json({ error: "Failed to parse upstream JSON response" });
-      }
+      return c.json({ error: "Failed to parse upstream JSON response" }, 500);
     }
   }
 });
 
-// ─── Background health probe (every 15 min) ───────────────────────────────────
+// ─── Background health probe (every 30 min) ───────────────────────────────────
 
 async function probeAllKeys() {
-  console.log("[aurora-provider] Running 15-min key health probe...");
+  console.log("[aurora-provider] Running key health probe...");
   const testBody = {
     messages: [{ role: "user", content: "Reply with just the word OK." }],
     max_tokens: 5,
@@ -1505,15 +2053,14 @@ async function probeAllKeys() {
     const keys = KEYS_CFG[providerName];
     if (!keys || keys.length === 0) continue;
 
-    const firstModel = provModels.models?.[0]?.id;
+    const models = await getModelsForProvider(providerName).catch(() => []);
+    const firstModel = models?.[0]?.id;
     if (!firstModel) continue;
 
     for (let i = 0; i < keys.length; i++) {
-      // Temporarily mark as available to test
       resetKey(providerName, i);
       const result = await attemptRequest(providerName, firstModel, testBody, i);
       if (result.success) {
-        // Drain body to avoid leak
         await result.response.text().catch(() => {});
         console.log(`[probe] ✓ ${providerName} key[${i}]`);
       } else {
@@ -1523,30 +2070,30 @@ async function probeAllKeys() {
   }
 }
 
-const PROBE_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
+const PROBE_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 setTimeout(() => {
   probeAllKeys();
   setInterval(probeAllKeys, PROBE_INTERVAL_MS);
-}, 10_000); // first probe after 10s startup delay
+}, 10_000);
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT ?? 8550;
-app.listen(PORT, "127.0.0.1", async () => {
-  console.log(`
-╔══════════════════════════════════════════╗
-║       Aurora-Provider  v1.0.0            ║
-║  Local OpenAI-compatible LLM router      ║
-╠══════════════════════════════════════════╣
-║  Listening: http://127.0.0.1:${PORT}        ║
-║  Agents:    ${Object.keys(AGENTS).join(", ").padEnd(30)}║
-╚══════════════════════════════════════════╝
-  `);
-  await detectServerPublicIp();
-  refreshProxyPool("onstart_server", true).catch(err => {
-    console.error(`[aurora-provider] Error on initial proxy load: ${err.message}`);
-  });
+
+Bun.serve({
+  port: parseInt(PORT, 10),
+  hostname: "127.0.0.1",
+  fetch: app.fetch,
 });
 
-// Trigger watcher reload to load new agents.json configurations (refreshed keys - hot reload triggered)
+console.log(`
+  Aurora-Provider (Hono on Bun Runtime)
+  Local OpenAI-compatible LLM router
+  Listening: http://127.0.0.1:${PORT}
+  Auras:     ${Object.keys(AURAS).join(", ")}
+`);
 
+await detectServerPublicIp();
+refreshProxyPool("onstart_server", true).catch(err => {
+  console.error(`[aurora-provider] Error on initial proxy load: ${err.message}`);
+});

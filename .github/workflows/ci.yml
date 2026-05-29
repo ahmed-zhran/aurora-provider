@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    name: Build & Smoke Test
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        runtime: [bun, node]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        if: matrix.runtime == 'bun'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js
+        if: matrix.runtime == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies (Bun)
+        if: matrix.runtime == 'bun'
+        run: bun install
+
+      - name: Install dependencies (Node)
+        if: matrix.runtime == 'node'
+        run: npm install
+
+      - name: Create minimal config for startup test
+        run: |
+          cp vault/keys.example.json vault/keys.json
+
+      - name: Smoke test — server starts and responds
+        run: |
+          if [ "${{ matrix.runtime }}" = "bun" ]; then
+            bun src/server.js &
+          else
+            node src/server.js &
+          fi
+          SERVER_PID=$!
+
+          # Wait for server to be ready
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8550/health > /dev/null 2>&1; then
+              echo "✓ Server is up after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+
+          # Health check
+          echo "--- Health Check ---"
+          curl -sf http://127.0.0.1:8550/health | head -c 500
+          echo ""
+
+          # Models endpoint
+          echo "--- Models ---"
+          curl -sf http://127.0.0.1:8550/v1/models | head -c 500
+          echo ""
+
+          # Cleanup
+          kill $SERVER_PID 2>/dev/null || true
+
+      - name: Verify no secrets in tracked files
+        run: |
+          # Check that keys.json is not tracked
+          if git ls-files --error-unmatch vault/keys.json 2>/dev/null; then
+            echo "❌ vault/keys.json is tracked in git!"
+            exit 1
+          fi
+          echo "✓ No secrets in tracked files"

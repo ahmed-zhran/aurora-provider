@@ -1,9 +1,6 @@
 {
-  "_comment": "Aurora-Provider registry — all verified free LLM API providers as of May 2026",
-  "_updated": "2026-05-26",
-
+  "_comment": "Aurora-Provider supported LLM providers catalog and models metadata.",
   "providers": {
-
     "opencode_zen": {
       "name": "OpenCode Zen",
       "baseUrl": "https://opencode.ai/zen/v1",
@@ -52,9 +49,13 @@
           "speed": "medium",
           "notes": "NVIDIA model. Trial use only — not for production/sensitive data. NVIDIA logs prompts."
         }
-      ]
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
     },
-
     "zhipu": {
       "name": "Zhipu AI (Z.AI)",
       "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
@@ -96,9 +97,14 @@
           "speed": "fast",
           "notes": "Previous gen flash. Permanently free. Lower capability."
         }
-      ]
+      ],
+      "cooldownTime": null,
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
     },
-
     "google_ai_studio": {
       "name": "Google AI Studio (Gemini)",
       "baseUrl": "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -188,9 +194,13 @@
           "coding": true,
           "speed": "very_fast"
         }
-      ]
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
     },
-
     "mistral": {
       "name": "Mistral AI",
       "baseUrl": "https://api.mistral.ai/v1",
@@ -236,9 +246,14 @@
           "maxOutput": 32768,
           "free": true
         }
-      ]
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      },
+      "cooldownTime": null
     },
-
     "cohere": {
       "name": "Cohere",
       "baseUrl": "https://api.cohere.com/v1",
@@ -284,9 +299,13 @@
           "maxOutput": 4096,
           "free": true
         }
-      ]
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
     },
-
     "sambanova": {
       "name": "SambaNova Cloud",
       "baseUrl": "https://api.sambanova.ai/v1",
@@ -324,9 +343,13 @@
           "maxOutput": 8192,
           "free": true
         }
-      ]
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
     },
-
     "groq": {
       "name": "Groq",
       "baseUrl": "https://api.groq.com/openai/v1",
@@ -381,9 +404,13 @@
           "speed": "fast",
           "notes": "Reasoning model on Groq. Good for complex tasks."
         }
-      ]
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
     },
-
     "cloudflare_workers_ai": {
       "name": "Cloudflare Workers AI",
       "baseUrl": "https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/v1",
@@ -451,9 +478,13 @@
           "speed": "very_fast",
           "notes": "512K context on Cloudflare edge."
         }
-      ]
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
     },
-
     "kimi_moonshot": {
       "name": "Kimi (Moonshot AI)",
       "baseUrl": "https://api.moonshot.cn/v1",
@@ -482,9 +513,13 @@
           "speed": "medium",
           "notes": "1T param MoE. 256K context. Strong agentic coding."
         }
-      ]
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": true,
+        "freeTier": true
+      }
     },
-
     "openrouter": {
       "name": "OpenRouter (free models)",
       "baseUrl": "https://openrouter.ai/api/v1",
@@ -571,9 +606,13 @@
           "coding": true,
           "speed": "medium"
         }
-      ]
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
     },
-
     "cerebras": {
       "name": "Cerebras",
       "baseUrl": "https://api.cerebras.ai/v1",
@@ -613,9 +652,13 @@
           "speed": "ultra_fast",
           "notes": "Higher context than Llama 3.3 on Cerebras free tier."
         }
-      ]
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
     },
-
     "nvidia_nim": {
       "name": "NVIDIA NIM",
       "baseUrl": "https://integrate.api.nvidia.com/v1",
@@ -667,9 +710,13 @@
           "speed": "fast",
           "notes": "MoE 120B/12B active. Strong agentic tasks."
         }
-      ]
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": true,
+        "freeTier": true
+      }
     },
-
     "github_models": {
       "name": "GitHub Models",
       "baseUrl": "https://models.inference.ai.azure.com",
@@ -708,64 +755,13 @@
           "speed": "fast",
           "notes": "Standard GitHub Models limit: 4K out."
         }
-      ]
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
     },
-
-    "llm7": {
-      "name": "LLM7.io",
-      "baseUrl": "https://api.llm7.io/v1",
-      "authHeader": "Authorization",
-      "authPrefix": "Bearer",
-      "openaiCompatible": true,
-      "signup": "https://token.llm7.io",
-      "notes": "Zero-friction API gateway. No registration needed for anonymous access. 40+ open-weight models. GDPR-compliant.",
-      "rateLimits": {
-        "rpm": 2,
-        "notes": "2 RPM per IP per model. Anonymous tier available — no signup required."
-      },
-      "models": [
-        {
-          "id": "deepseek-r1-distill-llama-70b",
-          "alias": "deepseek-r1-llm7",
-          "name": "DeepSeek R1 Distill Llama 70B",
-          "contextWindow": 128000,
-          "maxOutput": 32768,
-          "free": true,
-          "permanent": true,
-          "reasoning": true,
-          "coding": true,
-          "speed": "fast",
-          "notes": "Reasoning distill. Strong for complex tasks. 2 RPM = slow for active work."
-        },
-        {
-          "id": "qwen3-32b",
-          "alias": "qwen3-32b-llm7",
-          "name": "Qwen3 32B",
-          "contextWindow": 128000,
-          "maxOutput": 32768,
-          "free": true,
-          "permanent": true,
-          "reasoning": true,
-          "coding": true,
-          "speed": "medium",
-          "notes": "MoE model. Good general purpose. Low rate limit."
-        },
-        {
-          "id": "llama-3.1-405b",
-          "alias": "llama-3-1-405b-llm7",
-          "name": "Llama 3.1 405B",
-          "contextWindow": 131072,
-          "maxOutput": 16384,
-          "free": true,
-          "permanent": true,
-          "reasoning": false,
-          "coding": true,
-          "speed": "slow",
-          "notes": "Largest open model. 131K context. Very slow due to size + 2 RPM limit. Fallback only."
-        }
-      ]
-    },
-
     "ofoxai": {
       "name": "OfoxAI",
       "baseUrl": "https://api.ofox.ai/v1",
@@ -791,9 +787,13 @@
           "speed": "fast",
           "notes": "Your currently configured model."
         }
-      ]
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
     },
-
     "kilo_gateway": {
       "name": "Kilo Gateway",
       "baseUrl": "https://api.kilo.ai/v1",
@@ -822,9 +822,13 @@
           "maxOutput": 8192,
           "free": true
         }
-      ]
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
     },
-
     "github_copilot": {
       "name": "GitHub Copilot",
       "baseUrl": "https://api.githubcopilot.com/v1",
@@ -853,9 +857,13 @@
           "maxOutput": 8192,
           "free": true
         }
-      ]
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
     },
-
     "huggingface": {
       "name": "Hugging Face Serverless",
       "baseUrl": "https://api-inference.huggingface.co/v1",
@@ -892,8 +900,180 @@
           "maxOutput": 8192,
           "free": true
         }
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
+    },
+    "qwen": {
+      "name": "Qwen (DashScope API)",
+      "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "authHeader": "Authorization",
+      "authPrefix": "Bearer",
+      "openaiCompatible": true,
+      "signup": "https://bailian.console.aliyun.com",
+      "notes": "Alibaba Cloud DashScope compatible mode. Generous free trial credits.",
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": true,
+        "freeTier": true
+      },
+      "models": [
+        {
+          "id": "qwen-turbo",
+          "alias": "qwen-turbo",
+          "name": "Qwen Turbo",
+          "contextWindow": 32000,
+          "maxOutput": 8192,
+          "free": true
+        },
+        {
+          "id": "qwen-plus",
+          "alias": "qwen-plus",
+          "name": "Qwen Plus",
+          "contextWindow": 128000,
+          "maxOutput": 8192,
+          "free": true
+        },
+        {
+          "id": "qwen-max",
+          "alias": "qwen-max",
+          "name": "Qwen Max",
+          "contextWindow": 32000,
+          "maxOutput": 8192,
+          "free": true
+        },
+        {
+          "id": "qwen-coder-turbo",
+          "alias": "qwen-coder-turbo",
+          "name": "Qwen Coder Turbo",
+          "contextWindow": 32000,
+          "maxOutput": 8192,
+          "free": true
+        }
+      ]
+    },
+    "minimax": {
+      "name": "MiniMax",
+      "baseUrl": "https://api.minimax.chat/v1",
+      "authHeader": "Authorization",
+      "authPrefix": "Bearer",
+      "openaiCompatible": true,
+      "signup": "https://platform.minimaxi.com",
+      "notes": "MiniMax AI platform. Generous free trial credits.",
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": true,
+        "freeTier": true
+      },
+      "models": [
+        {
+          "id": "abab6.5s-chat",
+          "alias": "abab6-5s",
+          "name": "abab 6.5s Chat",
+          "contextWindow": 128000,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "abab6.5t-chat",
+          "alias": "abab6-5t",
+          "name": "abab 6.5t Chat",
+          "contextWindow": 128000,
+          "maxOutput": 4096,
+          "free": true
+        }
+      ]
+    },
+    "codestral": {
+      "name": "Codestral (Mistral)",
+      "baseUrl": "https://codestral.mistral.ai/v1",
+      "authHeader": "Authorization",
+      "authPrefix": "Bearer",
+      "openaiCompatible": true,
+      "signup": "https://console.mistral.ai",
+      "notes": "Codestral API endpoint from Mistral AI. Dedicated coding models.",
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      },
+      "models": [
+        {
+          "id": "codestral-latest",
+          "alias": "codestral",
+          "name": "Codestral Latest",
+          "contextWindow": 32000,
+          "maxOutput": 32768,
+          "free": true
+        }
+      ]
+    },
+    "gitlab_gateway": {
+      "name": "GitLab AI Gateway",
+      "baseUrl": "https://gitlab.com/api/v4/ai",
+      "authHeader": "Authorization",
+      "authPrefix": "Bearer",
+      "openaiCompatible": true,
+      "signup": "https://gitlab.com",
+      "notes": "GitLab AI Gateway. Access to Code Suggestions and Duo chat.",
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      },
+      "models": [
+        {
+          "id": "gitlab-duo-chat",
+          "alias": "gitlab-duo",
+          "name": "GitLab Duo Chat",
+          "contextWindow": 64000,
+          "maxOutput": 4096,
+          "free": true
+        }
+      ]
+    },
+    "github_free": {
+      "name": "GitHub Models (Free Marketplace)",
+      "baseUrl": "https://models.inference.ai.azure.com",
+      "authHeader": "Authorization",
+      "authPrefix": "Bearer",
+      "openaiCompatible": true,
+      "signup": "https://github.com/marketplace/models",
+      "notes": "Free Azure-hosted marketplace models for any GitHub account.",
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      },
+      "models": [
+        {
+          "id": "gpt-4o-mini",
+          "alias": "gpt-4o-mini",
+          "name": "GPT-4o Mini",
+          "contextWindow": 128000,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "meta-llama-3.1-405b-instruct",
+          "alias": "llama-3.1-405b",
+          "name": "Llama 3.1 405B Instruct",
+          "contextWindow": 128000,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "cohere-command-r-plus",
+          "alias": "command-r-plus",
+          "name": "Cohere Command R Plus",
+          "contextWindow": 128000,
+          "maxOutput": 4096,
+          "free": true
+        }
       ]
     }
-
   }
 }

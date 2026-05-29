@@ -1,7 +1,7 @@
 {
-  "_comment": "Aurora-Provider agent definitions. Each agent has an ordered fallback chain: provider + model pairs sorted by context size → rate limit generosity → speed.",
+  "_comment": "Aurora-Provider Aura definitions. Each Aura acts as a model endpoint and has an ordered fallback chain of provider + model pairs.",
   "_version": "1.0.0",
-  "agents": {
+  "auras": {
     "coder": {
       "_comment": "Implementation — needs highest reasoning + large context for full codebase edits.",
       "fallbacks": [
@@ -63,12 +63,6 @@
           "model": "gemini-2.5-flash",
           "contextWindow": 1000000,
           "reasoning": true
-        },
-        {
-          "provider": "llm7",
-          "model": "llama-3.1-405b",
-          "contextWindow": 131072,
-          "reasoning": false
         }
       ]
     },
@@ -97,12 +91,6 @@
           "provider": "google_ai_studio",
           "model": "gemini-2.5-flash",
           "contextWindow": 1000000,
-          "reasoning": true
-        },
-        {
-          "provider": "llm7",
-          "model": "deepseek-r1-distill-llama-70b",
-          "contextWindow": 128000,
           "reasoning": true
         }
       ]
@@ -133,12 +121,6 @@
           "model": "llama-3.3-70b-versatile",
           "contextWindow": 128000,
           "reasoning": false
-        },
-        {
-          "provider": "llm7",
-          "model": "llama-3.1-405b",
-          "contextWindow": 131072,
-          "reasoning": false
         }
       ]
     },
@@ -167,12 +149,6 @@
           "provider": "zhipu",
           "model": "glm-4.7-flash",
           "contextWindow": 200000,
-          "reasoning": true
-        },
-        {
-          "provider": "llm7",
-          "model": "deepseek-r1-distill-llama-70b",
-          "contextWindow": 128000,
           "reasoning": true
         }
       ]
@@ -222,7 +198,7 @@
         }
       ]
     },
-    "seolla-nyx-agent": {
+    "seolla-nyx-aura": {
       "_comment": "Orchestrator — delegates only, no direct file edits. Needs strong reasoning + large context.",
       "fallbacks": [
         {
@@ -244,22 +220,6 @@
         {
           "provider": "google_ai_studio",
           "model": "gemma-4-26b-a4b-it"
-        },
-        {
-          "provider": "sambanova",
-          "model": "Meta-Llama-3.3-70B-Instruct"
-        },
-        {
-          "provider": "sambanova",
-          "model": "Meta-Llama-3.1-405B-Instruct"
-        },
-        {
-          "provider": "groq",
-          "model": "llama-4-scout-17b-16e-instruct"
-        },
-        {
-          "provider": "groq",
-          "model": "deepseek-r1-distill-llama-70b"
         }
       ]
     }

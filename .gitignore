@@ -1,7 +1,42 @@
+# Dependencies
 node_modules/
-config/keys.json
+
+# Secrets — NEVER commit
 vault/keys.json
-vault/vault.db
-vault/settings.json
 .env
+*.env.*
+
+# Runtime data (generated at startup)
+vault/vault.db
+vault/vault.db-shm
+vault/vault.db-wal
+vault/settings.json
+vault/active_proxies.json
+vault/model_settings.json
+
+# Lock files (runtime-specific)
+bun.lock
+package-lock.json
+
+# Logs
 *.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Dev/test scripts (personal)
+read_db.js
+test_*.js
+
+# Legacy documentation (reorganized under docs/)
+AURORA-PROVIDER-DOCS.md
+AURORA-PROVIDER-SUMMARY.md
+

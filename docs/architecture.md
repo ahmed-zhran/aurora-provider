@@ -1,29 +1,49 @@
-# Aurora-Provider — Complete Documentation
+# Architecture
 
-> **Aurora-Provider** is a self-hosted OpenAI-compatible LLM router that multiplexes requests across multiple AI providers, manages API key rotation, routes traffic through SOCKS5 proxies, and provides a full-featured analytics dashboard.
+> System overview, request lifecycle, and core entities for Aurora-Provider.
+
+[← Back to README](../README.md) · [Dashboard](dashboard.md) · [API Reference](api-reference.md) · [Providers Guide](providers-guide.md)
 
 ---
 
 ## Table of Contents
 
-1. [Overview & Architecture](#1-overview--architecture)
-2. [Request Lifecycle Flow](#2-request-lifecycle-flow)
-3. [Core Entities](#3-core-entities)
-4. [Dashboard Tab — Analytics & Usage](#4-dashboard-tab--analytics--usage)
-5. [API Tester Tab](#5-api-tester-tab)
-6. [Agents Config Tab](#6-agents-config-tab)
-7. [API Keys & Health Tab](#7-api-keys--health-tab)
-8. [Proxy Pool Tab](#8-proxy-pool-tab)
-9. [Live Logs Tab](#9-live-logs-tab)
-10. [Provider Config Tab](#10-provider-config-tab)
-11. [Vault Folder — Data Persistence](#11-vault-folder--data-persistence)
-12. [Tracking & Analytics Mechanisms](#12-tracking--analytics-mechanisms)
-13. [Theme System](#13-theme-system)
-14. [API Reference](#14-api-reference)
+- [Overview](#overview)
+- [Architecture Diagram](#architecture-diagram)
+- [Request Lifecycle Flow](#request-lifecycle-flow)
+  - [Proxy Pool Lifecycle](#proxy-pool-lifecycle)
+- [Core Entities](#core-entities)
+  - [Agent](#agent)
+  - [Provider](#provider)
+  - [API Key](#api-key)
+  - [Proxy Entry](#proxy-entry)
+  - [Usage Log Record](#usage-log-record)
+- [Vault Folder — Data Persistence](#vault-folder--data-persistence)
+  - [Database Schema](#database-schema)
+- [Tracking & Analytics Mechanisms](#tracking--analytics-mechanisms)
+  - [Token Counting](#token-counting)
+  - [Source Classification](#source-classification)
+  - [Key Health State Machine](#key-health-state-machine)
+  - [Proxy Dead Detection](#proxy-dead-detection)
+  - [Background Health Probe](#background-health-probe)
 
 ---
 
-## 1. Overview & Architecture
+## Overview
+
+**Aurora-Provider** is a self-hosted OpenAI-compatible LLM router that multiplexes requests across multiple AI providers, manages API key rotation, routes traffic through SOCKS5 proxies, and provides a full-featured analytics dashboard.
+
+**Key Characteristics:**
+
+- Single-file Node.js server (`src/server.js`) running under **Bun** runtime
+- Fully **stateless HTTP API** — clients use standard OpenAI SDK/curl
+- **Multi-provider fallback** — never returns an error if at least one provider has a live key
+- **Proxy-first** — all outbound requests go through a SOCKS5 proxy pool to bypass IP-level rate limits
+- **Persistent analytics** — every request (success or failure) is stored in SQLite
+
+---
+
+## Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -36,10 +56,10 @@
 │  └────────────┘    │  - Serves static dashboard UI             │    │
 │                    │  - /v1/chat/completions (OpenAI compat)   │    │
 │  ┌────────────┐    │  - REST APIs: config, usage, proxies      │    │
-│  │  OpenCode  │───►│  - SSE: /api/logs-stream                  │    │
-│  │  or any    │    └──────────────┬───────────────────────────┘    │
-│  │  OpenAI    │                   │                                 │
-│  │  client    │              dispatch()                             │
+│  │  Any OpenAI │───►│  - SSE: /api/logs-stream                  │    │
+│  │  client    │    └──────────────┬───────────────────────────┘    │
+│  │  (Cursor,  │                   │                                 │
+│  │  Aider,etc)│              dispatch()                             │
 │  └────────────┘                   │                                 │
 │                    ┌──────────────▼───────────────────────────┐    │
 │                    │           Agent Fallback Chain            │    │
@@ -57,7 +77,7 @@
 │                                   │                                 │
 │                    ┌──────────────▼───────────────────────────┐    │
 │                    │         LLM Provider APIs                 │    │
-│                    │  OpenRouter · OpenCode · Cloudflare AI    │    │
+│                    │ OpenRouter · OpenCode Zen · Cloudflare AI │    │
 │                    │  SambaNova · DeepInfra · Groq · etc.     │    │
 │                    └──────────────────────────────────────────┘    │
 │                                                                     │
@@ -68,16 +88,9 @@
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Key Characteristics:**
-- Single-file Node.js server (`src/server.js`) running under **Bun** runtime
-- Fully **stateless HTTP API** — clients use standard OpenAI SDK/curl
-- **Multi-provider fallback** — never returns an error if at least one provider has a live key
-- **Proxy-first** — all outbound requests go through a SOCKS5 proxy pool to bypass IP-level rate limits
-- **Persistent analytics** — every request (success or failure) is stored in SQLite
-
 ---
 
-## 2. Request Lifecycle Flow
+## Request Lifecycle Flow
 
 ```
 Client Request: POST /v1/chat/completions
@@ -100,7 +113,7 @@ Client Request: POST /v1/chat/completions
                             │
                     ┌───────▼────────┐
                     │  dispatch()    │   Load agent.fallbacks chain
-                    │  Fallback Loop │   e.g. [openrouter, opencode, cloudflare]
+                    │  Fallback Loop │   e.g. [openrouter, opencode_zen, cloudflare]
                     └───────┬────────┘
                             │
                ┌────────────▼──────────────────────────────────┐
@@ -148,23 +161,26 @@ Client Request: POST /v1/chat/completions
                     │ Auto-Refill    │   If PROXY_POOL.length < 50:
                     │ Proxy Pool     │   trigger refreshProxyPool() background
                     └────────────────┘
+```
 
-     PROXY POOL LIFECYCLE:
-     ┌─────────────────────────────────────────────────────┐
-     │  refreshProxyPool() (runs on startup + auto-refill) │
-     │                                                     │
-     │  1. Fetch proxy lists from 10 GitHub sources        │
-     │  2. Deduplicate → sample 800 proxies                │
-     │  3. Batch test (30 concurrent) with 3s timeout      │
-     │  4. Filter proxies < latencyThreshold (default 1.5s)│
-     │  5. Sort by latency ASC → keep top 100              │
-     │  6. Track source stats (success/failure/latency)    │
-     └─────────────────────────────────────────────────────┘
+### Proxy Pool Lifecycle
+
+```
+┌─────────────────────────────────────────────────────┐
+│  refreshProxyPool() (runs on startup + auto-refill) │
+│                                                     │
+│  1. Fetch proxy lists from 10 GitHub sources        │
+│  2. Deduplicate → sample 800 proxies                │
+│  3. Batch test (30 concurrent) with 3s timeout      │
+│  4. Filter proxies < latencyThreshold (default 1.5s)│
+│  5. Sort by latency ASC → keep top 100              │
+│  6. Track source stats (success/failure/latency)    │
+└─────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Core Entities
+## Core Entities
 
 ### Agent
 
@@ -274,151 +290,7 @@ Every request generates one record in `vault.db`:
 
 ---
 
-## 4. Dashboard Tab — Analytics & Usage
-
-The Dashboard is the primary analytics view. **All metrics and charts are controlled by the Global Filters** at the top.
-
-### Global Filters
-
-| Filter | Description |
-|--------|-------------|
-| Start Date | Lower bound on `timestamp` |
-| End Date | Upper bound on `timestamp` |
-| Agent | Filter by agent name |
-| Provider | Filter by LLM provider |
-| Request Host | Filter by client IP/hostname |
-| Source | `API` / `Testing` / specific hostname |
-| Status | `Success` / `Error` / All |
-
-Click **Apply Filters** to refresh all KPIs, charts, and the log table simultaneously.
-
-### KPI Cards
-
-- **Total Requests** — Count of all matching log entries
-- **Success Rate** — `successCount / totalCount × 100%`
-- **Avg Latency** — Average `latency_ms` across successful requests
-- **Total Tokens** — Sum of `total_tokens` across all matching records
-
-### Charts
-
-- **Requests Over Time** — Line chart grouping requests by calendar date (`GROUP BY date(timestamp)`)
-- **Provider Distribution** — Doughnut chart showing request share by provider
-
-### Usage Request Logs Table
-
-Paginated table (15 rows/page) showing all matching records with columns:
-
-`Timestamp | Request Host | Source | Agent | Provider | Model | Tokens | Key | Proxy | Status | Latency | Details`
-
-- **Details** button opens a modal with full prompt and response text
-- Pagination is server-side with `LIMIT/OFFSET` SQL
-
----
-
-## 5. API Tester Tab
-
-Allows testing any configured agent directly from the browser:
-
-- Select an agent from the dropdown
-- Type a prompt
-- Toggle streaming on/off
-- Click **Run Test** — sends `POST /v1/chat/completions` with `X-Request-Source: Testing`
-- Response renders in the JSON viewer (streaming or full JSON)
-
-> Testing requests are marked with `source = "Testing"` in usage logs and can be filtered on the Dashboard.
-
----
-
-## 6. Agents Config Tab
-
-Manage the fallback chains for all virtual agents:
-
-- **Left panel**: List all agents; click to select
-- **Right panel**: Edit the selected agent's fallback chain
-  - Drag/reorder fallback steps using ↑↓ arrows
-  - Add steps by selecting Provider + Model → **Add Step**
-  - Delete individual steps or the entire agent
-  - **Save Agents Config** → persists to `vault/agents.json`
-
-> Changes take effect immediately — server reloads config from the in-memory object.
-
----
-
-## 7. API Keys & Health Tab
-
-### Provider Keys Health (Left Panel)
-
-Live health grid updated every 5 seconds from `/status`:
-
-- **Green dot** = key is available
-- **Orange/yellow dot** = key is in cooldown (rate-limited)
-- Cooldown timer shown in seconds remaining
-
-### Provider API Keys (Right Panel)
-
-Collapsible cards per provider for key management:
-
-- Keys are displayed as `sk-...***` (first 3 chars visible, rest masked)
-- **Copy** button next to each key
-- Add multiple keys per provider — each key can have a Name and Email label
-- **Save API Keys** → persists to `vault/keys.json`
-
----
-
-## 8. Proxy Pool Tab
-
-### Configuration (Left Panel)
-
-- **Latency Threshold Slider** (500ms – 5000ms): Only proxies faster than this are kept in the pool
-- **Save Threshold** → persists to `vault/settings.json`
-
-### Active Pool Status
-
-- Live pool status: `Idle` | `Scraping...` | `Testing...` | `Active (N proxies)`
-- Table of active proxies: URL, latency, success/fail count
-- **Refresh Proxies** button → triggers `refreshProxyPool()` in background
-
-### Auto-Refill Logic
-
-The proxy pool automatically refills when:
-1. Pool drops below 50% capacity (< 50 of 100 max proxies)
-2. Server detects > 1 hour of inactivity on next request
-3. **Refresh Proxies** button is clicked
-
-### Proxy Scraper Sources Rankings (Right Panel)
-
-Rankings of the 10 SOCKS5 proxy list URLs by:
-- **Success Rate** (% of tested proxies that passed latency filter)
-- **Average Speed** (mean latency of successful proxies from that source)
-
----
-
-## 9. Live Logs Tab
-
-Real-time terminal output streamed via **Server-Sent Events** (SSE) from `/api/logs-stream`:
-
-- All `console.log/warn/error` calls are intercepted and broadcast to connected clients
-- Color-coded by level: blue (system), white (info), yellow (warn), red (error)
-- **Clear Terminal** button clears the browser view (does not affect server)
-
----
-
-## 10. Provider Config Tab
-
-Full CRUD for provider configurations:
-
-- **Left panel**: List all providers; click to select
-- **Right panel**: Edit provider details:
-  - Display Name, Base URL
-  - Auth Header (`Authorization`) and Prefix (`Bearer`)
-  - Cooldown Time (seconds for fixed rate-limit cooldown)
-  - Description/Notes
-  - **Models List**: Add/remove model registrations (ID, alias, name, context window, capabilities)
-- **Save Provider Config** → persists to `vault/providers.json`
-
----
-
-## 11. Vault Folder — Data Persistence
+## Vault Folder — Data Persistence
 
 All mutable data lives in `vault/`:
 
@@ -461,7 +333,7 @@ CREATE TABLE IF NOT EXISTS usage_logs (
 
 ---
 
-## 12. Tracking & Analytics Mechanisms
+## Tracking & Analytics Mechanisms
 
 ### Token Counting
 
@@ -519,81 +391,6 @@ Every 15 minutes (`PROBE_INTERVAL_MS`), after an initial 10-second startup delay
 2. For each key: `resetKey()` → `attemptRequest()` with a minimal "Reply OK" test body
 3. Log `✓` or `✗` to console
 4. Keys that pass are marked available again
-
----
-
-## 13. Theme System
-
-Aurora-Provider supports 5 visual themes selectable from the header dropdown:
-
-| Theme | Character |
-|-------|-----------|
-| **Deep Space** (default) | Dark indigo/purple with green accents |
-| **Light Mode** | Clean white with blue/indigo accents |
-| **Cyberpunk** | Black with neon green/pink neon |
-| **Aurora** | Deep purple with pink/lavender gradients |
-| **Ocean** | Dark navy with cyan/teal accents |
-
-Themes are implemented via CSS custom properties on `[data-theme="..."]` attribute selectors. The selected theme is persisted in `localStorage` as `aurora-theme` and restored on each page load.
-
----
-
-## 14. API Reference
-
-### OpenAI-Compatible Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/v1/chat/completions` | Main inference endpoint (streaming supported) |
-| `GET` | `/v1/models` | List all agents as OpenAI model objects |
-
-**Model naming:** Use `aurora-provider/<agent-name>` as the model ID.
-Example: `aurora-provider/coder`, `aurora-provider/hermes`
-
-### Dashboard REST APIs
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/config` | Get all providers, agents, keys |
-| `POST` | `/api/keys` | Save API keys |
-| `POST` | `/api/agents` | Save agent definitions |
-| `POST` | `/api/providers` | Save provider configs |
-| `GET` | `/api/usage` | Query usage stats & logs (filterable) |
-| `GET` | `/api/proxies` | Get proxy pool status and source rankings |
-| `POST` | `/api/proxies/refresh` | Trigger proxy pool refresh |
-| `GET` | `/api/settings` | Get proxy latency threshold |
-| `POST` | `/api/settings` | Update proxy latency threshold |
-| `GET` | `/api/logs-stream` | SSE stream of server logs |
-| `GET` | `/status` | Key states and server uptime |
-| `GET` | `/health` | Health check (status, version, agents) |
-
-### /api/usage Query Parameters
-
-| Parameter | Description |
-|-----------|-------------|
-| `startDate` | Filter from date (YYYY-MM-DD) |
-| `endDate` | Filter to date (YYYY-MM-DD) |
-| `agent` | Exact agent name |
-| `provider` | Exact provider name |
-| `source` | `Testing`, `API`, or hostname |
-| `status` | `Success` or `Error` |
-| `host` | Client IP or hostname |
-| `page` | Page number (default: 1) |
-| `limit` | Results per page (default: 50) |
-
----
-
-## Running the Server
-
-```bash
-# Development (auto-restart on file change)
-PORT=8550 bun --watch src/server.js
-
-# Production
-PORT=8550 bun src/server.js
-```
-
-Dashboard: http://127.0.0.1:8550
 
 ---
 

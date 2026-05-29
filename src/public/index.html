@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Aurora-Provider Dashboard</title>
-  <link rel="stylesheet" href="index.css">
+  <link rel="stylesheet" href="index.css?v=1.0.1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -36,11 +36,11 @@
     <nav class="tabs-nav">
       <button class="tab-btn active" data-tab="tab-dashboard">Dashboard</button>
       <button class="tab-btn" data-tab="tab-tester">API Tester</button>
-      <button class="tab-btn" data-tab="tab-agents">Agents Config</button>
+      <button class="tab-btn" data-tab="tab-auras">Aura Hub</button>
       <button class="tab-btn" data-tab="tab-keys">API Keys & Health</button>
       <button class="tab-btn" data-tab="tab-proxies">Proxy Pool</button>
-      <button class="tab-btn" data-tab="tab-logs">Live Logs</button>
       <button class="tab-btn" data-tab="tab-providers">Provider Config</button>
+      <button class="tab-btn" data-tab="tab-supported-providers">Supported Providers</button>
     </nav>
 
     <!-- Main Content Area -->
@@ -61,9 +61,9 @@
               <input type="date" id="filter-end-date" class="form-input">
             </div>
             <div class="form-group" style="flex: 1 1 140px; margin-bottom: 0;">
-              <label for="filter-agent">Agent</label>
-              <select id="filter-agent" class="form-select">
-                <option value="">All Agents</option>
+              <label for="filter-aura">Aura</label>
+              <select id="filter-aura" class="form-select">
+                <option value="">All Auras</option>
               </select>
             </div>
             <div class="form-group" style="flex: 1 1 140px; margin-bottom: 0;">
@@ -138,7 +138,10 @@
 
         <!-- Logs Table -->
         <div class="card glass" style="margin-bottom: 0;">
-          <h2>Usage Request Logs</h2>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2 style="margin: 0;">Usage Request Logs</h2>
+            <button class="btn btn-danger btn-sm" id="clear-request-logs-btn" style="padding: 0.35rem 0.75rem;">Clear Request Logs</button>
+          </div>
           <div class="table-container" style="overflow-x: auto; margin-top: 0.5rem; max-height: 400px;">
             <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
               <thead>
@@ -146,12 +149,12 @@
                   <th style="padding: 8px;">Timestamp</th>
                   <th style="padding: 8px;">Request Host</th>
                   <th style="padding: 8px;">Source</th>
-                  <th style="padding: 8px;">Agent</th>
+                  <th style="padding: 8px;">Aura</th>
                   <th style="padding: 8px;">Provider</th>
                   <th style="padding: 8px;">Model</th>
                   <th style="padding: 8px; text-align: right;">Tokens</th>
                   <th style="padding: 8px;">Key</th>
-                  <th style="padding: 8px;">Proxy</th>
+                  <th style="padding: 8px;">Masked IP</th>
                   <th style="padding: 8px;">Status</th>
                   <th style="padding: 8px; text-align: right;">Latency</th>
                   <th style="padding: 8px; text-align: center;">Details</th>
@@ -180,11 +183,11 @@
               <h2>API Tester</h2>
               <form id="api-test-form">
                 <div class="form-group">
-                  <label for="test-agent-select">Select Agent</label>
-                  <select id="test-agent-select" class="form-select" required>
-                    <option value="" disabled selected>Loading agents...</option>
+                  <label for="test-aura-select">Select Aura</label>
+                  <select id="test-aura-select" class="form-select" required>
+                    <option value="" disabled selected>Loading auras...</option>
                   </select>
-                  <span class="error-text" id="agent-warning" style="display:none; color: var(--color-danger); margin-top: 5px;">No agents configured yet! Add an agent in the Agents Config tab first.</span>
+                  <span class="error-text" id="aura-warning" style="display:none; color: var(--color-danger); margin-top: 5px;">No auras configured yet! Add an aura in the Aura Hub first.</span>
                 </div>
                 <div class="form-group">
                   <label for="test-prompt">Prompt / Message</label>
@@ -216,32 +219,32 @@
         </div>
       </section>
 
-      <!-- TAB 3: Agents Config -->
-      <section id="tab-agents" class="tab-pane">
+       <!-- TAB 3: Aura Hub -->
+      <section id="tab-auras" class="tab-pane">
         <div class="grid-layout">
-          <!-- Left Column: Agents List -->
+          <!-- Left Column: Auras List -->
           <div class="grid-col-left">
             <div class="card glass">
-              <h2>Agents</h2>
-              <p class="description">Select an agent to edit, or create a new one.</p>
-              <div class="agents-list" id="agents-selector-container">
+              <h2>Auras</h2>
+              <p class="description">Select an aura to edit, or create a new one.</p>
+              <div class="agents-list" id="auras-selector-container">
                 <!-- Populated dynamically -->
               </div>
               <div class="add-agent-row">
-                <input type="text" id="new-agent-name" placeholder="Agent name (e.g. coder)" class="form-input">
-                <button class="btn btn-primary" id="create-agent-btn">Create</button>
+                <input type="text" id="new-aura-name" placeholder="Aura name (e.g. coder)" class="form-input">
+                <button class="btn btn-primary" id="create-aura-btn">Create</button>
               </div>
             </div>
           </div>
 
-          <!-- Right Column: Agent Settings -->
-          <div class="grid-col-right" id="agent-settings-card" style="display: none;">
+          <!-- Right Column: Aura Settings -->
+          <div class="grid-col-right" id="aura-settings-card" style="display: none;">
             <div class="card glass">
               <div class="agent-title-row">
-                <h2 id="current-agent-title">Agent Settings: Coder</h2>
+                <h2 id="current-aura-title">Aura Settings: Coder</h2>
                 <div class="agent-actions">
-                  <button class="btn btn-secondary btn-sm" id="rename-agent-btn">Rename</button>
-                  <button class="btn btn-danger btn-sm" id="delete-agent-btn">Delete Agent</button>
+                  <button class="btn btn-secondary btn-sm" id="rename-aura-btn">Rename</button>
+                  <button class="btn btn-danger btn-sm" id="delete-aura-btn">Delete Aura</button>
                 </div>
               </div>
               <!-- Fallback Chain -->
@@ -275,14 +278,14 @@
                   </div>
                 </div>
 
-                <button class="btn btn-success mt-4" id="save-agents-btn">Save Agents Config</button>
+                <button class="btn btn-success mt-4" id="save-auras-btn">Save Auras Config</button>
               </div>
             </div>
           </div>
 
-          <div class="grid-col-right empty-agent-message" id="agent-settings-empty">
+          <div class="grid-col-right empty-agent-message" id="aura-settings-empty">
             <div class="card glass flex-center" style="min-height: 400px; display: flex; justify-content: center; align-items: center;">
-              <p class="text-muted">Select an agent from the list to view and configure its fallback chain.</p>
+              <p class="text-muted">Select an aura from the list to view and configure its fallback chain.</p>
             </div>
           </div>
         </div>
@@ -312,6 +315,11 @@
                 </div>
                 <button class="btn btn-success" id="save-keys-btn">Save API Keys</button>
               </div>
+              <div class="add-key-provider-section" style="display: flex; gap: 0.5rem; margin-top: 1rem; align-items: center; background: rgba(255,255,255,0.02); padding: 0.75rem; border-radius: var(--border-radius-sm); border: 1px solid var(--color-card-border);">
+                <span style="font-size: 0.85rem; font-weight: 500; color: var(--color-text-muted);">Configure credentials for provider:</span>
+                <select id="add-key-provider-select" class="form-select" style="flex: 1; max-width: 250px; margin: 0; padding: 0.35rem 0.5rem; font-size: 0.85rem;"></select>
+                <button class="btn btn-primary btn-sm" id="add-key-provider-btn" style="padding: 0.35rem 0.75rem;">Add Setup</button>
+              </div>
               <div class="keys-grid-collapsible" id="keys-manager-container" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
                 <!-- Populated dynamically with collapsible panels -->
               </div>
@@ -322,113 +330,154 @@
 
       <!-- TAB 5: Proxy Pool -->
       <section id="tab-proxies" class="tab-pane">
-        <div class="grid-layout">
-          <!-- Left Column: Settings and History -->
+        <!-- Row 1: Config & Analytics Grid -->
+        <div class="grid-layout" style="margin-bottom: 1.5rem;">
           <div class="grid-col-left">
-            <div class="card glass">
+            <div class="card glass" style="height: 100%; min-height: 180px;">
               <h2>Proxy Configuration</h2>
+              <div class="form-group flex-row" style="margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.75rem;">
+                <label class="switch">
+                  <input type="checkbox" id="proxy-enable-toggle" checked>
+                  <span class="slider"></span>
+                </label>
+                <span style="font-size: 0.85rem; font-weight: 500; color: var(--color-text-muted); user-select: none;">Enable IP Masking (Proxy Pool)</span>
+              </div>
               <div class="form-group">
                 <label for="proxy-latency-threshold-slider">Latency Threshold (ms)</label>
                 <div style="display: flex; align-items: center; gap: 1rem;">
                   <input type="range" id="proxy-latency-threshold-slider" min="100" max="5000" step="50" value="1500" style="flex: 1; accent-color: var(--color-primary);">
                   <span id="proxy-latency-threshold-val" style="font-weight: 600; min-width: 60px;">1500ms</span>
                 </div>
-                <button class="btn btn-primary btn-sm mt-2" id="save-proxy-settings-btn" style="align-self: flex-start;">Save Threshold</button>
+                <button class="btn btn-primary btn-sm mt-2" id="save-proxy-settings-btn" style="align-self: flex-start;">Save Settings</button>
               </div>
             </div>
+          </div>
+          <div class="grid-col-right">
+            <div class="card glass" style="height: 100%; min-height: 180px;">
+              <h2>Proxy Analytics</h2>
+              <p class="description">Performance metrics for IP masking and proxy routing.</p>
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-top: 1rem;">
+                <div class="analytics-stat-card" style="background: rgba(255,255,255,0.02); border: 1px solid var(--color-card-border); padding: 0.75rem; border-radius: var(--border-radius-sm); text-align: center;">
+                  <div style="font-size: 0.65rem; color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Masked Req</div>
+                  <div style="font-size: 1.25rem; font-weight: bold; margin-top: 0.25rem; color: var(--color-primary);" id="stat-masked-requests">0</div>
+                </div>
+                <div class="analytics-stat-card" style="background: rgba(255,255,255,0.02); border: 1px solid var(--color-card-border); padding: 0.75rem; border-radius: var(--border-radius-sm); text-align: center;">
+                  <div style="font-size: 0.65rem; color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Masked Ok</div>
+                  <div style="font-size: 1.25rem; font-weight: bold; margin-top: 0.25rem; color: var(--color-success);" id="stat-masked-success">0</div>
+                </div>
+                <div class="analytics-stat-card" style="background: rgba(255,255,255,0.02); border: 1px solid var(--color-card-border); padding: 0.75rem; border-radius: var(--border-radius-sm); text-align: center;">
+                  <div style="font-size: 0.65rem; color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Direct Req</div>
+                  <div style="font-size: 1.25rem; font-weight: bold; margin-top: 0.25rem; color: var(--color-text-muted);" id="stat-direct-requests">0</div>
+                </div>
+                <div class="analytics-stat-card" style="background: rgba(255,255,255,0.02); border: 1px solid var(--color-card-border); padding: 0.75rem; border-radius: var(--border-radius-sm); text-align: center;">
+                  <div style="font-size: 0.65rem; color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Success Rate</div>
+                  <div style="font-size: 1.25rem; font-weight: bold; margin-top: 0.25rem; color: #a78bfa;" id="stat-masked-rate">0%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-            <div class="card glass mt-4">
-              <h2>Refresh History</h2>
+        <!-- Row 2: Active Pool Status (Full Width Main Table) -->
+        <div class="card glass" style="margin-bottom: 1.5rem;">
+          <div class="card-header-actions" style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <h2 style="margin: 0;">Active Pool Status</h2>
+              <p class="description">Live SOCKS5 proxies compiled in memory and verified within the latency threshold.</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="refresh-proxies-btn">Force Refresh the Proxy Pool</button>
+          </div>
+          <div class="stat-badge flex-row" style="justify-content: space-between; display: flex; margin-bottom: 1rem; max-width: 200px;">
+            <span class="stat-label">Status:</span>
+            <span class="stat-val text-warning" id="proxy-pool-status">Idle</span>
+          </div>
+          <div class="table-container" style="overflow-x: auto; max-height: 400px; margin-top: 1rem;">
+            <table class="proxy-table" style="width:100%; border-collapse:collapse; font-size:0.8rem; text-align:left;">
+              <thead>
+                <tr style="border-bottom:1px solid var(--color-card-border); color:var(--color-text-muted);">
+                  <th style="padding:6px 8px; width: 45px;">#</th>
+                  <th style="padding:6px 8px;">Proxy URL</th>
+                  <th style="padding:6px 8px;">Source URL</th>
+                  <th style="padding:6px 8px; text-align:center; width: 180px;">Created At</th>
+                  <th style="padding:6px 8px; text-align:right; width: 80px;">Latency</th>
+                </tr>
+              </thead>
+              <tbody id="proxy-pool-table-body">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Row 3: Refresh History (Full Width Main Table) -->
+        <div class="card glass" style="margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <div>
+              <h2 style="margin: 0;">Refresh History</h2>
               <p class="description">Operations logs for SOCKS5 proxy crawler refreshes.</p>
-              <div class="table-container" style="overflow-x: auto; max-height: 380px; margin-top: 1rem;">
-                <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.72rem; text-align: left;">
+            </div>
+            <button class="btn btn-danger btn-sm" id="clear-proxy-history-btn" style="padding: 0.35rem 0.75rem;">Clear Refresh History</button>
+          </div>
+          <div class="table-container" style="overflow-x: auto; max-height: 380px; margin-top: 1rem;">
+            <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.72rem; text-align: left;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
+                  <th style="padding: 6px 6px;">Trigger Cause</th>
+                  <th style="padding: 6px 6px; width: 180px;">Triggered Time</th>
+                  <th style="padding: 6px 6px; text-align: center;">Active Before</th>
+                  <th style="padding: 6px 6px; text-align: center;">Status</th>
+                  <th style="padding: 6px 6px; text-align: right;">Running Time</th>
+                  <th style="padding: 6px 6px; text-align: center;">Harvested Count</th>
+                  <th style="padding: 6px 6px; text-align: center;">Tested Count</th>
+                  <th style="padding: 6px 6px; text-align: center;">Passed Anomaly Count</th>
+                </tr>
+              </thead>
+              <tbody id="proxy-refresh-history-tbody">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Row 4: Scraper Sources Rankings (Full Width Rankings) -->
+        <div class="card glass">
+          <h2>Proxy Scraper Sources Rankings</h2>
+          <p class="description">Aggregated performance of the different free SOCKS5 repository feeds used by the crawler. Sources are ranked based on active usage metrics.</p>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1rem;">
+            <div class="ranking-block">
+              <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem;">Ranked by Success Rate</h3>
+              <div class="table-container" style="overflow-x: auto; max-height: 250px; margin-top: 0.5rem;">
+                <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: left;">
                   <thead>
                     <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
-                      <th style="padding: 6px 6px;">Trigger Cause</th>
-                      <th style="padding: 6px 6px;">Triggered Time</th>
-                      <th style="padding: 6px 6px; text-align: center;">Active Before</th>
-                      <th style="padding: 6px 6px; text-align: center;">Status</th>
-                      <th style="padding: 6px 6px; text-align: right;">Running Time</th>
-                      <th style="padding: 6px 6px; text-align: center;">Harvested Count</th>
-                      <th style="padding: 6px 6px; text-align: center;">Passed Anomaly Count</th>
+                      <th style="padding: 6px; width: 30px;">#</th>
+                      <th style="padding: 6px;">Source URL</th>
+                      <th style="padding: 6px; text-align: center;">Ok</th>
+                      <th style="padding: 6px; text-align: center;">Fail</th>
+                      <th style="padding: 6px; text-align: right;">Rate</th>
                     </tr>
                   </thead>
-                  <tbody id="proxy-refresh-history-tbody">
+                  <tbody id="proxy-source-success-tbody">
                     <!-- Populated dynamically -->
                   </tbody>
                 </table>
               </div>
             </div>
-          </div>
 
-          <!-- Right Column: Crawler Source Stats & Rankings -->
-          <div class="grid-col-right">
-            <div class="card glass">
-              <h2>Proxy Scraper Sources Rankings</h2>
-              <p class="description">Aggregated performance of the different free SOCKS5 repository feeds used by the crawler. Sources are ranked based on active usage metrics.</p>
-              
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1rem;">
-                <div class="ranking-block">
-                  <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem;">Ranked by Success Rate</h3>
-                  <div class="table-container" style="overflow-x: auto; max-height: 250px; margin-top: 0.5rem;">
-                    <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: left;">
-                      <thead>
-                        <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
-                          <th style="padding: 6px; width: 30px;">#</th>
-                          <th style="padding: 6px;">Source URL</th>
-                          <th style="padding: 6px; text-align: center;">Ok</th>
-                          <th style="padding: 6px; text-align: center;">Fail</th>
-                          <th style="padding: 6px; text-align: right;">Rate</th>
-                        </tr>
-                      </thead>
-                      <tbody id="proxy-source-success-tbody">
-                        <!-- Populated dynamically -->
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-                <div class="ranking-block">
-                  <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem;">Ranked by Average Speed</h3>
-                  <div class="table-container" style="overflow-x: auto; max-height: 250px; margin-top: 0.5rem;">
-                    <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: left;">
-                      <thead>
-                        <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
-                          <th style="padding: 6px; width: 30px;">#</th>
-                          <th style="padding: 6px;">Source URL</th>
-                          <th style="padding: 6px; text-align: center;">Tested</th>
-                          <th style="padding: 6px; text-align: right;">Avg Speed</th>
-                        </tr>
-                      </thead>
-                      <tbody id="proxy-source-latency-tbody">
-                        <!-- Populated dynamically -->
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card glass mt-4" style="margin-top: 1.5rem;">
-              <div class="card-header-actions" style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
-                <h2>Active Pool Status</h2>
-                <button class="btn btn-secondary btn-sm" id="refresh-proxies-btn">Refresh Proxies</button>
-              </div>
-              <div class="stat-badge flex-row" style="justify-content: space-between; display: flex; margin-bottom: 1rem; max-width: 200px;">
-                <span class="stat-label">Status:</span>
-                <span class="stat-val text-warning" id="proxy-pool-status">Idle</span>
-              </div>
-              <div class="table-container" style="overflow-x: auto; max-height: 400px; margin-top: 1rem;">
-                <table class="proxy-table" style="width:100%; border-collapse:collapse; font-size:0.8rem; text-align:left;">
+            <div class="ranking-block">
+              <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem;">Ranked by Average Speed</h3>
+              <div class="table-container" style="overflow-x: auto; max-height: 250px; margin-top: 0.5rem;">
+                <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: left;">
                   <thead>
-                    <tr style="border-bottom:1px solid var(--color-card-border); color:var(--color-text-muted);">
-                      <th style="padding:6px 8px; width: 40px;">#</th>
-                      <th style="padding:6px 8px;">Proxy URL</th>
-                      <th style="padding:6px 8px;">Source URL</th>
-                      <th style="padding:6px 8px; text-align:right;">Latency</th>
+                    <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
+                      <th style="padding: 6px; width: 30px;">#</th>
+                      <th style="padding: 6px;">Source URL</th>
+                      <th style="padding: 6px; text-align: center;">Tested</th>
+                      <th style="padding: 6px; text-align: right;">Avg Speed</th>
                     </tr>
                   </thead>
-                  <tbody id="proxy-pool-table-body">
+                  <tbody id="proxy-source-latency-tbody">
                     <!-- Populated dynamically -->
                   </tbody>
                 </table>
@@ -438,49 +487,6 @@
         </div>
       </section>
 
-      <!-- TAB 6: Live Logs -->
-      <section id="tab-logs" class="tab-pane">
-        <!-- Server Info Bar -->
-        <div class="server-info-bar card glass" style="margin-bottom: 1rem; padding: 1rem 1.5rem;">
-          <div class="server-info-inner">
-            <div class="server-info-item">
-              <span class="server-info-label">Server Status</span>
-              <span class="server-info-val" id="server-status">
-                <span class="status-indicator" id="server-status-dot"></span>
-                <span id="server-status-text">Connecting...</span>
-              </span>
-            </div>
-            <div class="server-info-divider"></div>
-            <div class="server-info-item">
-              <span class="server-info-label">Server Uptime</span>
-              <span class="server-info-val" id="server-uptime">—</span>
-            </div>
-            <div class="server-info-divider"></div>
-            <div class="server-info-item">
-              <span class="server-info-label">Active Agents</span>
-              <span class="server-info-val" id="server-agents-count">—</span>
-            </div>
-            <div class="server-info-divider"></div>
-            <div class="server-info-item">
-              <span class="server-info-label">Proxy Pool</span>
-              <span class="server-info-val" id="logs-proxy-status">—</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="card glass log-card" style="margin-bottom: 0; min-height: 500px; display: flex; flex-direction: column;">
-          <div class="card-header-actions" style="margin-bottom: 1rem;">
-            <div>
-              <h2>Live Server Logs</h2>
-              <p class="description">Real-time stderr/stdout events streamed from the router backend.</p>
-            </div>
-            <button class="btn btn-secondary btn-sm" id="clear-logs-btn">Clear Terminal</button>
-          </div>
-          <div class="terminal-log" id="logs-terminal" style="max-height: 70vh; min-height: 380px; overflow-y: auto;">
-            <div class="log-line system">[system] Listening for logs...</div>
-          </div>
-        </div>
-      </section>
 
       <!-- TAB 7: Provider Config -->
       <section id="tab-providers" class="tab-pane">
@@ -540,61 +546,32 @@
 
               <!-- Models Section -->
               <div class="fallback-section mt-4">
-                <h3>Provider Models List</h3>
-                <p class="description">Define the models exposed by this provider that agents can target.</p>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+                  <h3 style="margin: 0;">Provider Models List</h3>
+                  <button id="refresh-provider-models-btn" class="btn btn-secondary btn-sm" style="display: flex; align-items: center; gap: 5px; padding: 0.35rem 0.75rem;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                    Refresh Models
+                  </button>
+                </div>
+                <p class="description">View and configure free status for models fetched dynamically from the provider's /models API.</p>
                 <div class="table-container">
                   <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
                     <thead>
                       <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
                         <th style="padding: 6px;">ID</th>
-                        <th style="padding: 6px;">Alias</th>
                         <th style="padding: 6px;">Name</th>
                         <th style="padding: 6px; text-align: right;">Context</th>
+                        <th style="padding: 6px; text-align: right;">Max In / Out</th>
+                        <th style="padding: 6px; text-align: center;">Capabilities</th>
                         <th style="padding: 6px; text-align: center;">Reasoning</th>
-                        <th style="padding: 6px; text-align: center;">Coding</th>
-                        <th style="padding: 6px; text-align: right;">Action</th>
+                        <th style="padding: 6px; text-align: right;">Cost (1M tokens)</th>
+                        <th style="padding: 6px; text-align: center;">Mark Free</th>
                       </tr>
                     </thead>
                     <tbody id="provider-models-tbody">
                       <!-- Populated dynamically -->
                     </tbody>
                   </table>
-                </div>
-
-                <!-- Add Model Form -->
-                <div class="add-fallback-step card bg-dark mt-3" style="padding: 1rem;">
-                  <h4>Register Model</h4>
-                  <div class="add-model-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
-                    <div class="form-group" style="margin-bottom: 0;">
-                      <label style="font-size: 0.75rem;">Model ID</label>
-                      <input type="text" id="model-field-id" class="form-input" placeholder="google/gemma-4-26b-a4b-it:free">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0;">
-                      <label style="font-size: 0.75rem;">Alias</label>
-                      <input type="text" id="model-field-alias" class="form-input" placeholder="gemma-4-or">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0;">
-                      <label style="font-size: 0.75rem;">Display Name</label>
-                      <input type="text" id="model-field-name" class="form-input" placeholder="Gemma 4 (free)">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0;">
-                      <label style="font-size: 0.75rem;">Context Window</label>
-                      <input type="number" id="model-field-context" class="form-input" placeholder="1000000">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0; display: flex; gap: 1rem; align-items: center; height: 100%; margin-top: 15px;">
-                      <div class="flex-row">
-                        <input type="checkbox" id="model-field-reasoning" checked>
-                        <label for="model-field-reasoning">Reasoning</label>
-                      </div>
-                      <div class="flex-row">
-                        <input type="checkbox" id="model-field-coding" checked>
-                        <label for="model-field-coding">Coding</label>
-                      </div>
-                    </div>
-                    <div class="align-bottom" style="display: flex; align-items: flex-end;">
-                      <button class="btn btn-primary" id="add-provider-model-btn" style="width: 100%;">Add Model</button>
-                    </div>
-                  </div>
                 </div>
 
                 <button class="btn btn-success mt-4" id="save-providers-btn">Save Provider Config</button>
@@ -606,6 +583,31 @@
             <div class="card glass flex-center" style="min-height: 400px; display: flex; justify-content: center; align-items: center;">
               <p class="text-muted">Select an LLM provider from the list to view and configure its details and models.</p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 8: Supported Providers Catalog -->
+      <section id="tab-supported-providers" class="tab-pane">
+        <div class="card glass">
+          <h2>Supported Providers Catalog</h2>
+          <p class="description">A complete catalog of all supported LLM providers, their sign-up requirements, credential patterns, and key settings.</p>
+          <div class="table-container mt-3" style="overflow-x: auto;">
+            <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
+                  <th style="padding: 10px 8px;">Provider</th>
+                  <th style="padding: 10px 8px;">Description / Notes</th>
+                  <th style="padding: 10px 8px; text-align: center; width: 120px;">Free Tier</th>
+                  <th style="padding: 10px 8px; text-align: center; width: 120px;">Card Required</th>
+                  <th style="padding: 10px 8px; text-align: center; width: 120px;">Phone Required</th>
+                  <th style="padding: 10px 8px; text-align: center; width: 150px;">Sign Up</th>
+                </tr>
+              </thead>
+              <tbody id="supported-providers-tbody">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -629,8 +631,8 @@
             <span class="info-val" id="modal-source" style="font-weight: 500; font-size: 0.85rem;">-</span>
           </div>
           <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
-            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Agent</span>
-            <span class="info-val" id="modal-agent" style="font-weight: 500; font-size: 0.85rem;">-</span>
+            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Aura</span>
+            <span class="info-val" id="modal-aura" style="font-weight: 500; font-size: 0.85rem;">-</span>
           </div>
           <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
             <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Provider / Model</span>
@@ -689,6 +691,6 @@
     </div>
   </div>
 
-  <script src="index.js"></script>
+  <script src="index.js?v=1.0.2"></script>
 </body>
 </html>

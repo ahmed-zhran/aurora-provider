@@ -1,47 +1,105 @@
-# Aurora-Provider
-
-> **Local OpenAI-compatible LLM router** — one endpoint, unlimited free fallback chains, zero vendor lock-in.
-
-Aurora-Provider runs as a tiny local server (`http://127.0.0.1:4141`) and exposes an OpenAI-compatible API. When OpenCode (or any agent) sends a request to model `aurora-provider/build`, Aurora-Provider:
-
-1. Looks up the **agent** (`build`) and its ordered **fallback chain**
-2. Picks the **first available provider** in that chain
-3. Rotates through **all API keys** for that provider on rate-limit (429)
-4. Falls back to the **next provider** when all keys are exhausted
-5. Every 15 minutes, **probes all keys** and resets cooled-down ones
+<p align="center">
+  <h1 align="center">🌌 Aurora-Provider</h1>
+  <p align="center">
+    <strong>Local OpenAI-compatible LLM router — one endpoint, unlimited free fallback chains, zero rate limits.</strong>
+  </p>
+  <p align="center">
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+    <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen" alt="Node.js"></a>
+    <a href="https://bun.sh"><img src="https://img.shields.io/badge/bun-compatible-f472b6" alt="Bun compatible"></a>
+    <a href="https://github.com/ahmed-zhran/aurora-provider/stargazers"><img src="https://img.shields.io/github/stars/ahmed-zhran/aurora-provider?style=social" alt="GitHub stars"></a>
+  </p>
+</p>
 
 ---
 
-## Architecture
+Aurora-Provider runs as a tiny local server and exposes an **OpenAI-compatible API**. Point any AI tool at it and get:
+
+- 🔄 **Never hit a rate limit again** — automatic key rotation + provider failover across 11+ free LLM providers
+- 📊 **Full analytics dashboard** — real-time logs, usage charts, key health monitoring, proxy pool management
+- 🔌 **Drop-in compatible** — works with Cursor, Aider, Continue, or any OpenAI SDK client
+
+<p align="center">
+  <img src=".github/assets/dashboard-preview.png" alt="Aurora-Provider Dashboard" width="800">
+</p>
+
+---
+
+## ⚡ Quick Start
+
+```bash
+# 1. Clone
+git clone https://github.com/ahmed-zhran/aurora-provider.git
+cd aurora-provider
+
+# 2. Install
+bun install    # or: npm install
+
+# 3. Configure API keys
+cp vault/keys.example.json vault/keys.json
+# Edit vault/keys.json with your free API keys (see "Getting API Keys" below)
+
+# 4. Start
+bun run start  # or: npm start
+```
+
+You should see:
 
 ```
-OpenCode
+╔══════════════════════════════════════════╗
+║          Aurora-Provider  v1.0.0         ║
+║  Local OpenAI-compatible LLM router     ║
+╠══════════════════════════════════════════╣
+║  Listening: http://127.0.0.1:8550       ║
+║  Agents:    plan, build, coder, ...     ║
+╚══════════════════════════════════════════╝
+```
+
+Dashboard: **http://127.0.0.1:8550** · API: **http://127.0.0.1:8550/v1/chat/completions**
+
+---
+
+## 🤔 How It Works
+
+When a request comes in for model `aurora-provider/coder`, Aurora-Provider:
+
+1. Resolves the **agent** (`coder`) and loads its ordered **fallback chain**
+2. Picks the **first available provider** and tries its API keys
+3. On rate-limit (429) → rotates to the **next API key** for that provider
+4. All keys exhausted → falls to the **next provider** in the chain
+5. Routes through **SOCKS5 proxies** to bypass IP-level rate limits
+6. Every 15 minutes, **probes all keys** in the background and resets recovered ones
+
+### Architecture
+
+```
+Cursor / Aider / Continue / Any Client
   │
   │  POST /v1/chat/completions
-  │  model: "aurora-provider/build"
+  │  model: "aurora-provider/coder"
   ▼
 ┌─────────────────────────────────────────────────────┐
-│                    Aurora-Provider                        │
-│                                                      │
-│  1. Resolve model name → agent name ("build")        │
-│  2. Load agent fallback chain from agents.json       │
-│  3. For each (provider, model) in chain:             │
-│     a. Get next available key for provider           │
-│     b. Forward request to provider API               │
-│     c. On 429 → mark key, try next key               │
-│     d. All keys exhausted → next provider in chain   │
-│  4. Return upstream response (streaming supported)   │
-│                                                      │
-│  Background: every 15 min probe all keys, reset OK  │
+│                    Aurora-Provider                   │
+│                                                     │
+│  1. Resolve model name → agent ("coder")            │
+│  2. Load fallback chain from agents.json            │
+│  3. For each (provider, model) in chain:            │
+│     a. Get next available key (skip rate-limited)   │
+│     b. Route through SOCKS5 proxy pool              │
+│     c. Forward request to provider API              │
+│     d. On 429 → rotate key → rotate proxy → retry   │
+│     e. All keys exhausted → next provider           │
+│  4. Return upstream response (streaming supported)  │
+│                                                     │
+│  Background: proxy pool auto-refresh + key probing  │
 └─────────────────────────────────────────────────────┘
   │
-  ├── opencode_zen     → https://opencode.ai/zen/v1
-  ├── zhipu            → https://open.bigmodel.cn/api/paas/v4
-  ├── google_ai_studio → https://generativelanguage.googleapis.com/v1beta/openai
-  ├── cloudflare       → https://api.cloudflare.com/.../ai/v1
-  ├── openrouter       → https://openrouter.ai/api/v1
-  ├── groq             → https://api.groq.com/openai/v1
-  └── ... more
+  ├── Google AI Studio → gemini-2.5-flash (1M context)
+  ├── Groq             → llama-3.3-70b (ultra fast)
+  ├── Cloudflare AI    → kimi-k2.6 (262K context)
+  ├── OpenRouter       → 30+ free models
+  ├── Zhipu            → glm-4.7-flash (200K context)
+  └── ... 6 more providers
 ```
 
 ### Two-Layer Fallback
@@ -49,12 +107,12 @@ OpenCode
 ```
 Request for agent "coder"
   │
-  Layer 1: Provider + Key Rotation
-  ├── opencode_zen / big-pickle
+  Layer 1: Key Rotation
+  ├── openrouter / kimi-k2.6
   │   ├── key[0] → 429 → mark, try key[1]
   │   ├── key[1] → 429 → all exhausted → next provider
   │
-  Layer 2: Provider Fallback Chain
+  Layer 2: Provider Fallback
   ├── cloudflare / kimi-k2.6 → success ✓
   │
   Done.
@@ -62,123 +120,188 @@ Request for agent "coder"
 
 ---
 
-## Fallback Chain Design
+## 📊 Dashboard
 
-Each agent's fallback chain is sorted by:
+Aurora-Provider includes a full-featured web dashboard with **5 themes** (Deep Space, Light Mode, Cyberpunk, Aurora, Ocean):
 
-1. **Context size** (largest first) — all OpenCode agents need large context
-2. **Rate limit generosity** (unlimited/daily > RPM-limited)
-3. **Speed** (fastest inference last resort, since speed < capability for coding)
-
-| Agent | Priority 1 | Priority 2 | Priority 3 | Priority 4 | Priority 5 |
-|---|---|---|---|---|---|
-| **plan** | OpenCode Zen / Big Pickle | Cloudflare / Kimi K2.6 | OpenRouter / Kimi K2.6 | OpenRouter / DeepSeek V4 Flash | Gemini 2.5 Flash |
-| **build** | OpenCode Zen / Big Pickle | Cloudflare / Kimi K2.6 | OpenRouter / Kimi K2.6 | OpenRouter / DeepSeek V4 Flash | Gemini 2.5 Flash |
-| **coder** | OpenCode Zen / Big Pickle | Cloudflare / Kimi K2.6 | OpenRouter / DeepSeek V4 Flash | Zhipu / GLM-4.7 Flash | Gemini 2.5 Flash |
-| **explore** | OpenCode Zen / DeepSeek V4 Flash | OpenRouter / DeepSeek V4 Flash | OpenRouter / Llama 4 Maverick | Gemini 2.5 Flash | Groq / Llama 4 Scout |
-| **researcher** | OpenCode Zen / Nemotron 3 Super | OpenRouter / Qwen3 235B | Cloudflare / Kimi K2.6 | Gemini 2.5 Flash | NVIDIA NIM / Nemotron |
-| **scribe** | OpenCode Zen / DeepSeek V4 Flash | Gemini 2.5 Flash | OpenRouter / DeepSeek V4 Flash | Groq / Llama 3.3 70B | Zhipu / GLM-4.7 Flash |
-| **reviewer** | OpenCode Zen / Nemotron 3 Super | Cloudflare / Kimi K2.6 | OpenRouter / Kimi K2.6 | Zhipu / GLM-4.7 Flash | Gemini 2.5 Flash |
+| Tab | What It Does |
+|-----|-------------|
+| **Dashboard** | KPI cards, request charts, usage logs with filtering |
+| **API Tester** | Test any agent directly from the browser |
+| **Agents Config** | Drag-and-drop fallback chain editor |
+| **API Keys & Health** | Live key status with cooldown timers |
+| **Proxy Pool** | SOCKS5 proxy management with source rankings |
+| **Live Logs** | Real-time server logs via SSE |
+| **Provider Config** | Full CRUD for provider definitions |
 
 ---
 
-## Provider Registry
+## 🛠️ Configuration
 
-All providers in `config/providers.json`. Summary:
+Aurora-Provider uses three JSON config files in the `vault/` directory:
 
-| Provider | Free Models | Context | Rate Limits | Speed | Permanent |
-|---|---|---|---|---|---|
-| **OpenCode Zen** | Big Pickle, DeepSeek V4 Flash, Nemotron 3 | 200K | Generous (undocumented) | Medium | No (limited time) |
-| **Cloudflare Workers AI** | Kimi K2.6, Qwen3, DeepSeek R1, Llama 4 | 262K / 512K | 10K neurons/day | Medium | Yes |
-| **Google AI Studio** | Gemini 2.5 Flash, Flash-Lite | 1M | 30 RPM / 1500 RPD | Fast | Yes |
-| **OpenRouter (free)** | DeepSeek V4 Flash, Qwen3 235B, Kimi K2.6, Llama 4 Maverick | 1M / 262K | ~20 RPM | Medium | No |
-| **Zhipu (Z.AI)** | GLM-4.7 Flash, GLM-4.5 Flash | 200K | 1 concurrent req | Fast | Yes ✓ |
-| **Groq** | Llama 3.3 70B, Llama 4 Scout, DeepSeek R1 | 128K–512K | 30 RPM / 1K RPD | Ultra fast | Yes |
-| **Kimi (Moonshot)** | Kimi K2.5 | 262K | 3 RPM / 1.5M TPD | Medium | No |
-| **Cerebras** | Llama 3.3 70B, Llama 4 Scout | 8K–131K | 1M tok/day | Ultra fast | Yes |
-| **NVIDIA NIM** | Kimi K2, DeepSeek V3.2, Nemotron 3 | 32K–262K | ~5 RPM | Fast | No |
-| **GitHub Models** | Grok 3, Llama 3.3 70B, 45+ | 128K | 8K in / 4K out | Fast | Yes |
-| **LLM7.io** | DeepSeek R1 Distill, Qwen3, Llama 3.1 405B | 128K–131K | 2 RPM per IP | Slow–Medium | Yes (no signup) |
-| ~~**Chutes AI**~~ | ~~All~~ | — | **PAID NOW** (ended Feb 2026) | — | **❌ No longer free** |
+### API Keys (`vault/keys.json`)
 
----
-
-## Setup
-
-### 1. Install
-
-```bash
-git clone <this-repo> aurora-provider
-cd aurora-provider
-npm install
-```
-
-### 2. Add API Keys
-
-Edit `config/keys.json`. Add as many keys per provider as you have:
+Add as many keys per provider as you have — more keys = more resilience:
 
 ```json
 {
   "keys": {
-    "opencode_zen": [
-      "sk-zen-key1",
-      "sk-zen-key2"
-    ],
-    "zhipu": [
-      "your-zhipu-key"
-    ],
-    "google_ai_studio": [
-      "AIza-key1",
-      "AIza-key2",
-      "AIza-key3"
-    ],
-    "groq": [
-      "gsk_key1",
-      "gsk_key2"
-    ],
+    "google_ai_studio": ["AIza-key1", "AIza-key2"],
+    "groq": ["gsk_key1"],
+    "openrouter": ["sk-or-key1"],
     "cloudflare_workers_ai": [
-      {
-        "apiToken": "your-cf-token",
-        "accountId": "your-account-id"
-      }
-    ],
-    "openrouter": [
-      "sk-or-key1"
-    ],
-    "llm7": [
-      "YOUR_LLM7_TOKEN_1"
+      { "apiToken": "your-cf-token", "accountId": "your-account-id" }
     ]
   }
 }
 ```
 
-**Providers with no keys configured are automatically skipped in the fallback chain.**
+> **Providers with no keys configured are automatically skipped.** You don't need all providers — even just 2-3 gives solid coverage.
 
-You don't need all providers — even just `opencode_zen` + `zhipu` + `google_ai_studio` gives solid coverage.
+### Agent Fallback Chains (`vault/agents.json`)
 
-### 3. Start Aurora-Provider
+Each agent has an ordered fallback chain. Customize priorities by reordering:
+
+| Agent | Role | Default Chain |
+|-------|------|--------------|
+| **plan** | Orchestration | OpenCode Zen → Cloudflare → OpenRouter → Gemini |
+| **build** | Delegation | Same as plan |
+| **coder** | Implementation | OpenCode Zen → Cloudflare → OpenRouter → Zhipu → Gemini |
+| **explore** | Analysis | OpenCode Zen → OpenRouter → Gemini → Groq |
+| **researcher** | Research | OpenCode Zen → OpenRouter → Cloudflare → Gemini |
+| **scribe** | Documentation | OpenCode Zen → Gemini → OpenRouter → Groq |
+| **reviewer** | Code review | OpenCode Zen → Cloudflare → OpenRouter → Zhipu → Gemini |
+
+### Provider Registry (`vault/providers.json`)
+
+Defines API endpoints, auth methods, models, and rate limit behavior. See [docs/providers-guide.md](docs/providers-guide.md) for details.
+
+---
+
+## 🌐 Supported Providers
+
+All providers offer **completely free** tiers — no credit card required:
+
+| Provider | Free Models | Context | Rate Limits | Speed |
+|----------|-------------|---------|-------------|-------|
+| [**Google AI Studio**](https://aistudio.google.com) | Gemini 2.5 Flash | 1M | 30 RPM / 1,500 RPD | Fast |
+| [**Groq**](https://console.groq.com) | Llama 3.3 70B, Llama 4 Scout | 128K–512K | 30 RPM / 1K RPD | Ultra fast |
+| [**Cloudflare Workers AI**](https://dash.cloudflare.com) | Kimi K2.6, Qwen3, DeepSeek R1 | 262K–512K | 10K neurons/day | Medium |
+| [**OpenRouter**](https://openrouter.ai) | 30+ free models | up to 1M | ~20 RPM | Medium |
+| [**Zhipu (Z.AI)**](https://open.bigmodel.cn) | GLM-4.7 Flash | 200K | 1 concurrent | Fast |
+| [**OpenCode Zen**](https://opencode.ai/zen) | Big Pickle, DeepSeek V4 Flash | 200K | Generous | Medium |
+| [**Cerebras**](https://cloud.cerebras.ai) | Llama 3.3 70B | 8K–131K | 1M tok/day | Ultra fast |
+| [**NVIDIA NIM**](https://build.nvidia.com) | 94+ models | 32K–262K | ~5 RPM | Fast |
+| [**GitHub Models**](https://github.com/marketplace/models) | Grok 3, Llama 3.3 70B | 128K | 8K in / 4K out | Fast |
+| [**LLM7.io**](https://token.llm7.io) | DeepSeek R1, Qwen3, Llama 405B | 128K–131K | 2 RPM | Slow |
+| [**Kimi (Moonshot)**](https://platform.moonshot.cn) | Kimi K2.5 | 262K | 3 RPM | Medium |
+
+> 💡 **Tip:** Start with Google AI Studio + Groq + OpenRouter for the best free coverage.
+
+---
+
+## 🔌 API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/v1/chat/completions` | Main completions — OpenAI compatible |
+| `GET` | `/v1/models` | List all agents as model IDs |
+| `GET` | `/health` | Server health check |
+| `GET` | `/status` | Key states, cooldowns, uptime |
+
+### Test It
 
 ```bash
-npm start
+# Health check
+curl http://127.0.0.1:8550/health
+
+# Test a completion
+curl http://127.0.0.1:8550/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "aurora-provider/coder",
+    "messages": [{"role": "user", "content": "Write hello world in Python"}],
+    "max_tokens": 200
+  }'
 ```
 
-Or with file-watching for development:
-```bash
-npm run dev
+---
+
+## 🔌 Integration Examples
+
+Aurora-Provider acts as a drop-in replacement for OpenAI. Here is how you connect your applications:
+
+### Python SDK
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://127.0.0.1:8550/v1",
+    api_key="any-string-works"
+)
+
+response = client.chat.completions.create(
+    model="aurora-provider/coder",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+print(response.choices[0].message.content)
 ```
 
-You should see:
-```
-╔══════════════════════════════════════════╗
-║          Aurora-Provider  v1.0.0              ║
-║  Local OpenAI-compatible LLM router      ║
-╠══════════════════════════════════════════╣
-║  Listening: http://127.0.0.1:4141        ║
-║  Agents:    plan, build, coder, ...      ║
-╚══════════════════════════════════════════╝
+### Node.js SDK
+```javascript
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  baseURL: "http://127.0.0.1:8550/v1",
+  apiKey: "any-string-works"
+});
+
+const completion = await openai.chat.completions.create({
+  model: "aurora-provider/coder",
+  messages: [{ role: "user", content: "Hello!" }]
+});
+console.log(completion.choices[0].message.content);
 ```
 
-### 4. Auto-start on Boot (Linux systemd)
+### Continue (`.continue/config.json`)
+```json
+{
+  "models": [
+    {
+      "title": "Aurora Coder",
+      "provider": "openai",
+      "model": "aurora-provider/coder",
+      "apiBase": "http://127.0.0.1:8550/v1"
+    }
+  ]
+}
+```
+
+---
+
+## 🚀 Customization
+
+### Add a new provider
+
+1. Add provider definition to `vault/providers.json`
+2. Add API keys to `vault/keys.json`
+3. Add it to relevant agent fallback chains in `vault/agents.json`
+4. Restart Aurora-Provider
+
+### Add a new agent
+
+1. Add agent entry to `vault/agents.json` with a fallback chain
+2. Point your client application to use the new model ID (e.g. `aurora-provider/my-agent`)
+3. Restart Aurora-Provider
+
+### Change fallback priority
+
+Edit the `fallbacks` array order in `vault/agents.json`. No code changes needed. Just restart.
+
+---
+
+## 🏃 Running as a Service (Linux)
 
 Create `/etc/systemd/system/aurora-provider.service`:
 
@@ -191,7 +314,7 @@ After=network.target
 Type=simple
 User=YOUR_USER
 WorkingDirectory=/path/to/aurora-provider
-ExecStart=/usr/bin/node src/server.js
+ExecStart=/usr/bin/bun src/server.js
 Restart=on-failure
 RestartSec=5
 
@@ -199,7 +322,6 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-Then:
 ```bash
 sudo systemctl enable aurora-provider
 sudo systemctl start aurora-provider
@@ -207,275 +329,53 @@ sudo systemctl start aurora-provider
 
 ---
 
-## OpenCode Configuration
-
-Add Aurora-Provider as a custom provider in your `opencode.json`:
-
-```jsonc
-{
-  "$schema": "https://opencode.ai/config.json",
-  "provider": {
-    "aurora-provider": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "Aurora-Provider",
-      "options": {
-        "baseURL": "http://127.0.0.1:4141/v1",
-        "apiKey": "aurora-provider-local"
-      },
-      "models": {
-        "aurora-provider/plan": {
-          "name": "Plan Agent",
-          "limit": { "context": 200000, "output": 65536 }
-        },
-        "aurora-provider/build": {
-          "name": "Build Agent",
-          "limit": { "context": 200000, "output": 65536 }
-        },
-        "aurora-provider/coder": {
-          "name": "Coder Agent",
-          "limit": { "context": 200000, "output": 65536 }
-        },
-        "aurora-provider/explore": {
-          "name": "Explore Agent",
-          "limit": { "context": 200000, "output": 65536 }
-        },
-        "aurora-provider/researcher": {
-          "name": "Researcher Agent",
-          "limit": { "context": 128000, "output": 32768 }
-        },
-        "aurora-provider/scribe": {
-          "name": "Scribe Agent",
-          "limit": { "context": 200000, "output": 65536 }
-        },
-        "aurora-provider/reviewer": {
-          "name": "Reviewer Agent",
-          "limit": { "context": 128000, "output": 32768 }
-        }
-      }
-    }
-  },
-  "agent": {
-    "plan": {
-      "model": "aurora-provider/plan",
-      "temperature": 0.3,
-      "reasoningEffort": "high",
-      "textVerbosity": "low",
-      "permission": {
-        "edit": "deny",
-        "write": "deny",
-        "bash": { "*": "deny" },
-        "task": "allow",
-        "worktree_*": "allow"
-      }
-    },
-    "build": {
-      "model": "aurora-provider/build",
-      "temperature": 0.3,
-      "reasoningEffort": "medium",
-      "textVerbosity": "low",
-      "permission": {
-        "edit": "deny",
-        "write": "deny",
-        "bash": { "*": "deny" },
-        "task": "allow",
-        "worktree_*": "allow"
-      }
-    },
-    "coder": {
-      "model": "aurora-provider/coder",
-      "temperature": 0.2,
-      "reasoningEffort": "high",
-      "textVerbosity": "low",
-      "permission": {
-        "read": "allow",
-        "write": "allow",
-        "edit": "allow",
-        "glob": "allow",
-        "grep": "allow",
-        "bash": "allow"
-      }
-    },
-    "explore": {
-      "model": "aurora-provider/explore",
-      "temperature": 0.2,
-      "reasoningEffort": "low",
-      "textVerbosity": "low",
-      "permission": {
-        "edit": "deny",
-        "write": "deny",
-        "bash": {
-          "*": "deny",
-          "ls *": "allow",
-          "cat *": "allow",
-          "git *": "allow",
-          "grep *": "allow",
-          "find *": "allow"
-        }
-      }
-    },
-    "researcher": {
-      "model": "aurora-provider/researcher",
-      "temperature": 0.4,
-      "reasoningEffort": "high",
-      "textVerbosity": "medium",
-      "permission": {
-        "context7_*": "allow",
-        "exa_*": "allow",
-        "webfetch": "allow",
-        "write": "deny",
-        "edit": "deny"
-      }
-    },
-    "scribe": {
-      "model": "aurora-provider/scribe",
-      "temperature": 1,
-      "reasoningEffort": "low",
-      "textVerbosity": "high",
-      "permission": {
-        "bash": { "*": "deny" },
-        "edit": "allow",
-        "read": "allow",
-        "write": "allow"
-      }
-    },
-    "reviewer": {
-      "model": "aurora-provider/reviewer",
-      "temperature": 0.1,
-      "reasoningEffort": "high",
-      "textVerbosity": "medium",
-      "permission": {
-        "edit": "deny",
-        "write": "deny",
-        "bash": {
-          "*": "deny",
-          "git diff*": "allow",
-          "git log*": "allow"
-        }
-      }
-    }
-  }
-}
-```
-
----
-
-## API Endpoints
-
-| Endpoint | Description |
-|---|---|
-| `GET /health` | Server health check |
-| `GET /status` | Key states, cooldowns, uptime |
-| `GET /v1/models` | List all agents as model IDs |
-| `POST /v1/chat/completions` | Main completions — OpenAI compatible |
-
-### Test it manually
-
-```bash
-# Health
-curl http://127.0.0.1:4141/health
-
-# Status dashboard
-curl http://127.0.0.1:4141/status | jq
-
-# Test a completion
-curl http://127.0.0.1:4141/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer aurora-provider-local" \
-  -d '{
-    "model": "aurora-provider/coder",
-    "messages": [{"role": "user", "content": "Write hello world in Python"}],
-    "max_tokens": 200
-  }'
-```
-
----
-
-## Customization
-
-### Add a new provider
-
-1. Add provider definition to `config/providers.json`
-2. Add API keys to `config/keys.json`
-3. Add it to relevant agent fallback chains in `config/agents.json`
-4. Restart Aurora-Provider
-
-### Add a new agent
-
-1. Add agent entry to `config/agents.json` with fallback chain
-2. Add corresponding model to `opencode.json` provider block
-3. Add agent config to `opencode.json` agent block
-4. Restart Aurora-Provider
-
-### Change fallback priority
-
-Edit the `fallbacks` array order in `config/agents.json`. No code changes needed. Restart Aurora-Provider.
-
-### Change key cooldown behavior
-
-In `src/server.js`, find `markKeyLimited` and adjust the `cooldownMs` formula.
-
----
-
-## How Key Rotation Works
-
-```
-Provider "groq" has keys: [key0, key1, key2]
-
-Request comes in:
-  → try key0 → 429 → mark key0 (60s cooldown)
-  → try key1 → 429 → mark key1 (60s cooldown)
-  → try key2 → success ✓
-
-Later request (same minute):
-  → key0 still cooling → skip
-  → key1 still cooling → skip
-  → try key2 → success ✓
-
-After 60s:
-  → key0 available again (probe confirmed OK)
-  → key1 available again
-```
-
-Cooldown scales with failures: `min(60s × failures, 15min)`. A key that fails repeatedly stays blocked longer.
-
----
-
-## File Structure
+## 📁 Project Structure
 
 ```
 aurora-provider/
 ├── src/
-│   └── server.js          # Main server — all routing logic
-├── config/
-│   ├── providers.json     # Provider registry (API URLs, models, limits)
-│   ├── agents.json        # Agent fallback chains
-│   └── keys.json          # Your API keys (gitignored)
+│   ├── server.js              # Main server — all routing, fallback, and proxy logic
+│   └── public/                # Dashboard UI (HTML/CSS/JS)
+├── vault/
+│   ├── agents.json            # Agent fallback chains
+│   ├── providers.json         # Provider registry (API URLs, models, limits)
+│   ├── keys.json              # Your API keys (gitignored)
+│   ├── keys.example.json      # Template — copy to keys.json
+│   └── vault.db               # SQLite analytics database (auto-created)
+├── docs/                      # Extended documentation
+├── .github/                   # CI/CD, issue templates, PR template
 ├── package.json
-├── .gitignore
-└── README.md
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── CODE_OF_CONDUCT.md
+└── LICENSE
 ```
 
 ---
 
-## Getting API Keys
+## 📖 Documentation
 
-| Provider | Signup | Notes |
-|---|---|---|
-| OpenCode Zen | https://opencode.ai/zen | Run `/connect` in OpenCode TUI |
-| Zhipu (Z.AI) | https://open.bigmodel.cn | Email only, GLM-4.7-Flash permanently free |
-| Google AI Studio | https://aistudio.google.com | Best free tier, 1M context, 1500 req/day |
-| Groq | https://console.groq.com | No credit card, ultra fast |
-| Cloudflare Workers AI | https://dash.cloudflare.com | Free plan: 10K neurons/day |
-| OpenRouter | https://openrouter.ai | Single key for all `:free` models |
-| Kimi (Moonshot) | https://platform.moonshot.cn | May need CN phone number |
-| Cerebras | https://cloud.cerebras.ai | Ultra fast but 8K context on free |
-| NVIDIA NIM | https://build.nvidia.com | 94+ models, phone verification needed |
-| GitHub Models | https://github.com/marketplace/models | Just your GitHub token |
-| LLM7.io | https://token.llm7.io | Free token, no signup for anonymous access |
-| **Chutes.ai** | **https://chutes.ai** | **PAID NOW — not free anymore as of Feb 2026** |
+- [Architecture & Request Lifecycle](docs/architecture.md)
+- [Dashboard Guide](docs/dashboard.md)
+- [API Reference](docs/api-reference.md)
+- [Provider Setup Guide](docs/providers-guide.md)
 
 ---
 
-## License
+## 🤝 Contributing
 
-MIT — use freely, modify freely, no warranty.
+Contributions are welcome! Whether it's adding a new provider, fixing bugs, improving docs, or suggesting features — every contribution helps.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+---
+
+## 📄 License
+
+[MIT](LICENSE) — use freely, modify freely, no warranty.
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ for the free AI community</sub>
+</p>

@@ -1,0 +1,36 @@
+site_name: Aurora-Provider
+site_description: Local OpenAI-compatible LLM router with free provider fallback chains.
+site_author: Ahmed Zhran
+repo_name: ahmed-zhran/aurora-provider
+repo_url: https://github.com/ahmed-zhran/aurora-provider
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: deep purple
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: deep purple
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+nav:
+  - Welcome: index.md
+  - Architecture: architecture.md
+  - Dashboard: dashboard.md
+  - API Reference: api-reference.md
+  - Providers Guide: providers-guide.md

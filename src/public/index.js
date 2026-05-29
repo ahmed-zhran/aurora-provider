@@ -13,6 +13,9 @@ let healthTimer = null;
 let uptimeTimer = null;
 let startTime = Date.now();
 
+// Visible providers in Keys & Health tab (accordions)
+let visibleProvidersInKeysTab = [];
+
 // Usage tab state
 let logsPage = 1;
 const logsLimit = 15;
@@ -117,7 +120,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   initTabs();
-  initLogStream();
   loadConfig();
   
   // Dashboard event listeners
@@ -126,9 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('clear-response-btn').addEventListener('click', () => {
     document.getElementById('json-response-output').textContent = 'Ready to test.';
   });
-  document.getElementById('clear-logs-btn').addEventListener('click', () => {
-    document.getElementById('logs-terminal').innerHTML = '<div class="log-line system">[system] Logs cleared.</div>';
-  });
+
 
   // Agents event listeners
   document.getElementById('create-agent-btn').addEventListener('click', createAgent);
@@ -157,7 +157,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // Providers event listeners
   document.getElementById('create-provider-btn').addEventListener('click', createProvider);
   document.getElementById('delete-provider-btn').addEventListener('click', deleteSelectedProvider);
-  document.getElementById('add-provider-model-btn').addEventListener('click', addProviderModel);
   document.getElementById('save-providers-btn').addEventListener('click', saveProvidersConfig);
 
   // Usage tab event listeners
@@ -185,6 +184,83 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('log-details-modal').style.display = 'none';
     }
   });
+
+  // Add Key Setup button
+  const addKeyBtn = document.getElementById('add-key-provider-btn');
+  if (addKeyBtn) {
+    addKeyBtn.addEventListener('click', () => {
+      const select = document.getElementById('add-key-provider-select');
+      const providerId = select.value;
+      if (!providerId) {
+        alert('Please select a provider first.');
+        return;
+      }
+      if (!visibleProvidersInKeysTab.includes(providerId)) {
+        visibleProvidersInKeysTab.push(providerId);
+        renderKeysTab();
+        // Expand the newly added accordion body
+        setTimeout(() => {
+          const card = document.querySelector(`.keys-accordion-card[data-provider="${providerId}"]`);
+          if (card) {
+            const body = card.querySelector('.keys-accordion-body');
+            const chevron = card.querySelector('.keys-acc-chevron');
+            if (body && chevron) {
+              body.style.display = 'block';
+              card.classList.add('expanded');
+              chevron.textContent = '▾';
+            }
+          }
+        }, 50);
+      }
+    });
+  }
+
+  // Clear request logs button
+  const clearRequestLogsBtn = document.getElementById('clear-request-logs-btn');
+  if (clearRequestLogsBtn) {
+    clearRequestLogsBtn.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to delete the entire usage logs history? This action cannot be undone.')) {
+        try {
+          const res = await fetchJSON('/api/usage/clear', { method: 'POST' });
+          if (res.success) {
+            alert('Request logs history cleared successfully!');
+            logsPage = 1;
+            loadUsageStats();
+          } else {
+            alert('Failed to clear request logs: ' + (res.error || 'Unknown error'));
+          }
+        } catch (err) {
+          alert('Failed to clear request logs: ' + err.message);
+        }
+      }
+    });
+  }
+
+  // Clear proxy refresh history button
+  const clearProxyHistoryBtn = document.getElementById('clear-proxy-history-btn');
+  if (clearProxyHistoryBtn) {
+    clearProxyHistoryBtn.addEventListener('click', async () => {
+      if (confirm('Are you sure you want to delete all proxy refresh operation history? This action cannot be undone.')) {
+        try {
+          const res = await fetchJSON('/api/proxies/refresh-history/clear', { method: 'POST' });
+          if (res.success) {
+            alert('Proxy refresh history cleared successfully!');
+            loadProxyRefreshHistory();
+          } else {
+            alert('Failed to clear proxy refresh history: ' + (res.error || 'Unknown error'));
+          }
+        } catch (err) {
+          alert('Failed to clear proxy refresh history: ' + err.message);
+        }
+      }
+    });
+  }
+
+  // Refresh provider models button
+  const refreshModelsBtn = document.getElementById('refresh-provider-models-btn');
+  if (refreshModelsBtn) {
+    refreshModelsBtn.addEventListener('click', refreshProviderModels);
+  }
 
   // Start status polling
   startStatusPolling();
@@ -251,44 +327,12 @@ function triggerTabLoad(tabName) {
     renderProvidersTab();
   } else if (tabName === 'tab-proxies') {
     renderProxiesTab();
+  } else if (tabName === 'tab-supported-providers') {
+    renderSupportedProvidersTab();
   }
 }
 
-// ─── Live Log Streaming (SSE) ────────────────────────────────────────────────
 
-function initLogStream() {
-  const logsTerminal = document.getElementById('logs-terminal');
-  const eventSource = new EventSource('/api/logs-stream');
-
-  eventSource.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      const line = document.createElement('div');
-      line.className = `log-line ${data.level || 'info'}`;
-      
-      const timeStr = new Date(data.timestamp).toLocaleTimeString();
-      line.textContent = `[${timeStr}] ${data.message}`;
-      
-      logsTerminal.appendChild(line);
-      while (logsTerminal.children.length > 300) {
-        logsTerminal.removeChild(logsTerminal.firstChild);
-      }
-      logsTerminal.scrollTop = logsTerminal.scrollHeight;
-    } catch (e) {
-      console.error("Error parsing log line:", e);
-    }
-  };
-
-  eventSource.onerror = () => {
-    const line = document.createElement('div');
-    line.className = 'log-line error';
-    line.textContent = `[${new Date().toLocaleTimeString()}] [system] Log stream connection lost. Retrying...`;
-    logsTerminal.appendChild(line);
-    while (logsTerminal.children.length > 300) {
-      logsTerminal.removeChild(logsTerminal.firstChild);
-    }
-  };
-}
 
 // ─── API Requests ────────────────────────────────────────────────────────────
 
@@ -316,6 +360,10 @@ async function fetchJSON(url, options = {}) {
 async function loadConfig() {
   try {
     config = await fetchJSON('/api/config');
+    
+    // Initialize visibleProvidersInKeysTab with providers that currently have configured API keys
+    visibleProvidersInKeysTab = Object.keys(config.providers).filter(provId => hasApiKey(provId));
+
     renderUIPool();
     updateAgentsDropdown();
     triggerTabLoad(activeTab);
@@ -336,6 +384,57 @@ function formatUptime(seconds) {
   if (h < 24) return `${h}h ${m}m`;
   const d = Math.floor(h / 24);
   return `${d}d ${h % 24}h ${m}m`;
+}
+
+function formatDateTime(dateInput) {
+  if (!dateInput) return '—';
+  try {
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return dateInput;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const seconds = String(d.getSeconds()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const hoursStr = String(hours).padStart(2, '0');
+
+    return `${year}-${month}-${day} ${hoursStr}:${minutes}:${seconds} ${ampm}`;
+  } catch (e) {
+    return dateInput;
+  }
+}
+
+function getCleanProxyHost(proxyUrl) {
+  if (!proxyUrl || proxyUrl === '-') return '-';
+  try {
+    let urlToParse = proxyUrl;
+    if (!urlToParse.includes('://')) {
+      urlToParse = 'socks5://' + urlToParse;
+    }
+    const parsed = new URL(urlToParse);
+    return parsed.hostname || proxyUrl;
+  } catch (e) {
+    try {
+      let host = proxyUrl;
+      if (host.includes('://')) {
+        host = host.split('://')[1];
+      }
+      if (host.includes('@')) {
+        host = host.split('@')[1];
+      }
+      if (host.includes(':')) {
+        host = host.split(':')[0];
+      }
+      return host || proxyUrl;
+    } catch (err) {
+      return proxyUrl;
+    }
+  }
 }
 
 function startStatusPolling() {
@@ -461,9 +560,7 @@ function renderHealthGrid(keyStates) {
 }
 
 function renderUIPool() {
-  // Agent count reflected in the logs tab server info bar (updated by health polling)
-  const agentsEl = document.getElementById('server-agents-count');
-  if (agentsEl) agentsEl.textContent = Object.keys(config.agents).length + ' agents';
+  // No-op: logs tab removed
 }
 
 // ─── API Tester ──────────────────────────────────────────────────────────────
@@ -606,7 +703,7 @@ function renderAgentSettings() {
   const provSelect = document.getElementById('step-provider-select');
   provSelect.innerHTML = '<option value="" disabled selected>Select provider</option>';
   
-  Object.keys(config.providers).forEach(provKey => {
+  Object.keys(config.providers).filter(provKey => hasApiKey(provKey)).forEach(provKey => {
     const opt = document.createElement('option');
     opt.value = provKey;
     opt.textContent = config.providers[provKey].name || provKey;
@@ -619,32 +716,62 @@ function renderAgentSettings() {
   modelSelect.disabled = true;
 }
 
-function updateStepModelsDropdown() {
+async function updateStepModelsDropdown() {
   const providerKey = document.getElementById('step-provider-select').value;
   const modelSelect = document.getElementById('step-model-select');
   modelSelect.innerHTML = '';
 
-  const provider = config.providers[providerKey];
-  if (!provider || !provider.models || provider.models.length === 0) {
-    modelSelect.innerHTML = '<option value="" disabled selected>No models available</option>';
+  if (!providerKey) {
+    modelSelect.innerHTML = '<option value="" disabled selected>Select provider first</option>';
     modelSelect.disabled = true;
     return;
   }
 
-  modelSelect.disabled = false;
-  const placeholder = document.createElement('option');
-  placeholder.value = '';
-  placeholder.disabled = true;
-  placeholder.selected = true;
-  placeholder.textContent = 'Select model...';
-  modelSelect.appendChild(placeholder);
+  modelSelect.disabled = true;
+  modelSelect.innerHTML = '<option value="" disabled selected>Loading models...</option>';
 
-  provider.models.forEach(model => {
-    const opt = document.createElement('option');
-    opt.value = model.id;
-    opt.textContent = model.name || model.id;
-    modelSelect.appendChild(opt);
-  });
+  try {
+    const res = await fetchJSON(`/api/providers/${providerKey}/models`);
+    const models = res.models || [];
+
+    if (models.length === 0) {
+      modelSelect.innerHTML = '<option value="" disabled selected>No models available</option>';
+      modelSelect.disabled = true;
+      return;
+    }
+
+    modelSelect.disabled = false;
+    modelSelect.innerHTML = '';
+
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    placeholder.textContent = 'Select model...';
+    modelSelect.appendChild(placeholder);
+
+    models.forEach(model => {
+      const opt = document.createElement('option');
+      opt.value = model.id;
+
+      let contextStr = '';
+      if (model.contextWindow) {
+        if (model.contextWindow >= 1000000) {
+          contextStr = `[Context: ${Math.round(model.contextWindow / 1000000)}M]`;
+        } else {
+          contextStr = `[Context: ${Math.round(model.contextWindow / 1000)}K]`;
+        }
+      }
+
+      const freeStr = model.markFree ? '(Free)' : '(Paid)';
+      opt.textContent = `${model.name || model.id} ${freeStr} ${contextStr}`;
+      modelSelect.appendChild(opt);
+    });
+  } catch (err) {
+    modelSelect.innerHTML = '<option value="" disabled selected>Error loading models</option>';
+    modelSelect.disabled = true;
+    console.error('Failed to load step models:', err);
+  }
 }
 
 function renderFallbackList() {
@@ -831,8 +958,9 @@ function renderKeysTab() {
   const container = document.getElementById('keys-manager-container');
   container.innerHTML = '';
 
-  Object.keys(config.providers).forEach(provKey => {
+  visibleProvidersInKeysTab.forEach(provKey => {
     const provider = config.providers[provKey];
+    if (!provider) return;
     const keys = config.keys[provKey] || [];
 
     // Outer accordion card
@@ -846,7 +974,6 @@ function renderKeysTab() {
     header.innerHTML = `
       <div class="keys-acc-left">
         <div class="keys-acc-dots">${keys.map((_, i) => {
-          // Use health state if available
           return `<span class="key-dot available" title="Key ${i+1}"></span>`;
         }).join('')}${keys.length === 0 ? '<span class="key-dot inactive" title="No keys"></span>' : ''}</div>
         <div>
@@ -895,6 +1022,24 @@ function renderKeysTab() {
       header.querySelector('.keys-acc-chevron').textContent = isOpen ? '▸' : '▾';
     });
   });
+
+  // Populate the selector bar at the top: #add-key-provider-select
+  const select = document.getElementById('add-key-provider-select');
+  if (select) {
+    select.innerHTML = '<option value="">-- Select Provider --</option>';
+    
+    // Sort providers by name to make selection nice
+    Object.keys(config.providers)
+      .filter(provId => !visibleProvidersInKeysTab.includes(provId))
+      .map(provId => ({ id: provId, name: config.providers[provId].name || provId }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.id;
+        opt.textContent = item.name;
+        select.appendChild(opt);
+      });
+  }
 }
 
 function addKeyInputRow(providerKey, keyValue, listContainer) {
@@ -968,9 +1113,11 @@ function addKeyInputRow(providerKey, keyValue, listContainer) {
 }
 
 async function saveKeysConfig() {
-  const newKeys = {};
+  // Deep-clone the original config.keys to preserve credentials for providers that are not visible/rendered
+  const newKeys = JSON.parse(JSON.stringify(config.keys || {}));
 
-  Object.keys(config.providers).forEach(provKey => {
+  // Overwrite keys only for the visible providers from the DOM inputs
+  visibleProvidersInKeysTab.forEach(provKey => {
     const list = document.getElementById(`keys-list-${provKey}`);
     if (!list) return;
 
@@ -1169,11 +1316,16 @@ function renderUsageLogsTable(logs) {
       ? `${log.key_name}` 
       : (log.key_index !== null ? `Key [${log.key_index}]` : '-');
 
-    const proxyTd = document.createElement('td');
+        const proxyTd = document.createElement('td');
     proxyTd.style.padding = '8px';
     proxyTd.style.fontFamily = 'var(--font-mono)';
     proxyTd.style.fontSize = '0.75rem';
-    proxyTd.textContent = log.proxy || '-';
+    if (log.proxy && log.proxy !== '-') {
+      proxyTd.textContent = getCleanProxyHost(log.proxy);
+      proxyTd.title = log.proxy;
+    } else {
+      proxyTd.textContent = '-';
+    }
 
     const statusTd = document.createElement('td');
     statusTd.style.padding = '8px';
@@ -1321,12 +1473,17 @@ function renderProvidersTab() {
   const container = document.getElementById('providers-selector-container');
   container.innerHTML = '';
 
-  const providerKeys = Object.keys(config.providers);
+  const providerKeys = Object.keys(config.providers).filter(key => hasApiKey(key));
   if (providerKeys.length === 0) {
-    container.innerHTML = '<div class="text-muted p-3">No providers defined. Create one below!</div>';
+    selectedProviderName = null;
+    container.innerHTML = '<div class="text-muted p-3">No active providers configured with API keys. Set up credentials in the API Keys tab first!</div>';
     document.getElementById('provider-settings-card').style.display = 'none';
     document.getElementById('provider-settings-empty').style.display = 'block';
     return;
+  }
+
+  if (!selectedProviderName || !providerKeys.includes(selectedProviderName)) {
+    selectedProviderName = providerKeys[0];
   }
 
   providerKeys.forEach(key => {
@@ -1342,7 +1499,7 @@ function renderProvidersTab() {
   });
 }
 
-function renderProviderSettings() {
+async function renderProviderSettings() {
   if (!selectedProviderName || !config.providers[selectedProviderName]) {
     document.getElementById('provider-settings-card').style.display = 'none';
     document.getElementById('provider-settings-empty').style.display = 'block';
@@ -1364,119 +1521,117 @@ function renderProviderSettings() {
   document.getElementById('provider-notes').value = provider.notes || '';
 
   // Render models list
-  renderProviderModelsList();
+  await renderProviderModelsList();
 }
 
-function renderProviderModelsList() {
+async function renderProviderModelsList() {
   const tbody = document.getElementById('provider-models-tbody');
-  tbody.innerHTML = '';
+  tbody.innerHTML = '<tr><td colspan="8" class="text-muted" style="padding:1rem; text-align:center;">Loading models from provider API...</td></tr>';
 
-  const provider = config.providers[selectedProviderName];
-  const models = provider.models || [];
+  try {
+    const res = await fetchJSON(`/api/providers/${selectedProviderName}/models`);
+    const models = res.models || [];
 
-  if (models.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-muted" style="padding:1rem; text-align:center;">No models registered for this provider. Add one below!</td></tr>';
-    return;
-  }
+    if (models.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="text-muted" style="padding:1rem; text-align:center;">No models found. Ensure your API keys are configured and base URL is correct.</td></tr>';
+      return;
+    }
 
-  models.forEach((model, idx) => {
-    const tr = document.createElement('tr');
-    tr.style.borderBottom = '1px solid var(--color-card-border)';
+    tbody.innerHTML = '';
 
-    const idTd = document.createElement('td');
-    idTd.style.padding = '6px';
-    idTd.style.fontFamily = 'var(--font-mono)';
-    idTd.style.fontSize = '0.8rem';
-    idTd.textContent = model.id;
+    models.forEach((model) => {
+      const tr = document.createElement('tr');
+      tr.style.borderBottom = '1px solid var(--color-card-border)';
 
-    const aliasTd = document.createElement('td');
-    aliasTd.style.padding = '6px';
-    aliasTd.textContent = model.alias || '-';
+      const idTd = document.createElement('td');
+      idTd.style.padding = '6px';
+      idTd.style.fontFamily = 'var(--font-mono)';
+      idTd.style.fontSize = '0.8rem';
+      idTd.textContent = model.id;
 
-    const nameTd = document.createElement('td');
-    nameTd.style.padding = '6px';
-    nameTd.textContent = model.name || '-';
+      const nameTd = document.createElement('td');
+      nameTd.style.padding = '6px';
+      nameTd.textContent = model.name || '-';
 
-    const contextTd = document.createElement('td');
-    contextTd.style.padding = '6px';
-    contextTd.style.textAlign = 'right';
-    contextTd.textContent = model.contextWindow ? model.contextWindow.toLocaleString() : '-';
+      const contextTd = document.createElement('td');
+      contextTd.style.padding = '6px';
+      contextTd.style.textAlign = 'right';
+      contextTd.textContent = model.contextWindow ? model.contextWindow.toLocaleString() : '-';
 
-    const reasoningTd = document.createElement('td');
-    reasoningTd.style.padding = '6px';
-    reasoningTd.style.textAlign = 'center';
-    reasoningTd.innerHTML = model.reasoning ? '<span class="text-success">Yes</span>' : '<span class="text-danger">No</span>';
+      const limitTd = document.createElement('td');
+      limitTd.style.padding = '6px';
+      limitTd.style.textAlign = 'right';
+      const inputLimit = model.contextWindow ? model.contextWindow.toLocaleString() : '-';
+      const outputLimit = model.maxOutput ? model.maxOutput.toLocaleString() : '-';
+      limitTd.textContent = `${inputLimit} / ${outputLimit}`;
 
-    const codingTd = document.createElement('td');
-    codingTd.style.padding = '6px';
-    codingTd.style.textAlign = 'center';
-    codingTd.innerHTML = model.coding ? '<span class="text-success">Yes</span>' : '<span class="text-danger">No</span>';
+      const capabilitiesTd = document.createElement('td');
+      capabilitiesTd.style.padding = '6px';
+      capabilitiesTd.style.textAlign = 'center';
+      const caps = model.capabilities || ['text'];
+      capabilitiesTd.textContent = caps.join(', ');
 
-    const actionTd = document.createElement('td');
-    actionTd.style.padding = '6px';
-    actionTd.style.textAlign = 'right';
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn btn-danger btn-sm';
-    delBtn.textContent = 'Remove';
-    delBtn.addEventListener('click', () => {
-      provider.models.splice(idx, 1);
-      renderProviderModelsList();
+      const reasoningTd = document.createElement('td');
+      reasoningTd.style.padding = '6px';
+      reasoningTd.style.textAlign = 'center';
+      reasoningTd.innerHTML = model.reasoning ? '<span class="text-success">Yes</span>' : '<span class="text-danger">No</span>';
+
+      const pricingTd = document.createElement('td');
+      pricingTd.style.padding = '6px';
+      pricingTd.style.textAlign = 'right';
+      if (model.pricing) {
+        const pPrompt = parseFloat(model.pricing.prompt);
+        const pCompletion = parseFloat(model.pricing.completion);
+        if (pPrompt === 0 && pCompletion === 0) {
+          pricingTd.innerHTML = '<span class="text-success">Free</span>';
+        } else {
+          const prompt1M = (pPrompt * 1e6).toFixed(2);
+          const completion1M = (pCompletion * 1e6).toFixed(2);
+          pricingTd.textContent = `$${prompt1M} / $${completion1M}`;
+        }
+      } else {
+        pricingTd.textContent = '-';
+      }
+
+      // Mark Free Toggle Checkbox
+      const freeTd = document.createElement('td');
+      freeTd.style.padding = '6px';
+      freeTd.style.textAlign = 'center';
+      
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = !!model.markFree;
+      checkbox.style.cursor = 'pointer';
+      checkbox.addEventListener('change', async () => {
+        try {
+          await fetchJSON(`/api/providers/${selectedProviderName}/models/settings`, {
+            method: 'POST',
+            body: JSON.stringify({
+              modelId: model.id,
+              markFree: checkbox.checked
+            })
+          });
+        } catch (err) {
+          alert('Failed to save free setting: ' + err.message);
+          checkbox.checked = !checkbox.checked; // revert
+        }
+      });
+      freeTd.appendChild(checkbox);
+
+      tr.appendChild(idTd);
+      tr.appendChild(nameTd);
+      tr.appendChild(contextTd);
+      tr.appendChild(limitTd);
+      tr.appendChild(capabilitiesTd);
+      tr.appendChild(reasoningTd);
+      tr.appendChild(pricingTd);
+      tr.appendChild(freeTd);
+      tbody.appendChild(tr);
     });
-    actionTd.appendChild(delBtn);
 
-    tr.appendChild(idTd);
-    tr.appendChild(aliasTd);
-    tr.appendChild(nameTd);
-    tr.appendChild(contextTd);
-    tr.appendChild(reasoningTd);
-    tr.appendChild(codingTd);
-    tr.appendChild(actionTd);
-    tbody.appendChild(tr);
-  });
-}
-
-function addProviderModel() {
-  const provider = config.providers[selectedProviderName];
-  if (!provider) return;
-
-  const id = document.getElementById('model-field-id').value.trim();
-  const alias = document.getElementById('model-field-alias').value.trim();
-  const name = document.getElementById('model-field-name').value.trim();
-  const context = parseInt(document.getElementById('model-field-context').value);
-  const reasoning = document.getElementById('model-field-reasoning').checked;
-  const coding = document.getElementById('model-field-coding').checked;
-
-  if (!id) {
-    alert("Model ID is required.");
-    return;
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="8" class="text-danger" style="padding:1rem; text-align:center;">Failed to fetch models: ${err.message}</td></tr>`;
   }
-
-  if (!provider.models) {
-    provider.models = [];
-  }
-
-  // Check duplicate ID
-  if (provider.models.some(m => m.id === id)) {
-    alert("Model ID already registered.");
-    return;
-  }
-
-  provider.models.push({
-    id,
-    alias: alias || id.split('/').pop(),
-    name: name || id.split('/').pop(),
-    contextWindow: isNaN(context) ? 128000 : context,
-    reasoning,
-    coding
-  });
-
-  // Reset inputs
-  document.getElementById('model-field-id').value = '';
-  document.getElementById('model-field-alias').value = '';
-  document.getElementById('model-field-name').value = '';
-  document.getElementById('model-field-context').value = '';
-
-  renderProviderModelsList();
 }
 
 function createProvider() {
@@ -1563,10 +1718,39 @@ async function updateProxyStatus() {
       statusVal.textContent = data.status;
       if (data.status.includes('Active')) {
         statusVal.className = 'stat-val text-success';
-      } else if (data.status.includes('Scraping') || data.status.includes('Testing')) {
+      } else if (data.status.includes('Scraping') || data.status.includes('Testing') || data.status.includes('Refreshing')) {
         statusVal.className = 'stat-val text-warning';
+      } else if (data.status.includes('Disabled')) {
+        statusVal.className = 'stat-val text-muted';
       } else {
         statusVal.className = 'stat-val text-danger';
+      }
+    }
+
+    // Disable/enable manual refresh button
+    const refreshBtn = document.getElementById('refresh-proxies-btn');
+    if (refreshBtn) {
+      const statusL = data.status.toLowerCase();
+      const isRefreshing = statusL.includes('refreshing') || statusL.includes('scraping') || statusL.includes('testing') || statusL.includes('crawling');
+      
+      if (data.status.includes('Disabled')) {
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = 'Force Refresh the Proxy Pool';
+        refreshBtn.title = 'Enable IP Masking in Proxy Configuration to refresh';
+        refreshBtn.style.opacity = '0.5';
+        refreshBtn.style.cursor = 'not-allowed';
+      } else if (isRefreshing) {
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = 'Refreshing...';
+        refreshBtn.title = 'Proxy pool refresh is currently in progress...';
+        refreshBtn.style.opacity = '0.7';
+        refreshBtn.style.cursor = 'wait';
+      } else {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = 'Force Refresh the Proxy Pool';
+        refreshBtn.title = '';
+        refreshBtn.style.opacity = '1';
+        refreshBtn.style.cursor = 'pointer';
       }
     }
 
@@ -1579,10 +1763,28 @@ async function updateProxyStatus() {
         : data.status;
       logsProxy.style.color = data.status.includes('Active')
         ? 'var(--color-success)'
-        : data.status.includes('Scraping') || data.status.includes('Testing')
+        : data.status.includes('Scraping') || data.status.includes('Testing') || data.status.includes('Refreshing')
           ? 'var(--color-warning)'
-          : 'var(--color-danger)';
+          : data.status.includes('Disabled')
+            ? 'var(--color-text-muted)'
+            : 'var(--color-danger)';
     }
+
+        // Update proxy analytics counters
+    const total = data.analytics?.totalMaskedRequests || 0;
+    const success = data.analytics?.successfulMaskedRequests || 0;
+    const direct = data.analytics?.directRequests || 0;
+    const rate = total > 0 ? Math.round((success / total) * 100) : 0;
+
+    const statMasked = document.getElementById('stat-masked-requests');
+    const statSuccess = document.getElementById('stat-masked-success');
+    const statDirect = document.getElementById('stat-direct-requests');
+    const statRate = document.getElementById('stat-masked-rate');
+
+    if (statMasked) statMasked.textContent = total;
+    if (statSuccess) statSuccess.textContent = success;
+    if (statDirect) statDirect.textContent = direct;
+    if (statRate) statRate.textContent = `${rate}%`;
 
     renderProxyTable(data.pool);
     renderSourceRankings(data.rankedBySuccess, data.rankedByLatency);
@@ -1600,7 +1802,7 @@ function renderProxyTable(pool) {
   tbody.innerHTML = '';
 
   if (!pool || pool.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" class="text-muted" style="padding:1rem; text-align:center;">No active proxies. Direct connections will be used.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="text-muted" style="padding:1rem; text-align:center;">No active proxies. Direct connections will be used.</td></tr>';
     return;
   }
 
@@ -1633,6 +1835,13 @@ function renderProxyTable(pool) {
     sourceLink.title = proxy.source;
     sourceTd.appendChild(sourceLink);
 
+    // Created At column
+    const createdTd = document.createElement('td');
+    createdTd.style.padding = '6px 8px';
+    createdTd.style.textAlign = 'center';
+    createdTd.style.color = 'var(--color-text-muted)';
+    createdTd.textContent = formatDateTime(proxy.createdAt);
+
     // Latency speed column
     const speedTd = document.createElement('td');
     speedTd.style.padding = '6px 8px';
@@ -1652,6 +1861,7 @@ function renderProxyTable(pool) {
     tr.appendChild(indexTd);
     tr.appendChild(urlTd);
     tr.appendChild(sourceTd);
+    tr.appendChild(createdTd);
     tr.appendChild(speedTd);
     tbody.appendChild(tr);
   });
@@ -1696,14 +1906,7 @@ async function loadProxyRefreshHistory() {
       // Triggered time column
       const timeTd = document.createElement('td');
       timeTd.style.padding = '6px 4px';
-      let displayTime = '';
-      try {
-        const d = new Date(log.triggered_time);
-        displayTime = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      } catch (e) {
-        displayTime = log.triggered_time;
-      }
-      timeTd.textContent = displayTime;
+      timeTd.textContent = formatDateTime(log.triggered_time);
       timeTd.title = log.triggered_time;
 
       // Active before column
@@ -1747,7 +1950,7 @@ async function loadProxyRefreshHistory() {
       const tookTd = document.createElement('td');
       tookTd.style.padding = '6px 4px';
       tookTd.style.textAlign = 'right';
-      if (log.status === 'running') {
+      if (log.status === 'running' || log.running_time === null || log.running_time === undefined) {
         tookTd.textContent = '—';
       } else {
         tookTd.textContent = `${log.running_time.toFixed(2)} min`;
@@ -1757,13 +1960,19 @@ async function loadProxyRefreshHistory() {
       const scrapedTd = document.createElement('td');
       scrapedTd.style.padding = '6px 4px';
       scrapedTd.style.textAlign = 'center';
-      scrapedTd.textContent = log.status === 'running' ? '—' : (log.harvested_count ?? 0);
+      scrapedTd.textContent = log.harvested_count ?? 0;
+
+      // Tested count column
+      const testedTd = document.createElement('td');
+      testedTd.style.padding = '6px 4px';
+      testedTd.style.textAlign = 'center';
+      testedTd.textContent = log.tested_count ?? 0;
 
       // Passed count column
       const passedTd = document.createElement('td');
       passedTd.style.padding = '6px 4px';
       passedTd.style.textAlign = 'center';
-      passedTd.textContent = log.status === 'running' ? '—' : (log.passed_anomality_stage_count ?? 0);
+      passedTd.textContent = log.passed_anomality_stage_count ?? 0;
 
       tr.appendChild(causeTd);
       tr.appendChild(timeTd);
@@ -1771,6 +1980,7 @@ async function loadProxyRefreshHistory() {
       tr.appendChild(statusTd);
       tr.appendChild(tookTd);
       tr.appendChild(scrapedTd);
+      tr.appendChild(testedTd);
       tr.appendChild(passedTd);
       tbody.appendChild(tr);
     });
@@ -1782,20 +1992,17 @@ async function loadProxyRefreshHistory() {
 
 async function triggerProxyRefresh() {
   const btn = document.getElementById('refresh-proxies-btn');
+  if (!btn) return;
   btn.disabled = true;
   btn.textContent = 'Refreshing...';
+  btn.style.cursor = 'wait';
   try {
     const res = await fetchJSON('/api/proxies/refresh', { method: 'POST' });
-    if (res.success) {
-      updateProxyStatus();
-    }
+    await updateProxyStatus();
   } catch (e) {
     console.error(e);
-  } finally {
-    setTimeout(() => {
-      btn.disabled = false;
-      btn.textContent = 'Refresh Proxies';
-    }, 2000);
+    alert('Failed to trigger proxy refresh: ' + e.message);
+    await updateProxyStatus();
   }
 }
 
@@ -1804,9 +2011,13 @@ async function renderProxiesTab() {
     const data = await fetchJSON('/api/settings');
     const slider = document.getElementById('proxy-latency-threshold-slider');
     const sliderVal = document.getElementById('proxy-latency-threshold-val');
+    const enableToggle = document.getElementById('proxy-enable-toggle');
     if (slider && sliderVal && data.latencyThreshold !== undefined) {
       slider.value = data.latencyThreshold;
       sliderVal.textContent = data.latencyThreshold + 'ms';
+    }
+    if (enableToggle && data.enableProxy !== undefined) {
+      enableToggle.checked = !!data.enableProxy;
     }
     loadProxyRefreshHistory();
   } catch (err) {
@@ -1816,15 +2027,18 @@ async function renderProxiesTab() {
 
 async function saveProxySettings() {
   const slider = document.getElementById('proxy-latency-threshold-slider');
-  if (!slider) return;
+  const enableToggle = document.getElementById('proxy-enable-toggle');
+  if (!slider || !enableToggle) return;
   const threshold = parseInt(slider.value, 10);
+  const enableProxy = enableToggle.checked;
   try {
     const res = await fetchJSON('/api/settings', {
       method: 'POST',
-      body: JSON.stringify({ latencyThreshold: threshold })
+      body: JSON.stringify({ latencyThreshold: threshold, enableProxy })
     });
     if (res.success) {
-      alert('Proxy latency threshold saved successfully!');
+      alert('Proxy settings saved successfully!');
+      updateProxyStatus();
     }
   } catch (err) {
     alert('Failed to save proxy settings: ' + err.message);
@@ -1913,5 +2127,147 @@ function renderSourceRankings(rankedBySuccess, rankedByLatency) {
       latencyTbody.appendChild(tr);
     });
   }
+}
+
+function hasApiKey(providerId) {
+  const keys = config.keys && config.keys[providerId];
+  if (!keys || !Array.isArray(keys) || keys.length === 0) return false;
+  return keys.some(k => {
+    if (!k) return false;
+    if (typeof k === 'object') {
+      if (providerId === 'cloudflare_workers_ai') {
+        const val = k.key;
+        if (val && typeof val === 'object') {
+          return !!(val.apiToken && val.accountId);
+        }
+        return false;
+      }
+      return !!k.key;
+    }
+    return !!k;
+  });
+}
+
+async function refreshProviderModels() {
+  if (!selectedProviderName) {
+    alert('Please select a provider first.');
+    return;
+  }
+  const btn = document.getElementById('refresh-provider-models-btn');
+  if (!btn) return;
+  
+  btn.disabled = true;
+  const oldHTML = btn.innerHTML;
+  btn.textContent = 'Refreshing...';
+  try {
+    const res = await fetchJSON(`/api/providers/${selectedProviderName}/models?refresh=true`);
+    alert('Provider models refreshed successfully from the live API!');
+    await renderProviderModelsList();
+  } catch (err) {
+    alert('Failed to refresh provider models: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = oldHTML;
+  }
+}
+
+function renderSupportedProvidersTab() {
+  const tbody = document.getElementById('supported-providers-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+  
+  // Sort providers alphabetically by name
+  const sortedKeys = Object.keys(config.providers).sort((a, b) => {
+    const nameA = config.providers[a].name || a;
+    const nameB = config.providers[b].name || b;
+    return nameA.localeCompare(nameB);
+  });
+
+  sortedKeys.forEach(provId => {
+    const prov = config.providers[provId];
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid var(--color-card-border)';
+
+    // Provider
+    const nameTd = document.createElement('td');
+    nameTd.style.padding = '10px 8px';
+    nameTd.style.fontWeight = 'bold';
+    nameTd.textContent = prov.name || provId;
+    
+    // Description / Notes
+    const descTd = document.createElement('td');
+    descTd.style.padding = '10px 8px';
+    descTd.textContent = prov.notes || '-';
+
+    // Free Tier badge
+    const freeTd = document.createElement('td');
+    freeTd.style.padding = '10px 8px';
+    freeTd.style.textAlign = 'center';
+    const hasFree = prov.signupRequirements && prov.signupRequirements.freeTier;
+    const freeBadge = document.createElement('span');
+    if (hasFree) {
+      freeBadge.style.cssText = 'background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 2px 8px; border-radius: 4px; font-weight: 500; font-size: 0.75rem;';
+      freeBadge.textContent = 'Yes';
+    } else {
+      freeBadge.style.cssText = 'background: rgba(107, 114, 128, 0.15); color: #9ca3af; padding: 2px 8px; border-radius: 4px; font-weight: 500; font-size: 0.75rem;';
+      freeBadge.textContent = 'No';
+    }
+    freeTd.appendChild(freeBadge);
+
+    // Card Required badge
+    const cardTd = document.createElement('td');
+    cardTd.style.padding = '10px 8px';
+    cardTd.style.textAlign = 'center';
+    const cardReq = prov.signupRequirements && prov.signupRequirements.cardRequired;
+    const cardBadge = document.createElement('span');
+    if (cardReq) {
+      cardBadge.style.cssText = 'background: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 2px 8px; border-radius: 4px; font-weight: 500; font-size: 0.75rem;';
+      cardBadge.textContent = 'Required';
+    } else {
+      cardBadge.style.cssText = 'background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 2px 8px; border-radius: 4px; font-weight: 500; font-size: 0.75rem;';
+      cardBadge.textContent = 'No';
+    }
+    cardTd.appendChild(cardBadge);
+
+    // Phone Required badge
+    const phoneTd = document.createElement('td');
+    phoneTd.style.padding = '10px 8px';
+    phoneTd.style.textAlign = 'center';
+    const phoneReq = prov.signupRequirements && prov.signupRequirements.phoneRequired;
+    const phoneBadge = document.createElement('span');
+    if (phoneReq) {
+      phoneBadge.style.cssText = 'background: rgba(245, 158, 11, 0.15); color: #f59e0b; padding: 2px 8px; border-radius: 4px; font-weight: 500; font-size: 0.75rem;';
+      phoneBadge.textContent = 'Required';
+    } else {
+      phoneBadge.style.cssText = 'background: rgba(16, 185, 129, 0.15); color: #10b981; padding: 2px 8px; border-radius: 4px; font-weight: 500; font-size: 0.75rem;';
+      phoneBadge.textContent = 'No';
+    }
+    phoneTd.appendChild(phoneBadge);
+
+    // Sign Up link
+    const signupTd = document.createElement('td');
+    signupTd.style.padding = '10px 8px';
+    signupTd.style.textAlign = 'center';
+    if (prov.signup) {
+      const link = document.createElement('a');
+      link.href = prov.signup;
+      link.target = '_blank';
+      link.style.cssText = 'color: var(--color-primary); text-decoration: none; font-weight: 500;';
+      link.textContent = 'Sign Up ↗';
+      signupTd.appendChild(link);
+    } else {
+      signupTd.textContent = '-';
+    }
+
+    tr.appendChild(nameTd);
+    tr.appendChild(descTd);
+    tr.appendChild(freeTd);
+    tr.appendChild(cardTd);
+    tr.appendChild(phoneTd);
+    tr.appendChild(signupTd);
+    
+    tbody.appendChild(tr);
+  });
 }
 

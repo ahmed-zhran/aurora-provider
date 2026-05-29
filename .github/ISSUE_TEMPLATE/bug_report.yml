@@ -1,0 +1,82 @@
+name: 🐛 Bug Report
+description: File a bug report to help us improve Aurora-Provider.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the form below with as much detail as possible to help us reproduce and fix it.
+        **Please do not share API keys, secrets, or passwords in this issue.**
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: Describe the problem...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: How do we reproduce this bug? Please provide the exact steps.
+      placeholder: |
+        1. Start Aurora-Provider via `bun run dev`
+        2. Send a request to `http://localhost:8550/v1/chat/completions` with model 'aurora-provider/build'
+        3. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: E.g., The request should fall back to the next provider (Groq) and return a 200 OK.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: E.g., The request returned 500 Internal Server Error because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Node/Bun versions, OS, and any other relevant setup details.
+      placeholder: |
+        - OS: Linux / macOS / Windows
+        - Runtime: Bun v1.1.20 (or Node v20.11.0)
+        - Aurora-Provider Version: 1.0.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs & Terminal Output
+      description: Paste any relevant console logs, terminal output, or stack traces here. (Please redact API keys!)
+      render: bash
+      placeholder: |
+        [ERROR] 429: Rate limit hit on google_ai_studio
+        [INFO] Rotating to next key...
+
+  - type: checkboxes
+    id: validation
+    attributes:
+      label: Checklist
+      description: Please check all boxes that apply.
+      options:
+        - label: I have searched existing issues and couldn't find a duplicate.
+          required: true
+        - label: I have redacted all API keys and other secrets from the logs and details provided.
+          required: true
