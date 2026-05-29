@@ -11,7 +11,7 @@
 - [Overview](#overview)
 - [Architecture Diagram](#architecture-diagram)
 - [Request Lifecycle Flow](#request-lifecycle-flow)
-  - [Proxy Pool Lifecycle](#proxy-pool-lifecycle)
+  - [Proxy Pool Lifecycle (Beta)](#proxy-pool-lifecycle-beta)
 - [Core Entities](#core-entities)
   - [Aura](#aura)
   - [Provider](#provider)
@@ -38,7 +38,7 @@
 - Single-file Node.js server (`src/server.js`) running under **Bun** runtime
 - Fully **stateless HTTP API** — clients use standard OpenAI SDK/curl
 - **Multi-provider fallback** — never returns an error if at least one provider has a live key
-- **Proxy-first** — all outbound requests go through a SOCKS5 proxy pool to bypass IP-level rate limits
+- **Proxy-first (Beta)** — all outbound requests go through a SOCKS5 proxy pool to bypass IP-level rate limits
 - **Persistent analytics** — every request (success or failure) is stored in SQLite
 
 ---
@@ -161,7 +161,7 @@ Client Request: POST /v1/chat/completions
                     └────────────────┘
 ```
 
-### Proxy Pool Lifecycle
+### Proxy Pool Lifecycle (Beta)
 
 ```
 ┌─────────────────────────────────────────────────────┐

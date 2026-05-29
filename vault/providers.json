@@ -511,7 +511,7 @@
           "reasoning": true,
           "coding": true,
           "speed": "medium",
-          "notes": "1T param MoE. 256K context. Strong agentic coding."
+          "notes": "1T param MoE. 256K context. Strong complex coding."
         }
       ],
       "signupRequirements": {
@@ -708,7 +708,7 @@
           "reasoning": true,
           "coding": true,
           "speed": "fast",
-          "notes": "MoE 120B/12B active. Strong agentic tasks."
+          "notes": "MoE 120B/12B active. Strong complex tasks."
         }
       ],
       "signupRequirements": {

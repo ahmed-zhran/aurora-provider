@@ -30,10 +30,10 @@
   <header class="site-header">
     <div class="container header-container">
       <div class="logo">
-        <span class="logo-icon">🌌</span>
         <span class="logo-text">Aurora<span>Provider</span></span>
       </div>
       <nav class="main-nav">
+        <a href="#" class="active">Home</a>
         <a href="#features">Features</a>
         <a href="#visualizer">How it Works</a>
         <a href="#builder">Aura Builder</a>
@@ -56,9 +56,9 @@
         <div class="badge-container">
           <span class="badge-glow">Version 1.0.0 is Live</span>
         </div>
-        <h1 class="hero-title">The Smart, Resilient <br><span class="gradient-text">LLM Router</span></h1>
+        <h1 class="hero-title">The Ultra Provider for AI:<br><span id="typed-text" class="gradient-text">Empower your agents with Auras</span></h1>
         <p class="hero-subtitle">
-          Aurora-Provider is a self-hosted, OpenAI-compatible API gateway that orchestrates multiple LLM providers. Define fallbacks, automatically rotate rate-limited API keys, and mask requests behind an active SOCKS5 proxy pool.
+          Aurora-Provider is a self-hosted, OpenAI-compatible API gateway that orchestrates multiple LLM providers. Define fallback chains, rotate rate-limited API keys, and mask requests behind an active SOCKS5 proxy pool (Beta) to bypass IP-tied rate limits in most free tiers.
         </p>
         <div class="hero-buttons">
           <a href="docs/index.html" class="btn btn-primary">Read the Docs</a>
@@ -66,15 +66,15 @@
         </div>
         <div class="hero-stats">
           <div class="stat-item">
-            <div class="stat-num">0ms</div>
+            <div class="stat-num">0<span class="stat-unit">ms</span></div>
             <div class="stat-label">Routing Overhead</div>
           </div>
           <div class="stat-item">
-            <div class="stat-num">100%</div>
+            <div class="stat-num">100<span class="stat-unit">%</span></div>
             <div class="stat-label">API Compatibility</div>
           </div>
           <div class="stat-item">
-            <div class="stat-num">∞</div>
+            <div class="stat-num"><span class="stat-unit infinity">∞</span></div>
             <div class="stat-label">Automated Key Rotation</div>
           </div>
         </div>
@@ -148,8 +148,8 @@
         </div>
         <div class="feature-card glass">
           <div class="feature-icon">🛡️</div>
-          <h3>Dynamic Proxy Shielding</h3>
-          <p>Scrapes and tests hundreds of SOCKS5 proxies in the background. Routes traffic through validated proxies to mask your IP and prevent origin blocking.</p>
+          <h3>Dynamic Proxy Shielding <span class="beta-badge">Beta</span></h3>
+          <p>Scrapes and tests SOCKS5 proxies in the background. Routes traffic through validated proxies to mask your IP, allowing you to bypass rate limits tied to IP addresses in most free tiers.</p>
         </div>
         <div class="feature-card glass">
           <div class="feature-icon">🔄</div>
@@ -158,7 +158,7 @@
         </div>
         <div class="feature-card glass">
           <div class="feature-icon">🎭</div>
-          <h3>Auras (Routing Profiles)</h3>
+          <h3>Auras (unlimited auras)</h3>
           <p>Map application tasks to logical profiles. A single endpoint `aurora-provider/coder` can fall back from Anthropic to OpenAI, then Gemini, and finally Groq.</p>
         </div>
         <div class="feature-card glass">
@@ -188,7 +188,7 @@
           <div class="sidebar-section-title">1. Configure Request</div>
           
           <div class="form-group">
-            <label for="viz-aura-select">Select Aura (Routing Profile)</label>
+            <label for="viz-aura-select">Select Aura</label>
             <select id="viz-aura-select">
               <option value="coder">Coder (Fallback chain: OpenAI → Anthropic → Groq)</option>
               <option value="writer">Writer (Fallback chain: Gemini → OpenAI)</option>
@@ -230,10 +230,10 @@
               <div class="node-status">Ready</div>
             </div>
             
-            <!-- Aurora Router -->
+            <!-- Coder Aura -->
             <div class="node node-router" id="node-router">
               <div class="node-icon">🌌</div>
-              <div class="node-name">Aurora Router</div>
+              <div class="node-name">Coder Aura</div>
               <div class="node-status">Idle</div>
             </div>
 
@@ -322,8 +322,8 @@
       <div class="quickstart-container glass">
         <div class="code-selector">
           <button class="selector-tab active" data-tab="tab-install">1. Clone & Setup</button>
-          <button class="selector-tab" data-tab="tab-keys">2. Set Keys</button>
-          <button class="selector-tab" data-tab="tab-run">3. Boot Server</button>
+          <button class="selector-tab" data-tab="tab-run">2. Boot Server</button>
+          <button class="selector-tab" data-tab="tab-keys">3. Set Keys & Auras</button>
           <button class="selector-tab" data-tab="tab-use">4. Consume API</button>
         </div>
         
@@ -335,15 +335,15 @@ cd aurora-provider
 bun install</code></pre>
           </div>
           
-          <div class="code-pane" id="tab-keys">
-            <p class="pane-description">Rename the example keys file and configure your LLM provider API keys.</p>
-            <pre class="code-block"><code>cp vault/keys.example.json vault/keys.json
-nano vault/keys.json</code></pre>
-          </div>
-          
           <div class="code-pane" id="tab-run">
-            <p class="pane-description">Boot up the router server. Background SOCKS5 proxy harvesting starts automatically.</p>
+            <p class="pane-description">Boot up the server. Background SOCKS5 proxy harvesting starts automatically.</p>
             <pre class="code-block"><code>bun run src/server.js</code></pre>
+          </div>
+
+          <div class="code-pane" id="tab-keys">
+            <p class="pane-description">Open the dashboard in your browser (e.g. <code>http://127.0.0.1:8550</code>). Navigate to the <strong>API Keys & Health</strong> tab and <strong>Aura Hub</strong> to configure your keys and fallback chains visually.</p>
+            <pre class="code-block"><code># Open http://127.0.0.1:8550 in your browser
+# Manage keys, providers, and auras fully from the UI dashboard!</code></pre>
           </div>
           
           <div class="code-pane" id="tab-use">
@@ -351,7 +351,6 @@ nano vault/keys.json</code></pre>
             <pre class="code-block"><code>from openai import OpenAI
 
 client = OpenAI(
-    api_key="any-string-works",
     base_url="http://127.0.0.1:8550/v1"
 )
 

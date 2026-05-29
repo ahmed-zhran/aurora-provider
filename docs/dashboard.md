@@ -18,7 +18,7 @@
 - [API Keys & Health Tab](#api-keys--health-tab)
   - [Provider Keys Health (Left Panel)](#provider-keys-health-left-panel)
   - [Provider API Keys (Right Panel)](#provider-api-keys-right-panel)
-- [Proxy Pool Tab](#proxy-pool-tab)
+- [Proxy Pool Tab (Beta)](#proxy-pool-tab-beta)
   - [Configuration (Left Panel)](#configuration-left-panel)
   - [Active Pool Status](#active-pool-status)
   - [Auto-Refill Logic](#auto-refill-logic)
@@ -120,7 +120,7 @@ Collapsible cards per provider for key management:
 
 ---
 
-## Proxy Pool Tab
+## Proxy Pool Tab (Beta)
 
 ### Configuration (Left Panel)
 

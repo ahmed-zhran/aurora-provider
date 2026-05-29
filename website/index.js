@@ -46,12 +46,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const AURA_CONFIGS = {
     coder: [
       { id: 'v-node-1', provider: 'OpenAI', model: 'gpt-4o', key: 'Key [0]', status: 'Rate Limited (HTTP 429)', type: 'error' },
-      { id: 'v-node-2', provider: 'Anthropic', model: 'claude-3-5-sonnet', key: 'Key [1]', status: 'Success (Masked)', type: 'success', latency: '420ms', response: '// Go fast Fibonacci\nfunc Fib(n int) int {\n  if n <= 1 { return n }\n  a, b := 0, 1\n  for i := 2; i <= n; i++ {\n    a, b = b, a+b\n  }\n  return b\n}' },
-      { id: 'v-node-3', provider: 'Groq', model: 'llama3-70b', key: 'Key [0]', status: 'Not reached', type: 'idle' }
+      { id: 'v-node-2', provider: 'OpenAI (Rotated)', model: 'gpt-4o', key: 'Key [1]', status: 'Rate Limited (HTTP 429)', type: 'error' },
+      { id: 'v-node-3', provider: 'Anthropic (Fallback)', model: 'claude-3-5-sonnet', key: 'Key [0]', status: 'Success (Masked)', type: 'success', latency: '420ms', response: '// Go fast Fibonacci\nfunc Fib(n int) int {\n  if n <= 1 { return n }\n  a, b := 0, 1\n  for i := 2; i <= n; i++ {\n    a, b = b, a+b\n  }\n  return b\n}' }
     ],
     writer: [
-      { id: 'v-node-1', provider: 'Gemini', model: 'gemini-1.5-pro', key: 'Key [0]', status: 'Expired Key', type: 'error' },
-      { id: 'v-node-2', provider: 'OpenAI', model: 'gpt-4o', key: 'Key [1]', status: 'Success (Masked)', type: 'success', latency: '580ms', response: 'The neon sky over Cairo bled purple as the Aurora Router initialized. "We are online," the console blinked. Ahmed typed rapidly, watching the packets flow...' }
+      { id: 'v-node-1', provider: 'Gemini', model: 'gemini-1.5-pro', key: 'Key [0]', status: 'Expired Key (HTTP 401)', type: 'error' },
+      { id: 'v-node-2', provider: 'OpenAI (Fallback)', model: 'gpt-4o', key: 'Key [0]', status: 'Success (Masked)', type: 'success', latency: '580ms', response: 'The neon sky over Cairo bled purple as the Aurora Router initialized. "We are online," the console blinked. Ahmed typed rapidly, watching the packets flow...' }
     ]
   };
 
@@ -119,6 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     statLatency.textContent = '-';
     clientNode.className = 'node node-client active';
     routerNode.className = 'node node-router';
+    routerNode.querySelector('.node-status').textContent = 'Idle';
     document.querySelectorAll('.chain-node').forEach(node => {
       node.className = 'chain-node';
     });
@@ -128,68 +129,68 @@ document.addEventListener('DOMContentLoaded', () => {
     clientNode.className = 'node node-client success';
     await sleep(600);
 
-    // 2. Router picks up request
+    // 2. Coder Aura picks up request
     addConsoleLine(`Model header: "aurora-provider/${selected}". Resolving Aura fallback chain...`);
     routerNode.className = 'node node-router loading';
     routerNode.querySelector('.node-status').textContent = 'Routing...';
     await sleep(800);
 
-    // 3. Trying Step 1
-    const step1 = steps[0];
-    const node1El = document.getElementById(step1.id);
-    addConsoleLine(`[Attempt 1] Routing via ${step1.provider} / ${step1.model} using key: ${step1.key}...`);
-    node1El.className = 'chain-node loading';
-    await sleep(1000);
+    let successfulStep = null;
+    for (let i = 0; i < steps.length; i++) {
+      const step = steps[i];
+      const nodeEl = document.getElementById(step.id);
+      
+      addConsoleLine(`[Attempt ${i+1}] Routing via ${step.provider} / ${step.model} using key: ${step.key}...`);
+      nodeEl.className = 'chain-node loading';
+      await sleep(1000);
 
-    // 4. Step 1 Fails
-    node1El.className = 'chain-node failed';
-    addConsoleLine(`[Attempt 1] Provider returned: ${step1.status}`, 'text-danger');
-    addConsoleLine(`Temporarily cooling down ${step1.provider} key. Rotating fallback...`, 'text-warning');
-    await sleep(800);
+      if (step.type === 'error') {
+        nodeEl.className = 'chain-node failed';
+        addConsoleLine(`[Attempt ${i+1}] Provider returned error: ${step.status}`, 'text-danger');
+        addConsoleLine(`Rotating API key/provider fallback chain...`, 'text-warning');
+        await sleep(800);
+      } else {
+        // SOCKS5 IP Masking Shield triggers
+        addConsoleLine(`[Proxy Masking] Bypassing IP-based rate limits. Shielding outbound SOCKS5 route...`, 'text-cyan');
+        shieldIp.textContent = proxyIp;
+        shieldOverlay.classList.add('active');
+        await sleep(1200);
 
-    // 5. Trying Step 2
-    const step2 = steps[1];
-    const node2El = document.getElementById(step2.id);
-    addConsoleLine(`[Attempt 2] Rotating to ${step2.provider} / ${step2.model} using key: ${step2.key}...`);
-    node2El.className = 'chain-node loading';
-    await sleep(800);
-
-    // 6. Shield triggers
-    addConsoleLine('[Proxy Pool] Masking request IP: Harvesting and assigning active SOCKS5 route...', 'text-cyan');
-    shieldIp.textContent = proxyIp;
-    shieldOverlay.classList.add('active');
-    await sleep(1000);
-
-    // 7. Request succeeds via Proxy
-    shieldOverlay.classList.remove('active');
-    node2El.className = 'chain-node success';
-    routerNode.className = 'node node-router success';
-    routerNode.querySelector('.node-status').textContent = 'Completed';
-    addConsoleLine(`[Attempt 2] Successful connection established via SOCKS5 proxy: ${proxyIp}`, 'text-success');
-    
-    // Type response out
-    addConsoleLine('Streaming response payload:', 'text-success');
-    const responseText = step2.response;
-    const responseDiv = document.createElement('div');
-    responseDiv.className = 'console-line text-success font-mono mt-2';
-    responseDiv.style.whiteSpace = 'pre-wrap';
-    responseDiv.style.borderLeft = '2px solid var(--color-success)';
-    responseDiv.style.paddingLeft = '0.75rem';
-    consoleBody.appendChild(responseDiv);
-
-    // Simulate typing stream
-    let curIndex = 0;
-    const typeSpeed = selected === 'coder' ? 10 : 25;
-    while (curIndex < responseText.length) {
-      responseDiv.textContent += responseText[curIndex];
-      curIndex++;
-      consoleBody.scrollTop = consoleBody.scrollHeight;
-      await sleep(typeSpeed);
+        shieldOverlay.classList.remove('active');
+        nodeEl.className = 'chain-node success';
+        routerNode.className = 'node node-router success';
+        routerNode.querySelector('.node-status').textContent = 'Completed';
+        addConsoleLine(`[Attempt ${i+1}] Successful connection established via SOCKS5 proxy: ${proxyIp}`, 'text-success');
+        successfulStep = step;
+        break;
+      }
     }
     
-    // Update stats
-    statRoute.textContent = `${step2.provider} (via Proxy)`;
-    statLatency.textContent = step2.latency;
+    if (successfulStep) {
+      // Type response out
+      addConsoleLine('Streaming response payload:', 'text-success');
+      const responseText = successfulStep.response;
+      const responseDiv = document.createElement('div');
+      responseDiv.className = 'console-line text-success font-mono mt-2';
+      responseDiv.style.whiteSpace = 'pre-wrap';
+      responseDiv.style.borderLeft = '2px solid var(--color-success)';
+      responseDiv.style.paddingLeft = '0.75rem';
+      consoleBody.appendChild(responseDiv);
+
+      // Simulate typing stream
+      let curIndex = 0;
+      const typeSpeed = selected === 'coder' ? 10 : 25;
+      while (curIndex < responseText.length) {
+        responseDiv.textContent += responseText[curIndex];
+        curIndex++;
+        consoleBody.scrollTop = consoleBody.scrollHeight;
+        await sleep(typeSpeed);
+      }
+      
+      // Update stats
+      statRoute.textContent = `${successfulStep.provider} (via Proxy)`;
+      statLatency.textContent = successfulStep.latency;
+    }
 
     addConsoleLine(`Trace completed. Cleaned up connection socket. Status: 200 OK`, 'text-muted');
 
@@ -356,5 +357,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Init builder
   renderBuilderSteps();
+
+  // ─── 4. Typing Effect for Hero Title ──────────────────────────────────────
+  const phrases = [
+    "Empower your agents with Auras now",
+    "Aura Hub: a centralized place to chain providers",
+    "Tired of provider & model hell? Switch to Aura",
+    "One Aura to support them all—no provider jumps",
+    "Aura is the future of model rotation & fallbacks"
+  ];
+  let phraseIndex = 0;
+  let charIndex = 0;
+  let isDeleting = false;
+  const typedTextSpan = document.getElementById("typed-text");
+
+  function typeEffect() {
+    if (!typedTextSpan) return;
+    const currentPhrase = phrases[phraseIndex];
+    if (isDeleting) {
+      typedTextSpan.textContent = currentPhrase.substring(0, charIndex - 1);
+      charIndex--;
+    } else {
+      typedTextSpan.textContent = currentPhrase.substring(0, charIndex + 1);
+      charIndex++;
+    }
+
+    let delay = isDeleting ? 30 : 60;
+
+    if (!isDeleting && charIndex === currentPhrase.length) {
+      delay = 2000; // Pause at full phrase
+      isDeleting = true;
+    } else if (isDeleting && charIndex === 0) {
+      isDeleting = false;
+      phraseIndex = (phraseIndex + 1) % phrases.length;
+      delay = 500; // Pause before typing next phrase
+    }
+
+    setTimeout(typeEffect, delay);
+  }
+  
+  if (typedTextSpan) {
+    typeEffect();
+  }
 
 });

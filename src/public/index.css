@@ -690,8 +690,8 @@ body {
 .log-line.warn { color: var(--color-warning); }
 .log-line.error { color: var(--color-danger); }
 
-/* TAB 2: Agent Selection Left Panel */
-.agents-list {
+/* TAB 2: Aura Selection Left Panel */
+.auras-list {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -700,7 +700,7 @@ body {
   overflow-y: auto;
 }
 
-.agent-item {
+.aura-item {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.04);
   padding: 0.75rem 1rem;
@@ -712,24 +712,24 @@ body {
   align-items: center;
   transform: translateX(0);
 }
-.agent-item:hover {
+.aura-item:hover {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.1);
   transform: translateX(4px);
 }
-.agent-item:active {
+.aura-item:active {
   transform: translateX(2px);
 }
 
 
-.agent-item.selected {
+.aura-item.selected {
   background: var(--color-primary-light);
   border-color: var(--color-primary);
   color: #fff;
   font-weight: 600;
 }
 
-.agent-item-count {
+.aura-item-count {
   font-size: 0.75rem;
   background: rgba(255, 255, 255, 0.1);
   padding: 0.1rem 0.4rem;
@@ -737,18 +737,18 @@ body {
   color: var(--color-text-muted);
 }
 
-.agent-item.selected .agent-item-count {
+.aura-item.selected .aura-item-count {
   background: var(--color-primary);
   color: #fff;
 }
 
-.add-agent-row {
+.add-aura-row {
   display: flex;
   gap: 0.5rem;
 }
 
-/* Agent settings detailed right panel */
-.agent-title-row {
+/* Aura settings detailed right panel */
+.aura-title-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -756,12 +756,12 @@ body {
   padding-bottom: 0.75rem;
 }
 
-.agent-actions {
+.aura-actions {
   display: flex;
   gap: 0.5rem;
 }
 
-.empty-agent-message {
+.empty-aura-message {
   height: 400px;
 }
 

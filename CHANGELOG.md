@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Infrastructure
 - Single-file server architecture (Hono framework on Bun/Node.js)
-- JSON-based configuration (agents, providers, keys)
+- JSON-based configuration (auras, providers, keys)
 - Systemd service file for Linux auto-start
 
 [1.0.0]: https://github.com/ahmed-zhran/aurora-provider/releases/tag/v1.0.0

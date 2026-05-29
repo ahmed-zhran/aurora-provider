@@ -3,6 +3,7 @@ site_description: Local OpenAI-compatible LLM router with free provider fallback
 site_author: Ahmed Zhran
 repo_name: ahmed-zhran/aurora-provider
 repo_url: https://github.com/ahmed-zhran/aurora-provider
+use_directory_urls: false
 
 theme:
   name: material

@@ -30,4 +30,4 @@ Please describe the tests that you ran to verify your changes. Provide instructi
 - [ ] **I have NOT committed any API keys, tokens, or other secrets (verified my git diff has no keys in vault/keys.json or .env)**
 - [ ] My changes generate no new warnings or errors
 - [ ] If I added a new provider, I added it to `vault/providers.json` and updated `vault/keys.example.json` accordingly
-- [ ] If I added a new agent, I updated `vault/agents.json`
+- [ ] If I added a new aura, I updated `vault/auras.json`

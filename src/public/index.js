@@ -452,7 +452,7 @@ async function updateHealthStatus() {
     const dot = document.getElementById('server-status-dot');
     const txt = document.getElementById('server-status-text');
     const uptimeEl = document.getElementById('server-uptime');
-    const aurasEl = document.getElementById('server-agents-count'); // Keep DOM ID but update variable and label
+    const aurasEl = document.getElementById('server-auras-count');
 
     if (dot) { dot.className = 'status-indicator online'; }
     if (txt) { txt.textContent = 'Online'; txt.style.color = 'var(--color-success)'; }
@@ -676,7 +676,7 @@ function renderAurasTab() {
 
   auraNames.forEach(name => {
     const btn = document.createElement('div');
-    btn.className = `agent-item ${selectedAuraName === name ? 'selected' : ''}`;
+    btn.className = `aura-item ${selectedAuraName === name ? 'selected' : ''}`;
     btn.textContent = name;
     btn.addEventListener('click', () => {
       selectedAuraName = name;
@@ -1356,7 +1356,7 @@ function renderUsageLogsTable(logs) {
     tr.appendChild(timeTd);
     tr.appendChild(hostTd);
     tr.appendChild(sourceTd);
-    tr.appendChild(agentTd);
+    tr.appendChild(auraTd);
     tr.appendChild(provTd);
     tr.appendChild(modelTd);
     tr.appendChild(tokensTd);
@@ -1492,7 +1492,7 @@ function renderProvidersTab() {
 
   providerKeys.forEach(key => {
     const btn = document.createElement('div');
-    btn.className = `agent-item ${selectedProviderName === key ? 'selected' : ''}`;
+    btn.className = `aura-item ${selectedProviderName === key ? 'selected' : ''}`;
     btn.textContent = config.providers[key].name || key;
     btn.addEventListener('click', () => {
       selectedProviderName = key;

@@ -315,7 +315,7 @@ See [`vault/keys.example.json`](../vault/keys.example.json) for a ready-to-copy 
 2. **Create multiple accounts** for providers that allow it (especially Google AI Studio) to get more keys
 3. **Monitor key health** from the Dashboard's [API Keys & Health tab](dashboard.md#api-keys--health-tab) to see which keys are cooling down
 4. **Adjust cooldown times** per provider in the [Provider Config tab](dashboard.md#provider-config-tab) if the defaults don't match the actual rate limits
-5. **Use the proxy pool** to bypass IP-level rate limits — some providers rate-limit by IP address
+5. **Use the SOCKS5 proxy pool (Beta)** to bypass IP-level rate limits — some providers rate-limit by IP address
 
 ---
 

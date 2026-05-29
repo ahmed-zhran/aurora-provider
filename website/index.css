@@ -1207,3 +1207,31 @@ section {
     gap: 3rem;
   }
 }
+
+/* Custom additions for units and badges */
+.stat-unit {
+  color: var(--color-primary);
+  font-size: 1.15rem;
+  margin-left: 2px;
+  font-weight: 600;
+}
+.stat-unit.infinity {
+  font-size: 2.15rem;
+  line-height: 1;
+  display: inline-block;
+  vertical-align: middle;
+}
+.beta-badge {
+  background: rgba(6, 182, 212, 0.15);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  color: var(--color-accent);
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+  display: inline-block;
+}
+

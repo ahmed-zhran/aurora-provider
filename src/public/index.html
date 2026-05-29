@@ -227,10 +227,10 @@
             <div class="card glass">
               <h2>Auras</h2>
               <p class="description">Select an aura to edit, or create a new one.</p>
-              <div class="agents-list" id="auras-selector-container">
+              <div class="auras-list" id="auras-selector-container">
                 <!-- Populated dynamically -->
               </div>
-              <div class="add-agent-row">
+              <div class="add-aura-row">
                 <input type="text" id="new-aura-name" placeholder="Aura name (e.g. coder)" class="form-input">
                 <button class="btn btn-primary" id="create-aura-btn">Create</button>
               </div>
@@ -240,9 +240,9 @@
           <!-- Right Column: Aura Settings -->
           <div class="grid-col-right" id="aura-settings-card" style="display: none;">
             <div class="card glass">
-              <div class="agent-title-row">
+              <div class="aura-title-row">
                 <h2 id="current-aura-title">Aura Settings: Coder</h2>
-                <div class="agent-actions">
+                <div class="aura-actions">
                   <button class="btn btn-secondary btn-sm" id="rename-aura-btn">Rename</button>
                   <button class="btn btn-danger btn-sm" id="delete-aura-btn">Delete Aura</button>
                 </div>
@@ -283,7 +283,7 @@
             </div>
           </div>
 
-          <div class="grid-col-right empty-agent-message" id="aura-settings-empty">
+          <div class="grid-col-right empty-aura-message" id="aura-settings-empty">
             <div class="card glass flex-center" style="min-height: 400px; display: flex; justify-content: center; align-items: center;">
               <p class="text-muted">Select an aura from the list to view and configure its fallback chain.</p>
             </div>
@@ -496,10 +496,10 @@
             <div class="card glass">
               <h2>LLM Providers</h2>
               <p class="description">Select a provider to edit its endpoints and models, or register a custom provider.</p>
-              <div class="agents-list" id="providers-selector-container">
+              <div class="auras-list" id="providers-selector-container">
                 <!-- Populated dynamically -->
               </div>
-              <div class="add-agent-row">
+              <div class="add-aura-row">
                 <input type="text" id="new-provider-name" placeholder="Provider ID (e.g. sambanova)" class="form-input">
                 <button class="btn btn-primary" id="create-provider-btn">Create</button>
               </div>
@@ -509,7 +509,7 @@
           <!-- Right Column: Provider Settings Form -->
           <div class="grid-col-right" id="provider-settings-card" style="display: none;">
             <div class="card glass">
-              <div class="agent-title-row">
+              <div class="aura-title-row">
                 <h2 id="current-provider-title">Provider Config</h2>
                 <button class="btn btn-danger btn-sm" id="delete-provider-btn">Delete Provider</button>
               </div>
@@ -579,7 +579,7 @@
             </div>
           </div>
 
-          <div class="grid-col-right empty-agent-message" id="provider-settings-empty">
+          <div class="grid-col-right empty-aura-message" id="provider-settings-empty">
             <div class="card glass flex-center" style="min-height: 400px; display: flex; justify-content: center; align-items: center;">
               <p class="text-muted">Select an LLM provider from the list to view and configure its details and models.</p>
             </div>

@@ -149,8 +149,8 @@ curl http://127.0.0.1:8550/v1/models
 | `POST` | `/api/auras` | Save aura definitions |
 | `POST` | `/api/providers` | Save provider configs |
 | `GET` | `/api/usage` | Query usage stats & logs (filterable) |
-| `GET` | `/api/proxies` | Get proxy pool status and source rankings |
-| `POST` | `/api/proxies/refresh` | Trigger proxy pool refresh |
+| `GET` | `/api/proxies` | Get proxy pool (Beta) status and source rankings |
+| `POST` | `/api/proxies/refresh` | Trigger proxy pool (Beta) refresh |
 | `GET` | `/api/settings` | Get proxy latency threshold |
 | `POST` | `/api/settings` | Update proxy latency threshold |
 | `GET` | `/api/logs-stream` | SSE stream of server logs |
@@ -217,9 +217,9 @@ See [Query Parameters](#query-parameters--apiusage) below for full parameter lis
 
 ---
 
-### GET /api/proxies
+### GET /api/proxies (Beta)
 
-Returns the current proxy pool status and source rankings.
+Returns the current proxy pool (Beta) status and source rankings.
 
 ```bash
 curl http://127.0.0.1:8550/api/proxies
@@ -227,9 +227,9 @@ curl http://127.0.0.1:8550/api/proxies
 
 ---
 
-### POST /api/proxies/refresh
+### POST /api/proxies/refresh (Beta)
 
-Triggers a background proxy pool refresh.
+Triggers a background proxy pool (Beta) refresh.
 
 ```bash
 curl -X POST http://127.0.0.1:8550/api/proxies/refresh
