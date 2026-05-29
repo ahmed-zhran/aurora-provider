@@ -283,10 +283,33 @@ a {
 }
 
 .hero-title {
-  font-size: 3.5rem;
-  line-height: 1.15;
-  margin-bottom: 1.5rem;
+  font-size: clamp(2.0rem, 3.8vw, 3.0rem);
+  line-height: 1.2;
+  margin-bottom: 0.75rem;
   letter-spacing: -0.03em;
+}
+
+.hero-tagline {
+  font-size: clamp(1.05rem, 1.8vw, 1.3rem);
+  font-weight: 500;
+  line-height: 1.4;
+  margin-bottom: 1.75rem;
+  min-height: 2.2rem;
+  display: flex;
+  align-items: center;
+}
+
+.typed-cursor {
+  opacity: 1;
+  animation: blink-cursor 0.7s infinite;
+  color: var(--color-primary);
+  margin-left: 2px;
+  font-weight: 400;
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 .hero-subtitle {
@@ -1130,6 +1153,10 @@ section {
     grid-template-columns: 1fr;
     gap: 3rem;
     text-align: center;
+  }
+  
+  .hero-tagline {
+    justify-content: center;
   }
   
   .hero-subtitle {

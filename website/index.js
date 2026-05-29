@@ -360,7 +360,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ─── 4. Typing Effect for Hero Title ──────────────────────────────────────
   const phrases = [
-    "Empower your agents with Auras now",
+    "Empower your apps with Auras now",
     "Aura Hub: a centralized place to chain providers",
     "Tired of provider & model hell? Switch to Aura",
     "One Aura to support them all—no provider jumps",
