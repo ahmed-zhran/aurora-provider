@@ -270,7 +270,8 @@ function getHeuristicMetadata(providerId, modelId) {
       idL.includes("audio") || 
       idL.includes("gpt-4o") ||
       idL.includes("gemini") ||
-      idL.includes("claude-3-5")) {
+      idL.includes("claude-3-5") ||
+      idL.includes("grok")) {
     capabilities = ["text", "image"];
     if (idL.includes("video") || idL.includes("gemini")) {
       capabilities.push("video");
@@ -281,14 +282,17 @@ function getHeuristicMetadata(providerId, modelId) {
   }
   
   // 2. Reasoning support
-  if (idL.includes("reasoner") || 
-      idL.includes("reasoning") || 
-      idL.includes("thinking") || 
-      idL.includes("qwq") || 
-      idL.includes("o1") || 
-      idL.includes("o3") || 
-      idL.includes("deepseek-r1") || 
-      idL.includes("-r1")) {
+  if ((idL.includes("reasoner") || 
+       idL.includes("reasoning") || 
+       idL.includes("thinking") || 
+       idL.includes("qwq") || 
+       idL.includes("o1") || 
+       idL.includes("o3") || 
+       idL.includes("deepseek-r1") || 
+       idL.includes("-r1") ||
+       idL.includes("grok-3") ||
+       idL.includes("grok-4")) && 
+      !idL.includes("non-reasoning")) {
     reasoning = true;
   }
   
@@ -329,6 +333,15 @@ function getHeuristicMetadata(providerId, modelId) {
   } else if (idL.includes("qwen")) {
     contextWindow = 32000;
     maxOutput = 4096;
+  } else if (idL.includes("grok-4") || idL.includes("grok-3")) {
+    contextWindow = 1000000;
+    maxOutput = 8192;
+  } else if (idL.includes("grok-build-0.1")) {
+    contextWindow = 256000;
+    maxOutput = 8192;
+  } else if (idL.includes("grok-2")) {
+    contextWindow = 128000;
+    maxOutput = 8192;
   }
   
   return { contextWindow, maxOutput, reasoning, capabilities };
