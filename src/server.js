@@ -1255,15 +1255,35 @@ async function attemptRequest(providerName, modelId, body, forcedKeyIndex = null
 
   const payload = { ...body, model: modelId };
   if (Array.isArray(payload.messages)) {
-    payload.messages = payload.messages.map(msg => {
-      if (msg && typeof msg === "object") {
-        const cleaned = { ...msg };
-        delete cleaned.reasoning_content;
-        delete cleaned.reasoning;
-        return cleaned;
-      }
-      return msg;
-    });
+    const pL = providerName.toLowerCase();
+    const mL = modelId.toLowerCase();
+    const isStrictProvider = [
+      "groq",
+      "mistral",
+      "google_ai_studio",
+      "cloudflare_workers_ai",
+      "nvidia_nim",
+      "nvidia",
+      "github_models",
+      "cohere",
+      "huggingface",
+      "ollama",
+      "zhipu"
+    ].includes(pL);
+    const isNativeReasoningModel = pL === "opencode_zen" || pL === "deepseek" || mL.includes("deepseek") || mL.includes("pickle") || mL.includes("reasoner");
+    const keepReasoning = isNativeReasoningModel && !isStrictProvider;
+
+    if (!keepReasoning) {
+      payload.messages = payload.messages.map(msg => {
+        if (msg && typeof msg === "object") {
+          const cleaned = { ...msg };
+          delete cleaned.reasoning_content;
+          delete cleaned.reasoning;
+          return cleaned;
+        }
+        return msg;
+      });
+    }
   }
 
   const maxProxyRetries = 3;
