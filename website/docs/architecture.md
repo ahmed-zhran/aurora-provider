@@ -52,7 +52,7 @@
 │                                                                     │
 │  ┌────────────┐    ┌──────────────────────────────────────────┐    │
 │  │  Dashboard │    │              server.js                    │    │
-│  │  (browser) │◄──►│  Express HTTP Server (port 8550)          │    │
+│  │  (browser) │◄──►│  Express HTTP Server (port 9001)          │    │
 │  └────────────┘    │  - Serves static dashboard UI             │    │
 │                    │  - /v1/chat/completions (OpenAI compat)   │    │
 │  ┌────────────┐    │  - REST APIs: config, usage, proxies      │    │
@@ -171,7 +171,7 @@ Client Request: POST /v1/chat/completions
 │  2. Deduplicate → sample 800 proxies                │
 │  3. Batch test (30 concurrent) with 3s timeout      │
 │  4. Filter proxies < latencyThreshold (default 1.5s)│
-│  5. Sort by latency ASC → keep top 100              │
+│  5. Sort by latency ASC → keep top 200              │
 │  6. Track source stats (success/failure/latency)    │
 └─────────────────────────────────────────────────────┘
 ```

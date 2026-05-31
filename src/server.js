@@ -8,7 +8,30 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { fetch as undiciFetch } from "undici";
-import { socksDispatcher } from "fetch-socks";
+import nodeFetch from "node-fetch";
+import { SocksProxyAgent } from "socks-proxy-agent";
+import { HttpsProxyAgent } from "https-proxy-agent";
+
+async function smartFetch(url, options = {}) {
+  if (process.versions.bun) {
+    const fetchOpts = { ...options };
+    const dispatcher = fetchOpts.dispatcher;
+    delete fetchOpts.dispatcher;
+    
+    if (dispatcher && typeof dispatcher === 'object' && dispatcher.isBun && dispatcher.proxyUrl) {
+      fetchOpts.proxy = dispatcher.proxyUrl;
+    }
+    return await fetch(url, fetchOpts);
+  }
+
+  if (options.dispatcher && (options.dispatcher instanceof SocksProxyAgent || options.dispatcher instanceof HttpsProxyAgent)) {
+    const nodeFetchOpts = { ...options };
+    nodeFetchOpts.agent = options.dispatcher;
+    delete nodeFetchOpts.dispatcher;
+    return await nodeFetch(url, nodeFetchOpts);
+  }
+  return await undiciFetch(url, options);
+}
 import dns from "dns";
 import { Database } from "bun:sqlite";
 
@@ -419,7 +442,7 @@ async function getModelsForProvider(providerId, forceRefresh = false) {
       ...buildAuthHeader(providerId, activeKeyEntry)
     };
 
-    const response = await undiciFetch(`${baseUrl}/models`, {
+    const response = await smartFetch(`${baseUrl}/models`, {
       method: "GET",
       headers,
       signal: AbortSignal.timeout(6000)
@@ -479,11 +502,13 @@ async function getModelsForProvider(providerId, forceRefresh = false) {
 }
 
 // ─── Proxy pool & testing ─────────────────────────────────────────────────────
+const PROXIES_MAX_LIMIT = 200;
 let PROXY_POOL = []; // Array of { url, latency, source, successCount, failureCount }
 const PROXY_MAP = new Map(); // Map of url -> proxyObj for O(1) lookup
 let proxyStatus = "Idle"; // "Scraping...", "Testing...", "Active"
 let proxyPoolIndex = 0;
 let isRefreshingProxyPool = false;
+let lastProxyRefreshTime = 0;
 
 const ACTIVE_PROXIES_FILE = join(VAULT_DIR, "active_proxies.json");
 let saveProxiesTimeout = null;
@@ -526,35 +551,25 @@ const dispatcherCache = new Map(); // Cache SOCKS dispatchers to avoid re-creati
 let SERVER_PUBLIC_IP = "";
 
 function getProxyDispatcher(proxyUrl) {
+  if (process.versions.bun) {
+    return { proxyUrl, isBun: true };
+  }
   const cached = dispatcherCache.get(proxyUrl);
   if (cached) return cached;
   try {
-    const url = new URL(proxyUrl);
-    const host = url.hostname;
-    const port = parseInt(url.port);
-    const options = {
-      type: 5,
-      host,
-      port
-    };
-    if (url.username) {
-      options.userId = decodeURIComponent(url.username);
+    let agent;
+    if (proxyUrl.startsWith("socks")) {
+      agent = new SocksProxyAgent(proxyUrl, { timeout: 10000 });
+    } else {
+      agent = new HttpsProxyAgent(proxyUrl, { timeout: 10000 });
     }
-    if (url.password) {
-      options.password = decodeURIComponent(url.password);
-    }
-    const dispatcher = socksDispatcher(options, {
-      connect: {
-        timeout: 2500
-      }
-    });
-    dispatcherCache.set(proxyUrl, dispatcher);
+    dispatcherCache.set(proxyUrl, agent);
     // Evict oldest if cache grows too large
     if (dispatcherCache.size > 250) {
       const firstKey = dispatcherCache.keys().next().value;
       dispatcherCache.delete(firstKey);
     }
-    return dispatcher;
+    return agent;
   } catch (e) {
     console.error(`[aurora-provider] Failed to parse proxy URL: ${proxyUrl}`, e.message);
     return null;
@@ -623,6 +638,16 @@ const COUNTRY_NAME_MAP = {
 };
 
 const PROXY_SOURCES = [
+  // HTTP / HTTPS APIs (Better for HTTPS tunneling)
+  ...Array.from({ length: 5 }, (_, i) => `https://proxylist.geonode.com/api/proxy-list?protocols=http%2Chttps&limit=100&page=${i + 1}&sort_by=lastChecked&sort_type=desc`),
+  ...Array.from({ length: 5 }, (_, i) => `https://proxylist.geonode.com/api/proxy-list?protocols=http%2Chttps&limit=100&page=${i + 1}&sort_by=lastChecked&sort_type=desc&anonymityLevel=elite`),
+  ...Array.from({ length: 5 }, (_, i) => `https://proxylist.geonode.com/api/proxy-list?protocols=http%2Chttps&limit=100&page=${i + 1}&sort_by=lastChecked&sort_type=desc&anonymityLevel=anonymous`),
+  "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=elite",
+  "https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=anonymous",
+  "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
+  "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/http.txt",
+  "https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/http.txt",
+
   // Github RAW files (static, bulk lists of SOCKS5 proxies)
   "https://raw.githubusercontent.com/TheSpeedX/SOCKS-List/master/socks5.txt",
   "https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt",
@@ -647,13 +672,6 @@ const PROXY_SOURCES = [
   "https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/socks5.txt",
   "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/socks5.txt",
 
-  // Static web list / provider landing pages
-  "https://www.webshare.io/features/free-proxy",
-  "https://oxylabs.io/products/free-proxies",
-  "https://sockslist.us/",
-  "https://aimultiple.com/free-socks5-proxies",
-  "https://gologin.com/proxies/free-proxies/",
-
   // 1. Geonode SOCKS5 Free API - Pagination + Anonymity levels (first 5 pages + country filtered pages)
   ...Array.from({ length: 5 }, (_, i) => `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=${i + 1}&sort_by=lastChecked&sort_type=desc`),
   ...Array.from({ length: 5 }, (_, i) => `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=${i + 1}&sort_by=lastChecked&sort_type=desc&anonymityLevel=elite`),
@@ -662,7 +680,7 @@ const PROXY_SOURCES = [
   // Country-specific pages (2 pages of general + 1 page of elite + 1 page of anonymous per near/fast country)
   ...TARGET_COUNTRIES.flatMap(country => [
     `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=1&sort_by=lastChecked&sort_type=desc&country=${country}`,
-    `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=2&sort_by=lastChecked&sort_type=desc&country=${country}`,
+    `https://proxylist.geonode.com/api/proxy-list?limit=100&page=2&sort_by=lastChecked&sort_type=desc&country=${country}`,
     `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=1&sort_by=lastChecked&sort_type=desc&country=${country}&anonymityLevel=elite`,
     `https://proxylist.geonode.com/api/proxy-list?protocols=socks5&limit=100&page=1&sort_by=lastChecked&sort_type=desc&country=${country}&anonymityLevel=anonymous`
   ]),
@@ -679,53 +697,7 @@ const PROXY_SOURCES = [
 
   // 3. Databay API - General limit + target country list pages
   "https://databay.com/api/v1/proxy-list?format=json&limit=200",
-  ...TARGET_COUNTRIES.map(c => `https://databay.com/api/v1/proxy-list?format=json&limit=100&country=${c}`),
-
-  // 4. Flamingoproxies SOCKS5 landing pages
-  "https://flamingoproxies.com/free-proxies/china?q=&protocol=socks5&anonymity=&per_page=50",
-  ...TARGET_COUNTRIES.flatMap(c => {
-    const name = COUNTRY_NAME_MAP[c];
-    return name ? [
-      `https://flamingoproxies.com/free-proxies/${name}?q=&protocol=socks5&anonymity=&per_page=50`,
-      `https://flamingoproxies.com/free-proxies/${name}?q=&protocol=socks5&anonymity=elite&per_page=50`,
-      `https://flamingoproxies.com/free-proxies/${name}?q=&protocol=socks5&anonymity=anonymous&per_page=50`
-    ] : [];
-  }),
-
-  // 5. Freeproxy.world SOCKS5 country-specific & anonymity-specific pages
-  "https://www.freeproxy.world/?type=socks5",
-  "https://www.freeproxy.world/?type=socks5&anonymity=anonymous",
-  "https://www.freeproxy.world/?type=socks5&anonymity=elite",
-  ...TARGET_COUNTRIES.flatMap(c => [
-    `https://www.freeproxy.world/?type=socks5&country=${c}`,
-    `https://www.freeproxy.world/?type=socks5&country=${c}&anonymity=anonymous`,
-    `https://www.freeproxy.world/?type=socks5&country=${c}&anonymity=elite`
-  ]),
-
-  // 6. Spys.one SOCKS5 country & city landing pages
-  "https://spys.one/en/socks-proxy-list/",
-  ...TARGET_COUNTRIES.map(c => `https://spys.one/free-proxy-list/${c}/`),
-  ...["Falkenstein", "Frankfurt", "Amsterdam", "Paris", "London", "Milan", "Istanbul"].flatMap(city =>
-    Array.from({ length: 3 }, (_, i) => `https://spys.one/proxy-city/${city}/${i + 1}/`)
-  ),
-
-  // 7. Proxynova country SOCKS5 pages
-  ...TARGET_COUNTRIES.map(c => `https://www.proxynova.com/proxy-server-list/country-${c.toLowerCase()}`),
-
-  // 8. Proxy5 country landing pages
-  ...TARGET_COUNTRIES.flatMap(c => {
-    const name = COUNTRY_NAME_MAP[c];
-    return name ? [`https://proxy5.net/free-proxy/${name}`] : [];
-  }),
-
-  // 9. Litport country landing pages
-  ...["france", "germany", "netherlands", "turkey", "united-states", "greece"].map(c => `https://litport.net/free-proxy/${c}`),
-
-  // 10. Free.geonix.com country landing pages
-  ...TARGET_COUNTRIES.flatMap(c => {
-    const name = COUNTRY_NAME_MAP[c];
-    return name ? [`https://free.geonix.com/en/${name}/`] : [];
-  })
+  ...TARGET_COUNTRIES.map(c => `https://databay.com/api/v1/proxy-list?format=json&limit=100&country=${c}`)
 ];
 
 const SOURCE_STATS = {};
@@ -741,7 +713,6 @@ function getNextProxy() {
   // Pre-use pool health check: if pool is below 50% of max capacity and no refresh
   // is running, trigger one in the background. This catches the empty-pool-on-boot
   // case where the on-start refresh was killed before completion.
-  const PROXIES_MAX_LIMIT = 200;
   if (PROXY_POOL.length < (PROXIES_MAX_LIMIT / 2) && !isRefreshingProxyPool) {
     console.log(`[aurora-provider] Pool health check: ${PROXY_POOL.length}/${PROXIES_MAX_LIMIT} proxies. Triggering background refresh...`);
     refreshProxyPool("pool_health_check", true).catch(err => {
@@ -822,7 +793,7 @@ async function concurrentMap(array, limit, mapperFn) {
   return Promise.all(results);
 }
 
-function insertIntoSortedPool(pool, proxyObj, maxLimit = 200) {
+function insertIntoSortedPool(pool, proxyObj, maxLimit = PROXIES_MAX_LIMIT) {
   const oldProxy = PROXY_MAP.get(proxyObj.url);
   if (oldProxy) {
     if (proxyObj.latency < oldProxy.latency) {
@@ -855,19 +826,16 @@ async function refreshProxyPool(triggerCause = "replenishing", bypassCooldown = 
     console.log("[aurora-provider] Proxy refresh already in progress. Skipping.");
     return;
   }
-
-  if (!bypassCooldown) {
-    const timeSinceLast = Date.now() - lastAutoRefreshTime;
-    if (timeSinceLast < 60 * 60 * 1000) { // 1 hour minimum
-      console.log(`[aurora-provider] Auto-refresh skipped. Only ${Math.round(timeSinceLast / 60000)} minutes since last refresh (minimum 1 hour).`);
-      return;
-    }
-    lastAutoRefreshTime = Date.now();
+  const now = Date.now();
+  if (!bypassCooldown && now - lastProxyRefreshTime < 1000 * 60 * 5) {
+    console.log("[aurora-provider] Skipping proxy refresh due to 5-minute cooldown.");
+    return;
   }
-
   isRefreshingProxyPool = true;
-  proxyStatus = "Refreshing proxy pool...";
-  console.log(`[aurora-provider] ${proxyStatus} (Sequential harvesting + testing) [Cause: ${triggerCause}]`);
+  lastProxyRefreshTime = now;
+  proxyStatus = "Scraping proxy lists...";
+
+  console.log(`[aurora-provider] Refreshing proxy pool... (Aggregated testing) [Cause: ${triggerCause}]`);
 
   const startTime = Date.now();
   const activeBefore = PROXY_POOL.length;
@@ -891,6 +859,9 @@ async function refreshProxyPool(triggerCause = "replenishing", bypassCooldown = 
 
     for (let sIdx = 0; sIdx < shuffledSources.length; sIdx++) {
       const url = shuffledSources[sIdx];
+      if (process.versions.bun && url.toLowerCase().includes('socks')) {
+        continue;
+      }
       
       try {
         const urlObj = new URL(url);
@@ -905,11 +876,11 @@ async function refreshProxyPool(triggerCause = "replenishing", bypassCooldown = 
         console.log(`[harvest] [${sIdx + 1}/${shuffledSources.length}] Fetching source: ${url}`);
         const res = await fetch(url, { 
           headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9"
           },
-          signal: AbortSignal.timeout(6000)
+          signal: AbortSignal.timeout(8000)
         });
 
         if (!res.ok) {
@@ -923,7 +894,11 @@ async function refreshProxyPool(triggerCause = "replenishing", bypassCooldown = 
         const localProxies = [];
 
         const addParsedProxy = (ipStr, portVal) => {
-          const proxyUrl = `socks5://${ipStr}:${portVal}`;
+          const scheme = url.toLowerCase().includes('socks') ? 'socks5' : 'http';
+          if (process.versions.bun && scheme === 'socks5') {
+            return;
+          }
+          const proxyUrl = `${scheme}://${ipStr}:${portVal}`;
           if (!seenProxies.has(proxyUrl)) {
             seenProxies.add(proxyUrl);
             localProxies.push(proxyUrl);
@@ -971,104 +946,130 @@ async function refreshProxyPool(triggerCause = "replenishing", bypassCooldown = 
 
         const totalParsed = localProxies.length;
         totalHarvested += totalParsed;
-        const slicedProxies = localProxies.slice(0, 50);
-        totalTested += slicedProxies.length;
-        console.log(`[harvest] Parsed ${totalParsed} proxies. Testing first ${slicedProxies.length} candidates.`);
-
-        if (slicedProxies.length > 0) {
-          await concurrentMap(slicedProxies, 10, async (proxyUrl) => {
-            try {
-              const dispatcher = getProxyDispatcher(proxyUrl);
-              if (!dispatcher) return;
-
-              let proxyIp = null;
-              let latency = 0;
-              const startReq = Date.now();
-              
-              try {
-                const resEcho = await undiciFetch("https://checkip.amazonaws.com", {
-                  method: "GET",
-                  dispatcher,
-                  signal: AbortSignal.timeout(2500)
-                });
-                if (resEcho.ok) {
-                  proxyIp = (await resEcho.text()).trim();
-                  latency = Date.now() - startReq;
-                }
-              } catch (e) {
-                // Skip fallback to keep validation extremely fast
-              }
-
-              if (proxyIp) {
-                if (SERVER_PUBLIC_IP && proxyIp === SERVER_PUBLIC_IP) {
-                  if (SOURCE_STATS[url]) SOURCE_STATS[url].failure++;
-                  return;
-                }
-
-                totalPassedAnomality++;
-
-                const existing = PROXY_MAP.get(proxyUrl);
-                const proxyObj = {
-                  url: proxyUrl,
-                  latency,
-                  source: url,
-                  successCount: existing ? existing.successCount : 1,
-                  failureCount: existing ? existing.failureCount : 0,
-                  createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString()
-                };
-
-                insertIntoSortedPool(PROXY_POOL, proxyObj, 200);
-                proxyStatus = `Refreshing (${PROXY_POOL.length} proxies active)`;
-                
-                if (SOURCE_STATS[url]) {
-                  SOURCE_STATS[url].success++;
-                  SOURCE_STATS[url].totalLatency += latency;
-                }
-              } else {
-                if (SOURCE_STATS[url]) SOURCE_STATS[url].failure++;
-              }
-            } catch (err) {
-              console.error(`[harvest] Exception inside validation handler for ${proxyUrl}:`, err.message, err.stack);
-              if (SOURCE_STATS[url]) SOURCE_STATS[url].failure++;
-            }
-          });
+        console.log(`[harvest] Parsed ${totalParsed} proxies from this source.`);
+        
+        if (totalParsed > 0 && SOURCE_STATS[url]) {
+          SOURCE_STATS[url].success++;
         }
-      } catch (err) {
-        if (!err.message.includes("404")) {
-          console.warn(`[harvest] Source failed ${url}: ${err.message}`);
-        }
+
+      } catch (e) {
+        console.error(`[harvest] Source failed ${url}:`, e.message);
+        if (SOURCE_STATS[url]) SOURCE_STATS[url].failure++;
       }
-
-      // Update database in real-time after each source
-      if (logId) {
-        try {
-          stmts.updateProxyRefreshProgress.run(totalHarvested, totalTested, totalPassedAnomality, logId);
-        } catch (dbErr) {
-          // ignore
-        }
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 50));
     }
-  } finally {
-    const durationMin = ((Date.now() - startTime) / (1000 * 60)); // running-time in minutes
+
+    const allProxies = Array.from(seenProxies);
+    allProxies.sort(() => Math.random() - 0.5); // shuffle
+    const testPool = allProxies.slice(0, 3000); // take first 3000
+    totalTested = testPool.length;
+    
+    console.log(`[harvest] Total unique harvested proxies: ${allProxies.length}. Testing random pool of ${testPool.length} proxies concurrently...`);
+    proxyStatus = `Testing ${testPool.length} harvested proxies...`;
+
+    if (testPool.length > 0) {
+      // Test at high concurrency (100) since we are no longer iterating per-source for tests
+      await concurrentMap(testPool, 100, async (proxyUrl) => {
+        try {
+          const dispatcher = getProxyDispatcher(proxyUrl);
+          if (!dispatcher) return;
+
+          let proxyIp = null;
+          let latency = 0;
+          const startReq = Date.now();
+          
+          try {
+            const resEcho = await smartFetch("https://checkip.amazonaws.com", {
+              method: "GET",
+              dispatcher,
+              signal: AbortSignal.timeout(8000)
+            });
+            if (resEcho.ok) {
+              proxyIp = (await resEcho.text()).trim();
+              latency = Date.now() - startReq;
+            }
+          } catch (e) {
+            // Fallback to HTTPS api.ipify.org
+            try {
+              const resEcho = await smartFetch("https://api.ipify.org", {
+                method: "GET",
+                dispatcher,
+                signal: AbortSignal.timeout(8000)
+              });
+              if (resEcho.ok) {
+                proxyIp = (await resEcho.text()).trim();
+                latency = Date.now() - startReq;
+              }
+            } catch (fallbackErr) {
+              // Ignore
+            }
+          }
+
+          if (proxyIp) {
+            if (SERVER_PUBLIC_IP && proxyIp === SERVER_PUBLIC_IP) {
+              return;
+            }
+
+            totalPassedAnomality++;
+
+            const existing = PROXY_MAP.get(proxyUrl);
+            const proxyObj = {
+              url: proxyUrl,
+              latency,
+              source: "aggregated-pool",
+              successCount: existing ? existing.successCount : 1,
+              failureCount: existing ? existing.failureCount : 0,
+              createdAt: existing ? (existing.createdAt || new Date().toISOString()) : new Date().toISOString()
+            };
+
+            insertIntoSortedPool(PROXY_POOL, proxyObj, PROXIES_MAX_LIMIT);
+            proxyStatus = `Testing proxies... (${PROXY_POOL.length} active)`;
+          }
+        } catch (e) {
+          // Ignore dispatcher creation errors
+        }
+      });
+    }
+
+  } catch (err) {
+    console.error("[aurora-provider] Proxy refresh failed:", err.message);
     if (logId) {
       try {
-        stmts.updateProxyRefreshDone.run(durationMin, totalHarvested, totalTested, totalPassedAnomality, logId);
-      } catch (dbErr) {
-        console.error("[aurora-provider] Failed to log refresh completion to DB:", dbErr.message);
-      }
+        stmts.updateProxyRefreshProgress.run("failed", 0, 0, 0, logId);
+      } catch (dbErr) { }
     }
-
+  } finally {
     isRefreshingProxyPool = false;
-    proxyStatus = `Active (${PROXY_POOL.length} proxies)`;
-    console.log(`[aurora-provider] Refresh complete. Active pool size: ${PROXY_POOL.length} proxies. (Duration: ${durationMin.toFixed(2)} min, Harvested: ${totalHarvested}, Passed Anomality: ${totalPassedAnomality})`);
+    const durationMin = ((Date.now() - startTime) / 60000);
     
-    if (PROXY_POOL.length > 0) {
-      console.log("[aurora-provider] Top 10 fastest proxies in pool:");
-      PROXY_POOL.slice(0, 10).forEach((p, idx) => {
-        console.log(`  [Proxy ${idx + 1}] ${p.url} (${p.latency}ms) [Source: ${p.source.split('/').pop()}]`);
-      });
+    // Sort pool by latency and take top PROXIES_MAX_LIMIT
+    PROXY_POOL.sort((a, b) => a.latency - b.latency);
+    if (PROXY_POOL.length > PROXIES_MAX_LIMIT) {
+      const removed = PROXY_POOL.splice(PROXIES_MAX_LIMIT);
+      removed.forEach(r => PROXY_MAP.delete(r.url));
+    }
+    
+    if (PROXY_POOL.length === 0) {
+      proxyStatus = "No working proxies remaining. Using direct connection.";
+    } else {
+      proxyStatus = `Active (${PROXY_POOL.length} proxies)`;
+    }
+    
+    saveActiveProxiesToDisk();
+    
+    console.log(`[aurora-provider] Refresh complete. Active pool size: ${PROXY_POOL.length} proxies. (Duration: ${durationMin.toFixed(2)} min, Harvested: ${totalHarvested}, Passed Anomality: ${totalPassedAnomality})`);
+
+    if (logId) {
+      try {
+        stmts.updateProxyRefreshDone.run(
+          durationMin,
+          totalHarvested,
+          totalTested,
+          totalPassedAnomality,
+          logId
+        );
+      } catch (dbErr) {
+        console.error("[aurora-provider] Failed to update proxy refresh log:", dbErr.message);
+      }
     }
   }
 }
@@ -1095,7 +1096,6 @@ function removeDeadProxy(proxyUrl) {
       }
       saveActiveProxiesToDisk();
       
-      const PROXIES_MAX_LIMIT = 200;
       if (PROXY_POOL.length < (PROXIES_MAX_LIMIT / 2) && !isRefreshingProxyPool) {
         console.log(`[aurora-provider] Proxy pool decreased by > 50% (${PROXY_POOL.length} remaining). Replenishing in background...`);
         refreshProxyPool("replenishing", true).catch(err => {
@@ -1255,7 +1255,7 @@ async function attemptRequest(providerName, modelId, body, forcedKeyIndex = null
 
     try {
       const requestStart = Date.now();
-      const res = await undiciFetch(`${baseUrl}/chat/completions`, {
+      const res = await smartFetch(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers,
         body: JSON.stringify(payload),
@@ -2074,13 +2074,13 @@ async function probeAllKeys() {
 
 const PROBE_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 setTimeout(() => {
-  probeAllKeys();
-  setInterval(probeAllKeys, PROBE_INTERVAL_MS);
+  // probeAllKeys();
+  // setInterval(probeAllKeys, PROBE_INTERVAL_MS);
 }, 10_000);
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 
-const PORT = process.env.PORT ?? 8550;
+const PORT = process.env.PORT ?? 9001;
 
 Bun.serve({
   port: parseInt(PORT, 10),

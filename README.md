@@ -38,7 +38,7 @@ bun install    # or: npm install
 bun run start  # or: npm start
 
 # 4. Configure via Dashboard
-# Open http://127.0.0.1:8550 in your browser to add API Keys and create Auras!
+# Open http://127.0.0.1:9001 in your browser to add API Keys and create Auras!
 ```
 
 You should see:
@@ -47,13 +47,13 @@ You should see:
 ╔══════════════════════════════════════════╗
 ║          Aurora-Provider  v1.0.0         ║
 ║  Local OpenAI-compatible LLM router     ║
-║  Listening: http://127.0.0.1:8550       ║
+║  Listening: http://127.0.0.1:9001       ║
 ║  Auras:     plan, build, coder, ...     ║
 ╚══════════════════════════════════════════╝
 ```
 
-- **Dashboard UI**: [http://127.0.0.1:8550](http://127.0.0.1:8550)
-- **OpenAI-Compatible Endpoint**: `http://127.0.0.1:8550/v1`
+- **Dashboard UI**: [http://127.0.0.1:9001](http://127.0.0.1:9001)
+- **OpenAI-Compatible Endpoint**: `http://127.0.0.1:9001/v1`
 
 ---
 
@@ -167,7 +167,7 @@ Aurora-Provider is a drop-in replacement for OpenAI. Configure your development 
 
 ### Cursor (`Settings -> Models`)
 1. Turn off all default models.
-2. Under **Override OpenAI Base URL**, enter: `http://127.0.0.1:8550/v1`
+2. Under **Override OpenAI Base URL**, enter: `http://127.0.0.1:9001/v1`
 3. Enter any random string for the API key.
 4. Add your custom Aura name (e.g. `coder` or `aurora-provider/coder`) as a new model.
 
@@ -179,7 +179,7 @@ Aurora-Provider is a drop-in replacement for OpenAI. Configure your development 
       "title": "Aurora Coder",
       "provider": "openai",
       "model": "aurora-provider/coder",
-      "apiBase": "http://127.0.0.1:8550/v1"
+      "apiBase": "http://127.0.0.1:9001/v1"
     }
   ]
 }
@@ -190,7 +190,7 @@ Aurora-Provider is a drop-in replacement for OpenAI. Configure your development 
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://127.0.0.1:8550/v1",
+    base_url="http://127.0.0.1:9001/v1",
     api_key="aurora-local"  # ignored, but required
 )
 

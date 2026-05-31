@@ -49,7 +49,7 @@ The main inference endpoint. Fully compatible with the OpenAI Chat Completions A
 **Request:**
 
 ```bash
-curl http://127.0.0.1:8550/v1/chat/completions \
+curl http://127.0.0.1:9001/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer aurora-provider-local" \
   -d '{
@@ -122,7 +122,7 @@ Lists all configured auras as OpenAI-compatible model objects.
 **Request:**
 
 ```bash
-curl http://127.0.0.1:8550/v1/models
+curl http://127.0.0.1:9001/v1/models
 ```
 
 **Response:**
@@ -164,7 +164,7 @@ curl http://127.0.0.1:8550/v1/models
 Returns all providers, auras, and keys configuration.
 
 ```bash
-curl http://127.0.0.1:8550/api/config
+curl http://127.0.0.1:9001/api/config
 ```
 
 ---
@@ -174,7 +174,7 @@ curl http://127.0.0.1:8550/api/config
 Saves API keys for all providers.
 
 ```bash
-curl -X POST http://127.0.0.1:8550/api/keys \
+curl -X POST http://127.0.0.1:9001/api/keys \
   -H "Content-Type: application/json" \
   -d '{"keys": {"groq": ["gsk_key1", "gsk_key2"]}}'
 ```
@@ -186,7 +186,7 @@ curl -X POST http://127.0.0.1:8550/api/keys \
 Saves aura definitions and fallback chains.
 
 ```bash
-curl -X POST http://127.0.0.1:8550/api/auras \
+curl -X POST http://127.0.0.1:9001/api/auras \
   -H "Content-Type: application/json" \
   -d '{"auras": {"coder": {"fallbacks": [{"provider": "groq", "model": "llama-3.3-70b"}]}}}'
 ```
@@ -198,7 +198,7 @@ curl -X POST http://127.0.0.1:8550/api/auras \
 Saves provider configurations.
 
 ```bash
-curl -X POST http://127.0.0.1:8550/api/providers \
+curl -X POST http://127.0.0.1:9001/api/providers \
   -H "Content-Type: application/json" \
   -d '{"groq": {"name": "Groq", "baseUrl": "https://api.groq.com/openai/v1"}}'
 ```
@@ -210,7 +210,7 @@ curl -X POST http://127.0.0.1:8550/api/providers \
 Query usage statistics and logs with filtering and pagination.
 
 ```bash
-curl "http://127.0.0.1:8550/api/usage?startDate=2026-01-01&aura=coder&status=Success&page=1&limit=50"
+curl "http://127.0.0.1:9001/api/usage?startDate=2026-01-01&aura=coder&status=Success&page=1&limit=50"
 ```
 
 See [Query Parameters](#query-parameters--apiusage) below for full parameter list.
@@ -222,7 +222,7 @@ See [Query Parameters](#query-parameters--apiusage) below for full parameter lis
 Returns the current proxy pool (Beta) status and source rankings.
 
 ```bash
-curl http://127.0.0.1:8550/api/proxies
+curl http://127.0.0.1:9001/api/proxies
 ```
 
 ---
@@ -232,7 +232,7 @@ curl http://127.0.0.1:8550/api/proxies
 Triggers a background proxy pool (Beta) refresh.
 
 ```bash
-curl -X POST http://127.0.0.1:8550/api/proxies/refresh
+curl -X POST http://127.0.0.1:9001/api/proxies/refresh
 ```
 
 ---
@@ -242,7 +242,7 @@ curl -X POST http://127.0.0.1:8550/api/proxies/refresh
 Returns the current proxy latency threshold setting.
 
 ```bash
-curl http://127.0.0.1:8550/api/settings
+curl http://127.0.0.1:9001/api/settings
 ```
 
 ---
@@ -252,7 +252,7 @@ curl http://127.0.0.1:8550/api/settings
 Updates the proxy latency threshold.
 
 ```bash
-curl -X POST http://127.0.0.1:8550/api/settings \
+curl -X POST http://127.0.0.1:9001/api/settings \
   -H "Content-Type: application/json" \
   -d '{"latencyThreshold": 1500}'
 ```
@@ -264,7 +264,7 @@ curl -X POST http://127.0.0.1:8550/api/settings \
 SSE stream of real-time server logs. Connect with an EventSource client.
 
 ```javascript
-const evtSource = new EventSource("http://127.0.0.1:8550/api/logs-stream");
+const evtSource = new EventSource("http://127.0.0.1:9001/api/logs-stream");
 evtSource.onmessage = (event) => {
   console.log(JSON.parse(event.data));
 };
@@ -277,7 +277,7 @@ evtSource.onmessage = (event) => {
 Returns key states, cooldowns, and server uptime.
 
 ```bash
-curl http://127.0.0.1:8550/status | jq
+curl http://127.0.0.1:9001/status | jq
 ```
 
 ---
@@ -287,7 +287,7 @@ curl http://127.0.0.1:8550/status | jq
 Basic health check returning status, version, and configured auras.
 
 ```bash
-curl http://127.0.0.1:8550/health
+curl http://127.0.0.1:9001/health
 ```
 
 ---
@@ -313,19 +313,19 @@ curl http://127.0.0.1:8550/health
 ### Health Check
 
 ```bash
-curl http://127.0.0.1:8550/health
+curl http://127.0.0.1:9001/health
 ```
 
 ### Status Dashboard
 
 ```bash
-curl http://127.0.0.1:8550/status | jq
+curl http://127.0.0.1:9001/status | jq
 ```
 
 ### Non-Streaming Completion
 
 ```bash
-curl http://127.0.0.1:8550/v1/chat/completions \
+curl http://127.0.0.1:9001/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer aurora-provider-local" \
   -d '{
@@ -338,7 +338,7 @@ curl http://127.0.0.1:8550/v1/chat/completions \
 ### Streaming Completion
 
 ```bash
-curl http://127.0.0.1:8550/v1/chat/completions \
+curl http://127.0.0.1:9001/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer aurora-provider-local" \
   -d '{
@@ -355,7 +355,7 @@ curl http://127.0.0.1:8550/v1/chat/completions \
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://127.0.0.1:8550/v1",
+    base_url="http://127.0.0.1:9001/v1",
     api_key="aurora-provider-local"  # any string works
 )
 
@@ -371,13 +371,13 @@ print(response.choices[0].message.content)
 
 ```bash
 # Development (auto-restart on file change)
-PORT=8550 bun --watch src/server.js
+PORT=9001 bun --watch src/server.js
 
 # Production
-PORT=8550 bun src/server.js
+PORT=9001 bun src/server.js
 ```
 
-Dashboard: http://127.0.0.1:8550
+Dashboard: http://127.0.0.1:9001
 
 ---
 

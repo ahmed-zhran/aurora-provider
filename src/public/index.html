@@ -326,6 +326,33 @@
             </div>
           </div>
         </div>
+        
+        <!-- Keys Health Check Manual Tester -->
+        <div class="card glass" style="margin-top: 1.5rem;">
+          <div class="card-header-actions" style="margin-bottom: 1.25rem;">
+            <div>
+              <h2 style="margin: 0;">Keys Health Check</h2>
+              <p class="description">Manually run a health probe on any configured API key to check its status, credit balance, and connectivity.</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="refresh-health-check-table-btn">Refresh List</button>
+          </div>
+          <div class="table-container" style="overflow-x: auto; max-height: 400px; margin-top: 1rem;">
+            <table class="proxy-table" style="width:100%; border-collapse:collapse; font-size:0.85rem; text-align:left;">
+              <thead>
+                <tr style="border-bottom:1px solid var(--color-card-border); color:var(--color-text-muted);">
+                  <th style="padding:8px; width: 120px;">Provider</th>
+                  <th style="padding:8px;">Key Name / Masked</th>
+                  <th style="padding:8px; width: 220px;">Model to Test</th>
+                  <th style="padding:8px; width: 120px; text-align:center;">Action</th>
+                  <th style="padding:8px; width: 200px;">Status</th>
+                </tr>
+              </thead>
+              <tbody id="keys-health-check-tbody">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <!-- TAB 5: Proxy Pool -->

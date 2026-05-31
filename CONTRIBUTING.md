@@ -114,7 +114,7 @@ bun run dev   # or: npm run dev
 Test with a simple completion request:
 
 ```bash
-curl http://127.0.0.1:8550/v1/chat/completions \
+curl http://127.0.0.1:9001/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer aurora-provider-local" \
   -d '{
@@ -187,7 +187,7 @@ cp vault/keys.example.json vault/keys.json
 bun run dev        # or: npm run dev
 ```
 
-The server will start at `http://127.0.0.1:8550`.
+The server will start at `http://127.0.0.1:9001`.
 
 ### Useful Endpoints for Development
 

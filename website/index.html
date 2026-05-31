@@ -342,8 +342,8 @@ bun install</code></pre>
           </div>
 
           <div class="code-pane" id="tab-keys">
-            <p class="pane-description">Open the dashboard in your browser (e.g. <code>http://127.0.0.1:8550</code>). Navigate to the <strong>API Keys & Health</strong> tab and <strong>Aura Hub</strong> to configure your keys and fallback chains visually.</p>
-            <pre class="code-block"><code># Open http://127.0.0.1:8550 in your browser
+            <p class="pane-description">Open the dashboard in your browser (e.g. <code>http://127.0.0.1:9001</code>). Navigate to the <strong>API Keys & Health</strong> tab and <strong>Aura Hub</strong> to configure your keys and fallback chains visually.</p>
+            <pre class="code-block"><code># Open http://127.0.0.1:9001 in your browser
 # Manage keys, providers, and auras fully from the UI dashboard!</code></pre>
           </div>
           
@@ -352,7 +352,7 @@ bun install</code></pre>
             <pre class="code-block"><code>from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://127.0.0.1:8550/v1"
+    base_url="http://127.0.0.1:9001/v1"
 )
 
 # Route request through the "coder" fallback chain

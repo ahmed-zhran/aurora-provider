@@ -54,7 +54,7 @@ jobs:
 
           # Wait for server to be ready
           for i in $(seq 1 30); do
-            if curl -sf http://127.0.0.1:8550/health > /dev/null 2>&1; then
+            if curl -sf http://127.0.0.1:9001/health > /dev/null 2>&1; then
               echo "✓ Server is up after ${i}s"
               break
             fi
@@ -63,12 +63,12 @@ jobs:
 
           # Health check
           echo "--- Health Check ---"
-          curl -sf http://127.0.0.1:8550/health | head -c 500
+          curl -sf http://127.0.0.1:9001/health | head -c 500
           echo ""
 
           # Models endpoint
           echo "--- Models ---"
-          curl -sf http://127.0.0.1:8550/v1/models | head -c 500
+          curl -sf http://127.0.0.1:9001/v1/models | head -c 500
           echo ""
 
           # Cleanup

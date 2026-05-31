@@ -25,7 +25,7 @@ body:
       description: How do we reproduce this bug? Please provide the exact steps.
       placeholder: |
         1. Start Aurora-Provider via `bun run dev`
-        2. Send a request to `http://localhost:8550/v1/chat/completions` with model 'aurora-provider/build'
+        2. Send a request to `http://localhost:9001/v1/chat/completions` with model 'aurora-provider/build'
         3. See error...
     validations:
       required: true

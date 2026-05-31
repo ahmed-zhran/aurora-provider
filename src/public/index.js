@@ -140,6 +140,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Keys event listeners
   document.getElementById('save-keys-btn').addEventListener('click', saveKeysConfig);
+  const refreshHealthBtn = document.getElementById('refresh-health-check-table-btn');
+  if (refreshHealthBtn) {
+    refreshHealthBtn.addEventListener('click', renderKeysHealthCheckTable);
+  }
 
   // Proxy settings event listeners
   const slider = document.getElementById('proxy-latency-threshold-slider');
@@ -735,24 +739,16 @@ async function updateStepModelsDropdown() {
   try {
     const res = await fetchJSON(`/api/providers/${providerKey}/models`);
     const models = res.models || [];
-
-    if (models.length === 0) {
-      modelSelect.innerHTML = '<option value="" disabled selected>No models available</option>';
-      modelSelect.disabled = true;
-      return;
-    }
-
-    modelSelect.disabled = false;
-    modelSelect.innerHTML = '';
-
-    const placeholder = document.createElement('option');
-    placeholder.value = '';
-    placeholder.disabled = true;
-    placeholder.selected = true;
-    placeholder.textContent = 'Select model...';
-    modelSelect.appendChild(placeholder);
-
-    models.forEach(model => {
+        const freeModels = models.filter(m => m.markFree);
+        select.innerHTML = '';
+        if (freeModels.length === 0) {
+          select.innerHTML = '<option value="" disabled selected>No free models found</option>';
+          select.disabled = true;
+          return;
+        }
+        
+        let foundFree = false;
+        freeModels.forEach(model => {
       const opt = document.createElement('option');
       opt.value = model.id;
 
@@ -1043,6 +1039,9 @@ function renderKeysTab() {
         select.appendChild(opt);
       });
   }
+
+  // Also render the health check table
+  renderKeysHealthCheckTable();
 }
 
 function addKeyInputRow(providerKey, keyValue, listContainer) {
@@ -1113,6 +1112,123 @@ function addKeyInputRow(providerKey, keyValue, listContainer) {
   row.appendChild(delBtn);
 
   list.appendChild(row);
+}
+
+async function renderKeysHealthCheckTable() {
+  const tbody = document.getElementById('keys-health-check-tbody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  let hasKeys = false;
+
+  for (const provKey of Object.keys(config.keys)) {
+    const keys = config.keys[provKey] || [];
+    if (keys.length === 0) continue;
+
+    const providerName = config.providers[provKey]?.name || provKey;
+
+    for (let i = 0; i < keys.length; i++) {
+      hasKeys = true;
+      const keyObj = keys[i];
+      const keyName = keyObj.name || `Key [${i}]`;
+      const keyEmail = keyObj.email ? `(${keyObj.email})` : '';
+      
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="padding:8px;">${providerName}</td>
+        <td style="padding:8px;">${keyName} <span class="text-muted" style="font-size:0.75rem;">${keyEmail}</span></td>
+        <td style="padding:8px;">
+          <select class="form-select model-select" style="width: 100%; padding: 0.25rem; font-size: 0.8rem;" data-provider="${provKey}">
+            <option value="" disabled selected>Loading models...</option>
+          </select>
+        </td>
+        <td style="padding:8px; text-align:center;">
+          <button class="btn btn-primary btn-sm run-check-btn" data-provider="${provKey}" data-index="${i}">Run Check</button>
+        </td>
+        <td style="padding:8px;" class="status-cell">-</td>
+      `;
+      tbody.appendChild(tr);
+
+      // Async fetch models for this provider
+      const select = tr.querySelector(".model-select");
+      fetchJSON(`/api/providers/${provKey}/models`).then(res => {
+        const models = res.models || [];
+        const freeModels = models.filter(m => m.markFree);
+        select.innerHTML = '';
+        if (freeModels.length === 0) {
+          select.innerHTML = '<option value="" disabled selected>No free models found</option>';
+          select.disabled = true;
+          return;
+        }
+        
+        let foundFree = false;
+        freeModels.forEach(model => {
+          const opt = document.createElement('option');
+          opt.value = model.id;
+          opt.textContent = model.name || model.id;
+          if (model.markFree) {
+            opt.textContent += ' (Free)';
+            if (!foundFree) {
+              opt.selected = true;
+              foundFree = true;
+            }
+          }
+          select.appendChild(opt);
+        });
+      }).catch(err => {
+        select.innerHTML = '<option value="" disabled selected>Error loading</option>';
+        select.disabled = true;
+      });
+
+      // Hook up Run Check button
+      const runBtn = tr.querySelector('.run-check-btn');
+      const statusCell = tr.querySelector('.status-cell');
+
+      runBtn.addEventListener('click', async () => {
+        const modelId = select.value;
+        if (!modelId) {
+          statusCell.textContent = 'Please select a model first';
+          statusCell.className = 'status-cell text-warning';
+          return;
+        }
+
+        runBtn.disabled = true;
+        runBtn.textContent = 'Running...';
+        statusCell.textContent = 'Probing...';
+        statusCell.className = 'status-cell';
+
+        try {
+          const res = await fetch('/api/keys/probe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              providerId: provKey,
+              keyIndex: i,
+              modelId: modelId
+            })
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            statusCell.textContent = 'OK: Key is healthy and working';
+            statusCell.className = 'status-cell text-success';
+          } else {
+            statusCell.textContent = 'Error: ' + (data.error || 'Unknown error');
+            statusCell.className = 'status-cell text-danger';
+          }
+        } catch (err) {
+          statusCell.textContent = 'Network Error: ' + err.message;
+          statusCell.className = 'status-cell text-danger';
+        } finally {
+          runBtn.disabled = false;
+          runBtn.textContent = 'Run Check';
+        }
+      });
+    }
+  }
+
+  if (!hasKeys) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-muted" style="padding:1.5rem; text-align:center;">No API keys configured yet.</td></tr>';
+  }
 }
 
 async function saveKeysConfig() {
@@ -1535,6 +1651,7 @@ async function renderProviderModelsList() {
   try {
     const res = await fetchJSON(`/api/providers/${selectedProviderName}/models`);
     const models = res.models || [];
+        const freeModels = models.filter(m => m.markFree);
 
     if (models.length === 0) {
       tbody.innerHTML = '<tr><td colspan="8" class="text-muted" style="padding:1rem; text-align:center;">No models found. Ensure your API keys are configured and base URL is correct.</td></tr>';
