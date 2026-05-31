@@ -1255,23 +1255,18 @@ async function attemptRequest(providerName, modelId, body, forcedKeyIndex = null
 
   const payload = { ...body, model: modelId };
   if (Array.isArray(payload.messages)) {
+    const providersSupportingReasoning = [
+      "opencode_zen",
+      "sambanova",
+      "openrouter",
+      "deepseek",
+      "custom"
+    ];
+    
     const pL = providerName.toLowerCase();
     const mL = modelId.toLowerCase();
-    const isStrictProvider = [
-      "groq",
-      "mistral",
-      "google_ai_studio",
-      "cloudflare_workers_ai",
-      "nvidia_nim",
-      "nvidia",
-      "github_models",
-      "cohere",
-      "huggingface",
-      "ollama",
-      "zhipu"
-    ].includes(pL);
-    const isNativeReasoningModel = pL === "opencode_zen" || pL === "deepseek" || mL.includes("deepseek") || mL.includes("pickle") || mL.includes("reasoner");
-    const keepReasoning = isNativeReasoningModel && !isStrictProvider;
+    const isReasoningModel = mL.includes("deepseek") || mL.includes("pickle") || mL.includes("reasoner") || mL.includes("thinking");
+    const keepReasoning = providersSupportingReasoning.includes(pL) && isReasoningModel;
 
     if (!keepReasoning) {
       payload.messages = payload.messages.map(msg => {
@@ -1513,6 +1508,48 @@ app.post("/api/keys", async (c) => {
     return c.json({ error: err.message }, 500);
   }
 });
+
+app.post("/api/keys/probe", async (c) => {
+  try {
+    const { providerId, keyIndex, modelId } = await c.req.json();
+    if (!providerId || keyIndex === undefined || !modelId) {
+      return c.json({ success: false, error: "Missing required parameters: providerId, keyIndex, or modelId" }, 400);
+    }
+
+    const keys = KEYS_CFG[providerId];
+    if (!keys || !keys[keyIndex]) {
+      return c.json({ success: false, error: "Key not found" }, 404);
+    }
+
+    // Reset key cooldown state before testing
+    resetKey(providerId, keyIndex);
+
+    // Call attemptRequest with forcedKeyIndex = keyIndex
+    const testBody = {
+      messages: [{ role: "user", content: "Reply with just the word OK." }],
+      max_tokens: 5,
+      stream: false,
+    };
+
+    const result = await attemptRequest(providerId, modelId, testBody, keyIndex);
+
+    if (result.success) {
+      if (result.response) {
+        await result.response.text().catch(() => {});
+      }
+      return c.json({ success: true });
+    } else {
+      let errorDetail = result.error;
+      if (result.status) {
+        errorDetail += ` (HTTP ${result.status})`;
+      }
+      return c.json({ success: false, error: errorDetail || "Probe request failed" });
+    }
+  } catch (err) {
+    return c.json({ success: false, error: err.message }, 500);
+  }
+});
+
 
 app.post("/api/auras", async (c) => {
   try {
