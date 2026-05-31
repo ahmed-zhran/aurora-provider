@@ -74,7 +74,7 @@
           "id": "glm-4.7-flash",
           "alias": "glm-4-7-flash",
           "name": "GLM-4.7 Flash",
-          "contextWindow": 200000,
+          "contextWindow": 131072,
           "maxOutput": 128000,
           "free": true,
           "permanent": true,
@@ -88,7 +88,7 @@
           "id": "glm-4.5-flash",
           "alias": "glm-4-5-flash",
           "name": "GLM-4.5 Flash",
-          "contextWindow": 128000,
+          "contextWindow": 131072,
           "maxOutput": 65536,
           "free": true,
           "permanent": true,
@@ -124,7 +124,7 @@
           "id": "gemini-2.5-flash",
           "alias": "gemini-2-5-flash",
           "name": "Gemini 2.5 Flash",
-          "contextWindow": 1000000,
+          "contextWindow": 1048576,
           "maxOutput": 65536,
           "free": true,
           "permanent": true,
@@ -137,7 +137,7 @@
           "id": "gemini-2.5-flash-lite",
           "alias": "gemini-2-5-flash-lite",
           "name": "Gemini 2.5 Flash Lite",
-          "contextWindow": 1000000,
+          "contextWindow": 1048576,
           "maxOutput": 32768,
           "free": true,
           "permanent": true,
@@ -193,6 +193,30 @@
           "reasoning": true,
           "coding": true,
           "speed": "very_fast"
+        },
+        {
+          "id": "gemini-3.5-flash",
+          "alias": "gemini-3-5-flash-google_ai_studio",
+          "name": "Gemini 3.5 Flash",
+          "contextWindow": 1048576,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "gemini-3-flash-preview",
+          "alias": "gemini-3-flash-preview-google_ai_studio",
+          "name": "Gemini 3 Flash Preview",
+          "contextWindow": 1048576,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "gemini-3.1-flash-lite-preview",
+          "alias": "gemini-3-1-flash-lite-preview-google_ai_studio",
+          "name": "Gemini 3.1 Flash-Lite Preview",
+          "contextWindow": 1048576,
+          "maxOutput": 4096,
+          "free": true
         }
       ],
       "signupRequirements": {
@@ -218,7 +242,7 @@
           "id": "mistral-large-latest",
           "alias": "mistral-large-3",
           "name": "Mistral Large 3",
-          "contextWindow": 128000,
+          "contextWindow": 262144,
           "maxOutput": 32768,
           "free": true
         },
@@ -226,7 +250,7 @@
           "id": "mistral-small-latest",
           "alias": "mistral-small-3.1",
           "name": "Mistral Small 3.1",
-          "contextWindow": 128000,
+          "contextWindow": 262144,
           "maxOutput": 32768,
           "free": true
         },
@@ -234,7 +258,7 @@
           "id": "ministral-8b-latest",
           "alias": "ministral-8b",
           "name": "Ministral 8B",
-          "contextWindow": 128000,
+          "contextWindow": 262144,
           "maxOutput": 32768,
           "free": true
         },
@@ -242,8 +266,32 @@
           "id": "codestral-latest",
           "alias": "codestral",
           "name": "Codestral",
-          "contextWindow": 32000,
+          "contextWindow": 256000,
           "maxOutput": 32768,
+          "free": true
+        },
+        {
+          "id": "mistral-medium-latest",
+          "alias": "mistral-medium-latest-mistral",
+          "name": "Mistral Medium 3.5",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "devstral-latest",
+          "alias": "devstral-latest-mistral",
+          "name": "Devstral",
+          "contextWindow": 262144,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "magistral-medium-latest",
+          "alias": "magistral-medium-latest-mistral",
+          "name": "Magistral Medium",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
           "free": true
         }
       ],
@@ -298,6 +346,38 @@
           "contextWindow": 128000,
           "maxOutput": 4096,
           "free": true
+        },
+        {
+          "id": "command-a-reasoning-08-2025",
+          "alias": "command-a-reasoning-08-2025-cohere",
+          "name": "Command A Reasoning (08-2025)",
+          "contextWindow": 256000,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "command-r-08-2024",
+          "alias": "command-r-08-2024-cohere",
+          "name": "Command R (08-2024)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "command-a-03-2025",
+          "alias": "command-a-03-2025-cohere",
+          "name": "Command-A (03-2025)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "command-r-plus-08-2024",
+          "alias": "command-r-plus-08-2024-cohere",
+          "name": "Command R+ (08-2024)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
         }
       ],
       "signupRequirements": {
@@ -331,7 +411,7 @@
           "id": "Meta-Llama-3.3-70B-Instruct",
           "alias": "llama-3-3-70b-sambanova",
           "name": "Llama 3.3 70B Instruct (SambaNova)",
-          "contextWindow": 131072,
+          "contextWindow": 8192,
           "maxOutput": 8192,
           "free": true
         },
@@ -341,6 +421,46 @@
           "name": "Llama 3.1 8B Instruct (SambaNova)",
           "contextWindow": 131072,
           "maxOutput": 8192,
+          "free": true
+        },
+        {
+          "id": "DeepSeek-V3.2",
+          "alias": "deepseek-v3-2-sambanova",
+          "name": "DeepSeek V3.2",
+          "contextWindow": 32768,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "DeepSeek-V3.1",
+          "alias": "deepseek-v3-1-sambanova",
+          "name": "DeepSeek V3.1",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "gpt-oss-120b",
+          "alias": "gpt-oss-120b-sambanova",
+          "name": "GPT-OSS 120B (SambaNova)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "Llama-4-Maverick-17B-128E-Instruct",
+          "alias": "llama-4-maverick-17b-128e-instruct-sambanova",
+          "name": "Llama 4 Maverick",
+          "contextWindow": 8192,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "gemma-3-12b-it",
+          "alias": "gemma-3-12b-it-sambanova",
+          "name": "Gemma 3 12B (SambaNova)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
           "free": true
         }
       ],
@@ -369,7 +489,7 @@
           "id": "llama-3.3-70b-versatile",
           "alias": "llama-3-3-70b",
           "name": "Llama 3.3 70B Versatile",
-          "contextWindow": 128000,
+          "contextWindow": 131072,
           "maxOutput": 32768,
           "free": true,
           "permanent": true,
@@ -403,6 +523,70 @@
           "coding": true,
           "speed": "fast",
           "notes": "Reasoning model on Groq. Good for complex tasks."
+        },
+        {
+          "id": "groq/compound",
+          "alias": "groq-compound-groq",
+          "name": "Compound (Groq)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "openai/gpt-oss-120b",
+          "alias": "openai-gpt-oss-120b-groq",
+          "name": "GPT-OSS 120B (Groq)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "meta-llama/llama-4-scout-17b-16e-instruct",
+          "alias": "meta-llama-llama-4-scout-17b-16e-instruct-groq",
+          "name": "Llama 4 Scout",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "groq/compound-mini",
+          "alias": "groq-compound-mini-groq",
+          "name": "Compound Mini (Groq)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "openai/gpt-oss-20b",
+          "alias": "openai-gpt-oss-20b-groq",
+          "name": "GPT-OSS 20B (Groq)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "openai/gpt-oss-safeguard-20b",
+          "alias": "openai-gpt-oss-safeguard-20b-groq",
+          "name": "GPT-OSS Safeguard 20B (Groq)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "qwen/qwen3-32b",
+          "alias": "qwen-qwen3-32b-groq",
+          "name": "Qwen3 32B (Groq)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "llama-3.1-8b-instant",
+          "alias": "llama-3-1-8b-instant-groq",
+          "name": "Llama 3.1 8B Instant",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
         }
       ],
       "signupRequirements": {
@@ -429,7 +613,7 @@
           "id": "@cf/moonshotai/kimi-k2.6",
           "alias": "kimi-k2-6",
           "name": "Kimi K2.6",
-          "contextWindow": 262000,
+          "contextWindow": 262144,
           "maxOutput": 65536,
           "free": true,
           "permanent": true,
@@ -456,7 +640,7 @@
           "id": "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
           "alias": "deepseek-r1-cf",
           "name": "DeepSeek R1 Distill Qwen 32B",
-          "contextWindow": 128000,
+          "contextWindow": 131072,
           "maxOutput": 32768,
           "free": true,
           "permanent": true,
@@ -469,7 +653,7 @@
           "id": "@cf/meta/llama-4-scout-17b-16e-instruct",
           "alias": "llama-4-scout-cf",
           "name": "Llama 4 Scout",
-          "contextWindow": 512000,
+          "contextWindow": 131072,
           "maxOutput": 16384,
           "free": true,
           "permanent": true,
@@ -477,6 +661,62 @@
           "coding": true,
           "speed": "very_fast",
           "notes": "512K context on Cloudflare edge."
+        },
+        {
+          "id": "@cf/openai/gpt-oss-120b",
+          "alias": "cf-openai-gpt-oss-120b-cloudflare_workers_ai",
+          "name": "GPT-OSS 120B (CF)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "@cf/qwen/qwen3-30b-a3b-fp8",
+          "alias": "cf-qwen-qwen3-30b-a3b-fp8-cloudflare_workers_ai",
+          "name": "Qwen3 30B-A3B fp8 (CF)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "@cf/nvidia/nemotron-3-120b-a12b",
+          "alias": "cf-nvidia-nemotron-3-120b-a12b-cloudflare_workers_ai",
+          "name": "Nemotron 3 120B (CF)",
+          "contextWindow": 262144,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "@cf/zai-org/glm-4.7-flash",
+          "alias": "cf-zai-org-glm-4-7-flash-cloudflare_workers_ai",
+          "name": "GLM-4.7 Flash (CF)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+          "alias": "cf-meta-llama-3-3-70b-instruct-fp8-fast-cloudflare_workers_ai",
+          "name": "Llama 3.3 70B fp8-fast (CF)",
+          "contextWindow": 24000,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "@cf/google/gemma-4-26b-a4b-it",
+          "alias": "cf-google-gemma-4-26b-a4b-it-cloudflare_workers_ai",
+          "name": "Gemma 4 26B-A4B it (CF)",
+          "contextWindow": 262144,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "@cf/ibm-granite/granite-4.0-h-micro",
+          "alias": "cf-ibm-granite-granite-4-0-h-micro-cloudflare_workers_ai",
+          "name": "Granite 4.0 H Micro (CF)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
         }
       ],
       "signupRequirements": {
@@ -549,7 +789,7 @@
           "id": "google/gemma-4-26b-a4b-it:free",
           "alias": "gemma-4-26b-or",
           "name": "Gemma 4 26B A4B (free)",
-          "contextWindow": 1000000,
+          "contextWindow": 262144,
           "maxOutput": 65536,
           "free": true,
           "permanent": false,
@@ -562,7 +802,7 @@
           "id": "google/gemma-4-31b-it:free",
           "alias": "gemma-4-31b-or",
           "name": "Gemma 4 31B (free)",
-          "contextWindow": 1000000,
+          "contextWindow": 262144,
           "maxOutput": 65536,
           "free": true,
           "permanent": false,
@@ -574,7 +814,7 @@
           "id": "meta-llama/llama-3.3-70b-instruct:free",
           "alias": "llama-3-3-70b-or",
           "name": "Llama 3.3 70B Instruct (free)",
-          "contextWindow": 128000,
+          "contextWindow": 131072,
           "maxOutput": 4096,
           "free": true,
           "permanent": false,
@@ -586,7 +826,7 @@
           "id": "qwen/qwen3-coder:free",
           "alias": "qwen3-coder-or",
           "name": "Qwen 3 Coder 480B (free)",
-          "contextWindow": 128000,
+          "contextWindow": 1048576,
           "maxOutput": 8192,
           "free": true,
           "permanent": false,
@@ -598,13 +838,141 @@
           "id": "nousresearch/hermes-3-llama-3.1-405b:free",
           "alias": "hermes-3-405b-or",
           "name": "Hermes 3 Llama 3.1 405B (free)",
-          "contextWindow": 128000,
+          "contextWindow": 131072,
           "maxOutput": 8192,
           "free": true,
           "permanent": false,
           "reasoning": true,
           "coding": true,
           "speed": "medium"
+        },
+        {
+          "id": "minimax/minimax-m2.5:free",
+          "alias": "minimax-minimax-m2-5-free-openrouter",
+          "name": "MiniMax M2.5 (free)",
+          "contextWindow": 196608,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "qwen/qwen3-next-80b-a3b-instruct:free",
+          "alias": "qwen-qwen3-next-80b-a3b-instruct-free-openrouter",
+          "name": "Qwen3-Next 80B (free)",
+          "contextWindow": 262144,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "arcee-ai/trinity-large-thinking:free",
+          "alias": "arcee-ai-trinity-large-thinking-free-openrouter",
+          "name": "Trinity Large Thinking (free)",
+          "contextWindow": 262144,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "openrouter/owl-alpha",
+          "alias": "openrouter-owl-alpha-openrouter",
+          "name": "Owl Alpha (OR-house)",
+          "contextWindow": 1048576,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "baidu/cobuddy:free",
+          "alias": "baidu-cobuddy-free-openrouter",
+          "name": "CoBuddy (free)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "openai/gpt-oss-120b:free",
+          "alias": "openai-gpt-oss-120b-free-openrouter",
+          "name": "GPT-OSS 120B (free)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "z-ai/glm-4.5-air:free",
+          "alias": "z-ai-glm-4-5-air-free-openrouter",
+          "name": "GLM-4.5 Air (free)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "poolside/laguna-m.1:free",
+          "alias": "poolside-laguna-m-1-free-openrouter",
+          "name": "Poolside Laguna M.1 (free)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "openai/gpt-oss-20b:free",
+          "alias": "openai-gpt-oss-20b-free-openrouter",
+          "name": "GPT-OSS 20B (free)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "nvidia/nemotron-3-super-120b-a12b:free",
+          "alias": "nvidia-nemotron-3-super-120b-a12b-free-openrouter",
+          "name": "Nemotron 3 Super 120B (free)",
+          "contextWindow": 1000000,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "nvidia/nemotron-3-nano-30b-a3b:free",
+          "alias": "nvidia-nemotron-3-nano-30b-a3b-free-openrouter",
+          "name": "Nemotron 3 Nano 30B (free)",
+          "contextWindow": 262144,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+          "alias": "nvidia-nemotron-3-nano-omni-30b-a3b-reasoning-free-openrouter",
+          "name": "Nemotron 3 Nano 30B Reasoning (free)",
+          "contextWindow": 262144,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "poolside/laguna-xs.2:free",
+          "alias": "poolside-laguna-xs-2-free-openrouter",
+          "name": "Poolside Laguna XS.2 (free)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "nvidia/nemotron-nano-9b-v2:free",
+          "alias": "nvidia-nemotron-nano-9b-v2-free-openrouter",
+          "name": "Nemotron Nano 9B v2 (free)",
+          "contextWindow": 128000,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "liquid/lfm-2.5-1.2b-instruct:free",
+          "alias": "liquid-lfm-2-5-1-2b-instruct-free-openrouter",
+          "name": "Liquid LFM 2.5 1.2B (free)",
+          "contextWindow": 32768,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "liquid/lfm-2.5-1.2b-thinking:free",
+          "alias": "liquid-lfm-2-5-1-2b-thinking-free-openrouter",
+          "name": "Liquid LFM 2.5 1.2B Thinking (free)",
+          "contextWindow": 32768,
+          "maxOutput": 4096,
+          "free": true
         }
       ],
       "signupRequirements": {
@@ -651,6 +1019,14 @@
           "coding": true,
           "speed": "ultra_fast",
           "notes": "Higher context than Llama 3.3 on Cerebras free tier."
+        },
+        {
+          "id": "gpt-oss-120b",
+          "alias": "gpt-oss-120b-cerebras",
+          "name": "GPT-OSS 120B (Cerebras)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
         }
       ],
       "signupRequirements": {
@@ -709,6 +1085,110 @@
           "coding": true,
           "speed": "fast",
           "notes": "MoE 120B/12B active. Strong complex tasks."
+        },
+        {
+          "id": "qwen/qwen3-coder-480b-a35b-instruct",
+          "alias": "qwen-qwen3-coder-480b-a35b-instruct-nvidia_nim",
+          "name": "Qwen3-Coder 480B (NV)",
+          "contextWindow": 262144,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "deepseek-ai/deepseek-v4-pro",
+          "alias": "deepseek-ai-deepseek-v4-pro-nvidia_nim",
+          "name": "DeepSeek V4 Pro (NV)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "minimaxai/minimax-m2.7",
+          "alias": "minimaxai-minimax-m2-7-nvidia_nim",
+          "name": "MiniMax M2.7 (NV)",
+          "contextWindow": 196608,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "mistralai/mistral-large-3-675b-instruct-2512",
+          "alias": "mistralai-mistral-large-3-675b-instruct-2512-nvidia_nim",
+          "name": "Mistral Large 3 675B (NV)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "moonshotai/kimi-k2.6",
+          "alias": "moonshotai-kimi-k2-6-nvidia_nim",
+          "name": "Kimi K2.6 (NV)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "deepseek-ai/deepseek-v4-flash",
+          "alias": "deepseek-ai-deepseek-v4-flash-nvidia_nim",
+          "name": "DeepSeek V4 Flash (NV)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "z-ai/glm-5.1",
+          "alias": "z-ai-glm-5-1-nvidia_nim",
+          "name": "GLM-5.1 (NV, slow cold-start)",
+          "contextWindow": 200000,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "meta/llama-4-maverick-17b-128e-instruct",
+          "alias": "meta-llama-4-maverick-17b-128e-instruct-nvidia_nim",
+          "name": "Llama 4 Maverick (NV)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "meta/llama-3.1-70b-instruct",
+          "alias": "meta-llama-3-1-70b-instruct-nvidia_nim",
+          "name": "Llama 3.1 70B (NV)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "meta/llama-3.3-70b-instruct",
+          "alias": "meta-llama-3-3-70b-instruct-nvidia_nim",
+          "name": "Llama 3.3 70B (NV)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "google/gemma-4-31b-it",
+          "alias": "google-gemma-4-31b-it-nvidia_nim",
+          "name": "Gemma 4 31B (NV)",
+          "contextWindow": 262144,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "nvidia/nemotron-3-nano-30b-a3b",
+          "alias": "nvidia-nemotron-3-nano-30b-a3b-nvidia_nim",
+          "name": "Nemotron 3 Nano 30B (NV)",
+          "contextWindow": 262144,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "nvidia/nemotron-3-super-120b-a12b",
+          "alias": "nvidia-nemotron-3-super-120b-a12b-nvidia_nim",
+          "name": "Nemotron 3 Super 120B (NV)",
+          "contextWindow": 262144,
+          "maxOutput": 4096,
+          "free": true
         }
       ],
       "signupRequirements": {
@@ -754,6 +1234,22 @@
           "coding": true,
           "speed": "fast",
           "notes": "Standard GitHub Models limit: 4K out."
+        },
+        {
+          "id": "openai/gpt-4.1",
+          "alias": "openai-gpt-4-1-github_models",
+          "name": "GPT-4.1 (GitHub)",
+          "contextWindow": 128000,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "gpt-4o",
+          "alias": "gpt-4o-github_models",
+          "name": "GPT-4o",
+          "contextWindow": 8000,
+          "maxOutput": 4096,
+          "free": true
         }
       ],
       "signupRequirements": {
@@ -810,7 +1306,7 @@
           "id": "nvidia/nemotron-3-super-120b-a12b:free",
           "alias": "nemotron-3-super-kilo",
           "name": "Nemotron 3 Super (free)",
-          "contextWindow": 128000,
+          "contextWindow": 262144,
           "maxOutput": 8192,
           "free": true
         },
@@ -866,12 +1362,12 @@
     },
     "huggingface": {
       "name": "Hugging Face Serverless",
-      "baseUrl": "https://api-inference.huggingface.co/v1",
+      "baseUrl": "https://router.huggingface.co/v1",
       "authHeader": "Authorization",
       "authPrefix": "Bearer",
       "openaiCompatible": true,
       "signup": "https://huggingface.co/settings/tokens",
-      "notes": "Free serverless inference API using Hugging Face User Access Tokens.",
+      "notes": "HuggingFace Router meta-router using each backend's native protocol.",
       "rateLimits": {
         "notes": "Rate limited based on model congestion and usage quotas."
       },
@@ -898,6 +1394,30 @@
           "name": "Qwen 2.5 72B Instruct (HF)",
           "contextWindow": 128000,
           "maxOutput": 8192,
+          "free": true
+        },
+        {
+          "id": "Qwen/Qwen3-Coder-Next",
+          "alias": "qwen-qwen3-coder-next-huggingface",
+          "name": "Qwen3-Coder Next (HF)",
+          "contextWindow": 262144,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "moonshotai/Kimi-K2.6",
+          "alias": "moonshotai-kimi-k2-6-huggingface",
+          "name": "Kimi K2.6 (HF)",
+          "contextWindow": 262144,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "deepseek-ai/DeepSeek-V4-Flash",
+          "alias": "deepseek-ai-deepseek-v4-flash-huggingface",
+          "name": "DeepSeek V4 Flash (HF)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
           "free": true
         }
       ],
@@ -1149,6 +1669,175 @@
         "cardRequired": false,
         "phoneRequired": false,
         "freeTier": false
+      }
+    },
+    "llm7": {
+      "name": "LLM7",
+      "baseUrl": "https://api.llm7.io/v1",
+      "authHeader": "Authorization",
+      "authPrefix": "Bearer",
+      "openaiCompatible": true,
+      "signup": "https://llm7.io",
+      "notes": "100 req/hr free.",
+      "rateLimits": {
+        "notes": "100 requests per hour limit."
+      },
+      "models": [
+        {
+          "id": "GLM-4.6V-Flash",
+          "alias": "glm-4-6v-flash-llm7",
+          "name": "GLM-4.6V Flash (LLM7)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "codestral-latest",
+          "alias": "codestral-latest-llm7",
+          "name": "Codestral (LLM7)",
+          "contextWindow": 32000,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "gpt-oss-20b",
+          "alias": "gpt-oss-20b-llm7",
+          "name": "GPT-OSS 20B (LLM7)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+          "alias": "meta-llama-meta-llama-3-1-8b-instruct-turbo-llm7",
+          "name": "Llama 3.1 8B Turbo (LLM7)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "ministral-8b-2512",
+          "alias": "ministral-8b-2512-llm7",
+          "name": "Ministral 8B (LLM7)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        }
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
+    },
+    "ollama": {
+      "name": "Ollama Cloud",
+      "baseUrl": "https://ollama.com/v1",
+      "authHeader": "Authorization",
+      "authPrefix": "Bearer",
+      "openaiCompatible": true,
+      "signup": "https://ollama.com",
+      "notes": "GPU-time based quota, 5h session caps.",
+      "rateLimits": {
+        "notes": "1 concurrent model."
+      },
+      "models": [
+        {
+          "id": "qwen3-coder:480b",
+          "alias": "qwen3-coder-480b-ollama",
+          "name": "Qwen3-Coder 480B (Ollama)",
+          "contextWindow": 262144,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "qwen3-coder-next",
+          "alias": "qwen3-coder-next-ollama",
+          "name": "Qwen3-Coder Next (Ollama)",
+          "contextWindow": 262144,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "cogito-2.1:671b",
+          "alias": "cogito-2-1-671b-ollama",
+          "name": "Cogito 2.1 671B (Ollama)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "glm-4.7",
+          "alias": "glm-4-7-ollama",
+          "name": "GLM-4.7 (Ollama)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "gpt-oss:120b",
+          "alias": "gpt-oss-120b-ollama",
+          "name": "GPT-OSS 120B (Ollama)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "devstral-2:123b",
+          "alias": "devstral-2-123b-ollama",
+          "name": "Devstral 2 123B (Ollama)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "gpt-oss:20b",
+          "alias": "gpt-oss-20b-ollama",
+          "name": "GPT-OSS 20B (Ollama)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        },
+        {
+          "id": "gemma4:31b",
+          "alias": "gemma4-31b-ollama",
+          "name": "Gemma 4 31B (Ollama)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        }
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
+      }
+    },
+    "pollinations": {
+      "name": "Pollinations",
+      "baseUrl": "https://text.pollinations.ai/openai/v1",
+      "authHeader": "Authorization",
+      "authPrefix": "Bearer",
+      "openaiCompatible": true,
+      "signup": "https://pollinations.ai",
+      "notes": "Anonymous free tier.",
+      "rateLimits": {
+        "notes": "Generous anonymous limits."
+      },
+      "models": [
+        {
+          "id": "openai-fast",
+          "alias": "openai-fast-pollinations",
+          "name": "GPT-OSS 20B (Pollinations)",
+          "contextWindow": 131072,
+          "maxOutput": 4096,
+          "free": true
+        }
+      ],
+      "signupRequirements": {
+        "cardRequired": false,
+        "phoneRequired": false,
+        "freeTier": true
       }
     }
   }
