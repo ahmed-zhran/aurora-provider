@@ -1241,6 +1241,17 @@ async function attemptRequest(providerName, modelId, body, forcedKeyIndex = null
   };
 
   const payload = { ...body, model: modelId };
+  if (Array.isArray(payload.messages)) {
+    payload.messages = payload.messages.map(msg => {
+      if (msg && typeof msg === "object") {
+        const cleaned = { ...msg };
+        delete cleaned.reasoning_content;
+        delete cleaned.reasoning;
+        return cleaned;
+      }
+      return msg;
+    });
+  }
 
   const maxProxyRetries = 3;
   let attempts = 0;
