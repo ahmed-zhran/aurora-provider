@@ -739,16 +739,23 @@ async function updateStepModelsDropdown() {
   try {
     const res = await fetchJSON(`/api/providers/${providerKey}/models`);
     const models = res.models || [];
-        const freeModels = models.filter(m => m.markFree);
-        select.innerHTML = '';
-        if (freeModels.length === 0) {
-          select.innerHTML = '<option value="" disabled selected>No free models found</option>';
-          select.disabled = true;
-          return;
-        }
-        
-        let foundFree = false;
-        freeModels.forEach(model => {
+    const freeModels = models.filter(m => m.markFree);
+    modelSelect.innerHTML = '';
+    if (freeModels.length === 0) {
+      modelSelect.innerHTML = '<option value="" disabled selected>No free models found</option>';
+      modelSelect.disabled = true;
+      return;
+    }
+    
+    // Add placeholder option
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    placeholder.textContent = 'Select model...';
+    modelSelect.appendChild(placeholder);
+
+    freeModels.forEach(model => {
       const opt = document.createElement('option');
       opt.value = model.id;
 
@@ -765,6 +772,8 @@ async function updateStepModelsDropdown() {
       opt.textContent = `${model.name || model.id} ${freeStr} ${contextStr}`;
       modelSelect.appendChild(opt);
     });
+
+    modelSelect.disabled = false;
   } catch (err) {
     modelSelect.innerHTML = '<option value="" disabled selected>Error loading models</option>';
     modelSelect.disabled = true;
@@ -2054,6 +2063,16 @@ async function loadProxyRefreshHistory() {
         dot.style.boxShadow = '0 0 6px var(--color-warning)';
         statusSpan.appendChild(dot);
         statusSpan.appendChild(document.createTextNode('running'));
+      } else if (log.status === 'failed/interrupted' || log.status === 'failed') {
+        statusSpan.className = 'text-danger';
+        statusSpan.style.display = 'inline-flex';
+        statusSpan.style.alignItems = 'center';
+        statusSpan.style.gap = '4px';
+        
+        const dot = document.createElement('span');
+        dot.className = 'status-indicator offline';
+        statusSpan.appendChild(dot);
+        statusSpan.appendChild(document.createTextNode(log.status));
       } else {
         statusSpan.className = 'text-success';
         statusSpan.style.display = 'inline-flex';

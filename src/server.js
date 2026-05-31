@@ -187,7 +187,8 @@ const stmts = {
   `),
   updateProxyRefreshProgress: db.prepare(`
     UPDATE proxy_refresh_logs
-    SET harvested_count = ?,
+    SET status = ?,
+        harvested_count = ?,
         tested_count = ?,
         passed_anomality_stage_count = ?
     WHERE id = ?
