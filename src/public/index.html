@@ -4,22 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Aurora-Provider Dashboard</title>
-  <link rel="stylesheet" href="index.css?v=1.0.1">
+  <link rel="stylesheet" href="index.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <div class="glass-bg"></div>
-  
+
   <div class="container">
     <!-- Header -->
     <header class="app-header">
       <div class="logo-area">
         <div class="glow-dot"></div>
         <h1>Aurora-Provider</h1>
-        <span class="version-tag">v1.0.0</span>
+        <span class="version-tag">v2.0.0</span>
       </div>
       <div class="server-stats">
         <div class="theme-picker-wrapper" id="theme-picker-wrapper">
@@ -35,58 +34,49 @@
     <!-- Navigation Tabs -->
     <nav class="tabs-nav">
       <button class="tab-btn active" data-tab="tab-dashboard">Dashboard</button>
-      <button class="tab-btn" data-tab="tab-tester">API Tester</button>
       <button class="tab-btn" data-tab="tab-auras">Aura Hub</button>
-      <button class="tab-btn" data-tab="tab-keys">API Keys & Health</button>
-      <button class="tab-btn" data-tab="tab-proxies">Proxy Pool</button>
-      <button class="tab-btn" data-tab="tab-providers">Provider Config</button>
-      <button class="tab-btn" data-tab="tab-supported-providers">Supported Providers</button>
     </nav>
 
-    <!-- Main Content Area -->
+    <!-- Main Content -->
     <main class="main-content">
-      
+
       <!-- TAB 1: Dashboard -->
       <section id="tab-dashboard" class="tab-pane active">
-        <!-- Global Filters at the Top -->
-        <div class="card glass filters-card" style="margin-bottom: 1.5rem;">
-          <h2>Global Filters</h2>
-          <div class="filters-grid" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
-            <div class="form-group" style="flex: 1 1 140px; margin-bottom: 0;">
+        <!-- Metrics -->
+        <div class="metrics-row">
+          <div class="metric-card glass">
+            <span class="stat-label">Total Requests</span>
+            <span class="metric-value" id="stats-total-requests">0</span>
+          </div>
+          <div class="metric-card glass">
+            <span class="stat-label">Success Rate</span>
+            <span class="metric-value" id="stats-success-rate">0%</span>
+          </div>
+          <div class="metric-card glass">
+            <span class="stat-label">Avg Latency</span>
+            <span class="metric-value" id="stats-avg-latency">0ms</span>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="card glass" style="margin-bottom: 1.5rem;">
+          <h2>Filters</h2>
+          <div class="filters-grid">
+            <div class="form-group">
               <label for="filter-start-date">Start Date</label>
               <input type="date" id="filter-start-date" class="form-input">
             </div>
-            <div class="form-group" style="flex: 1 1 140px; margin-bottom: 0;">
+            <div class="form-group">
               <label for="filter-end-date">End Date</label>
               <input type="date" id="filter-end-date" class="form-input">
             </div>
-            <div class="form-group" style="flex: 1 1 140px; margin-bottom: 0;">
+            <div class="form-group">
               <label for="filter-aura">Aura</label>
               <select id="filter-aura" class="form-select">
                 <option value="">All Auras</option>
               </select>
             </div>
-            <div class="form-group" style="flex: 1 1 140px; margin-bottom: 0;">
-              <label for="filter-provider">Provider</label>
-              <select id="filter-provider" class="form-select">
-                <option value="">All Providers</option>
-              </select>
-            </div>
-            <div class="form-group" style="flex: 1 1 140px; margin-bottom: 0;">
-              <label for="filter-host">Request Host</label>
-              <select id="filter-host" class="form-select">
-                <option value="">All Hosts</option>
-              </select>
-            </div>
-            <div class="form-group" style="flex: 1 1 100px; margin-bottom: 0;">
-              <label for="filter-source">Source</label>
-              <select id="filter-source" class="form-select">
-                <option value="">All Sources</option>
-                <option value="API">API</option>
-                <option value="Testing">Testing</option>
-              </select>
-            </div>
-            <div class="form-group" style="flex: 1 1 100px; margin-bottom: 0;">
+            <div class="form-group">
               <label for="filter-status">Status</label>
               <select id="filter-status" class="form-select">
                 <option value="">All</option>
@@ -94,141 +84,53 @@
                 <option value="Error">Error</option>
               </select>
             </div>
-            <div style="flex: 1 1 120px;">
-              <button class="btn btn-primary" id="apply-filters-btn" style="width: 100%; padding: 0.6rem;">Apply Filters</button>
+            <div>
+              <button class="btn btn-primary" id="apply-filters-btn">Apply</button>
             </div>
           </div>
         </div>
 
-        <!-- Metrics Row -->
-        <div class="metrics-row" style="display: flex; gap: 1.5rem; margin-bottom: 1.5rem;">
-          <div class="metric-card glass" style="flex: 1; padding: 1.25rem; background: var(--color-card-bg); border: 1px solid var(--color-card-border); border-radius: var(--border-radius-lg); text-align: center; box-shadow: var(--shadow-premium);">
-            <span class="stat-label" style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 0.25rem;">Total Requests</span>
-            <span class="metric-value" id="stats-total-requests" style="font-size: 2rem; font-weight: 700; color: var(--color-text-main);">0</span>
+        <!-- Usage Logs Table -->
+        <div class="card glass">
+          <div class="card-header-actions">
+            <h2>Usage Logs</h2>
+            <button class="btn btn-danger btn-sm" id="clear-logs-btn">Clear Logs</button>
           </div>
-          <div class="metric-card glass" style="flex: 1; padding: 1.25rem; background: var(--color-card-bg); border: 1px solid var(--color-card-border); border-radius: var(--border-radius-lg); text-align: center; box-shadow: var(--shadow-premium);">
-            <span class="stat-label" style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 0.25rem;">Success Rate</span>
-            <span class="metric-value" id="stats-success-rate" style="font-size: 2rem; font-weight: 700; color: var(--color-success);">0%</span>
-          </div>
-          <div class="metric-card glass" style="flex: 1; padding: 1.25rem; background: var(--color-card-bg); border: 1px solid var(--color-card-border); border-radius: var(--border-radius-lg); text-align: center; box-shadow: var(--shadow-premium);">
-            <span class="stat-label" style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 0.25rem;">Avg Latency</span>
-            <span class="metric-value" id="stats-avg-latency" style="font-size: 2rem; font-weight: 700; color: var(--color-primary);">0ms</span>
-          </div>
-          <div class="metric-card glass" style="flex: 1; padding: 1.25rem; background: var(--color-card-bg); border: 1px solid var(--color-card-border); border-radius: var(--border-radius-lg); text-align: center; box-shadow: var(--shadow-premium);">
-            <span class="stat-label" style="display: block; font-size: 0.75rem; text-transform: uppercase; color: var(--color-text-muted); margin-bottom: 0.25rem;">Total Tokens</span>
-            <span class="metric-value" id="stats-total-tokens" style="font-size: 2rem; font-weight: 700; color: var(--color-warning);">0</span>
-          </div>
-        </div>
-
-        <!-- Charts Row -->
-        <div class="charts-row" style="display: flex; gap: 1.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
-          <div class="card glass chart-card" style="flex: 2 1 600px; min-height: 280px; margin-bottom: 0;">
-            <h2>Requests Over Time</h2>
-            <div class="chart-container" style="position: relative; height: 220px; width: 100%;">
-              <canvas id="chart-requests-time"></canvas>
-            </div>
-          </div>
-          <div class="card glass chart-card" style="flex: 1 1 250px; min-height: 280px; margin-bottom: 0;">
-            <h2>Provider Distribution</h2>
-            <div class="chart-container" style="position: relative; height: 220px; width: 100%;">
-              <canvas id="chart-providers-pie"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <!-- Logs Table -->
-        <div class="card glass" style="margin-bottom: 0;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h2 style="margin: 0;">Usage Request Logs</h2>
-            <button class="btn btn-danger btn-sm" id="clear-request-logs-btn" style="padding: 0.35rem 0.75rem;">Clear Request Logs</button>
-          </div>
-          <div class="table-container" style="overflow-x: auto; margin-top: 0.5rem; max-height: 400px;">
-            <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
+          <div class="table-container">
+            <table class="proxy-table">
               <thead>
-                <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
-                  <th style="padding: 8px;">Timestamp</th>
-                  <th style="padding: 8px;">Request Host</th>
-                  <th style="padding: 8px;">Source</th>
-                  <th style="padding: 8px;">Aura</th>
-                  <th style="padding: 8px;">Provider</th>
-                  <th style="padding: 8px;">Model</th>
-                  <th style="padding: 8px; text-align: right;">Tokens</th>
-                  <th style="padding: 8px;">Key</th>
-                  <th style="padding: 8px;">Masked IP</th>
-                  <th style="padding: 8px;">Status</th>
-                  <th style="padding: 8px; text-align: right;">Latency</th>
-                  <th style="padding: 8px; text-align: center;">Details</th>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Aura</th>
+                  <th>Model</th>
+                  <th>Status</th>
+                  <th>Latency</th>
+                  <th>Error</th>
                 </tr>
               </thead>
-              <tbody id="usage-logs-tbody">
-                <!-- Populated dynamically -->
+              <tbody id="logs-tbody">
+                <tr><td colspan="6" style="text-align:center;color:var(--color-text-muted);">No logs yet.</td></tr>
               </tbody>
             </table>
           </div>
-          <!-- Pagination -->
-          <div class="pagination-controls" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1rem;">
+          <div class="pagination-controls">
             <button class="btn btn-secondary btn-sm" id="prev-page-btn" disabled>Previous</button>
-            <span id="pagination-info" style="font-size: 0.8rem; color: var(--color-text-muted);">Page 1 of 1</span>
+            <span id="pagination-info" style="font-size:0.8rem;color:var(--color-text-muted);">Page 1 of 1</span>
             <button class="btn btn-secondary btn-sm" id="next-page-btn" disabled>Next</button>
           </div>
         </div>
       </section>
 
-      <!-- TAB 2: API Tester -->
-      <section id="tab-tester" class="tab-pane">
-        <div class="grid-layout">
-          <!-- Left: API Tester Settings -->
-          <div class="grid-col-left">
-            <div class="card glass" style="margin-bottom: 0;">
-              <h2>API Tester</h2>
-              <form id="api-test-form">
-                <div class="form-group">
-                  <label for="test-aura-select">Select Aura</label>
-                  <select id="test-aura-select" class="form-select" required>
-                    <option value="" disabled selected>Loading auras...</option>
-                  </select>
-                  <span class="error-text" id="aura-warning" style="display:none; color: var(--color-danger); margin-top: 5px;">No auras configured yet! Add an aura in the Aura Hub first.</span>
-                </div>
-                <div class="form-group">
-                  <label for="test-prompt">Prompt / Message</label>
-                  <textarea id="test-prompt" class="form-textarea" required placeholder="Type something to test..." style="min-height: 180px;">Write a hello world program in Python.</textarea>
-                </div>
-                <div class="form-row">
-                  <div class="form-group flex-row">
-                    <input type="checkbox" id="test-stream" checked>
-                    <label for="test-stream">Stream response</label>
-                  </div>
-                  <button type="submit" class="btn btn-primary" id="run-test-btn">Run Test</button>
-                </div>
-              </form>
-            </div>
-          </div>
-
-          <!-- Right: API Response (JSON) -->
-          <div class="grid-col-right">
-            <div class="card glass flex-fill" style="margin-bottom: 0; min-height: 480px;">
-              <div class="card-header-actions">
-                <h2>API Response (JSON)</h2>
-                <button class="btn-text-btn" id="clear-response-btn">Clear</button>
-              </div>
-              <div class="json-viewer-container" style="max-height: none; flex: 1;">
-                <pre id="json-response-output" class="json-output">Ready to test. Run a query on the left to see the full raw JSON response here.</pre>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-       <!-- TAB 3: Aura Hub -->
+      <!-- TAB 2: Aura Hub -->
       <section id="tab-auras" class="tab-pane">
         <div class="grid-layout">
-          <!-- Left Column: Auras List -->
           <div class="grid-col-left">
             <div class="card glass">
               <h2>Auras</h2>
-              <p class="description">Select an aura to edit, or create a new one.</p>
-              <div class="auras-list" id="auras-selector-container">
+              <p class="description">Manage your aura fallback chains. Each aura defines an ordered list of models to try via Bifrost.</p>
+              <div class="auras-list" id="auras-list">
                 <!-- Populated dynamically -->
+                <p class="text-muted" style="padding:1rem;text-align:center;">Loading auras...</p>
               </div>
               <div class="add-aura-row">
                 <input type="text" id="new-aura-name" placeholder="Aura name (e.g. coder)" class="form-input">
@@ -237,487 +139,79 @@
             </div>
           </div>
 
-          <!-- Right Column: Aura Settings -->
-          <div class="grid-col-right" id="aura-settings-card" style="display: none;">
+          <div class="grid-col-right" id="aura-detail-panel" style="display:none;">
             <div class="card glass">
               <div class="aura-title-row">
-                <h2 id="current-aura-title">Aura Settings: Coder</h2>
-                <div class="aura-actions">
-                  <button class="btn btn-secondary btn-sm" id="rename-aura-btn">Rename</button>
-                  <button class="btn btn-danger btn-sm" id="delete-aura-btn">Delete Aura</button>
-                </div>
+                <h2 id="current-aura-title">Aura: <span id="aura-detail-name"></span></h2>
+                <button class="btn btn-danger btn-sm" id="delete-aura-btn">Delete</button>
               </div>
-              <!-- Fallback Chain -->
-              <div class="fallback-section mt-4">
-                <h3>Fallback Chain Priority</h3>
-                <p class="description">Reorder items in the list. The server queries the first provider first, falling back downwards when keys are exhausted or errors occur.</p>
 
-                <div class="fallback-list-container" id="fallback-chain-list">
+              <div class="fallback-section">
+                <h3>Fallback Chain</h3>
+                <p class="description">Models are tried in order. If one fails, the next is attempted.</p>
+                <div id="fallback-chain-list" class="fallback-list-container">
                   <!-- Populated dynamically -->
                 </div>
 
-                <!-- Add Step Form -->
-                <div class="add-fallback-step card bg-dark mt-3" style="padding: 1rem;">
+                <div class="card bg-dark" style="padding:1rem;margin-top:1rem;">
                   <h4>Add Fallback Step</h4>
-                  <div class="add-step-fields" style="display: flex; gap: 1rem; align-items: flex-end;">
-                    <div class="form-group flex-1" style="margin-bottom: 0;">
-                      <label>Provider</label>
-                      <select id="step-provider-select" class="form-select">
-                        <option value="" disabled selected>Select provider</option>
-                      </select>
-                    </div>
-                    <div class="form-group flex-1" style="margin-bottom: 0;">
-                      <label>Model</label>
-                      <select id="step-model-select" class="form-select" disabled>
-                        <option value="" disabled selected>Select model</option>
-                      </select>
+                  <div class="form-row">
+                    <div class="form-group flex-1">
+                      <label>Model ID (Bifrost)</label>
+                      <input type="text" id="step-model-input" class="form-input" placeholder="e.g. mistral/mistral-medium-3-5">
                     </div>
                     <div>
-                      <button class="btn btn-primary" id="add-step-btn">Add Step</button>
+                      <button class="btn btn-primary" id="add-step-btn">Add</button>
                     </div>
                   </div>
+                  <p class="description" style="margin-top:0.5rem;">Enter the full model ID as configured in Bifrost (e.g. <code>openrouter/openrouter/owl-alpha</code>).</p>
                 </div>
 
-                <button class="btn btn-success mt-4" id="save-auras-btn">Save Auras Config</button>
+                <button class="btn btn-success" id="save-auras-btn" style="margin-top:1rem;">Save Changes</button>
               </div>
             </div>
           </div>
 
-          <div class="grid-col-right empty-aura-message" id="aura-settings-empty">
-            <div class="card glass flex-center" style="min-height: 400px; display: flex; justify-content: center; align-items: center;">
-              <p class="text-muted">Select an aura from the list to view and configure its fallback chain.</p>
+          <div class="grid-col-right" id="aura-detail-empty">
+            <div class="card glass" style="display:flex;justify-content:center;align-items:center;min-height:300px;">
+              <p class="text-muted">Select an aura from the list to view and edit its fallback chain.</p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB 4: API Keys & Health -->
-      <section id="tab-keys" class="tab-pane">
-        <div class="grid-layout">
-          <!-- Left Column: Provider Keys Health Grid -->
-          <div class="grid-col-left">
-            <div class="card glass">
-              <h2>Provider Keys Health</h2>
-              <p class="description">Live health status check (updated every 5 seconds). Red/orange dots represent keys in cooldown (rate-limited).</p>
-              <div class="provider-health-list" id="health-grid">
-                <div class="loading-spinner">Loading health status...</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Right Column: API Keys Editor -->
-          <div class="grid-col-right">
-            <div class="card glass">
-              <div class="card-header-actions">
-                <div>
-                  <h2>Provider API Keys</h2>
-                  <p class="description">Add one or multiple keys for each provider. Multiple keys are rotated on rate-limiting (429).</p>
-                </div>
-                <button class="btn btn-success" id="save-keys-btn">Save API Keys</button>
-              </div>
-              <div class="add-key-provider-section" style="display: flex; gap: 0.5rem; margin-top: 1rem; align-items: center; background: rgba(255,255,255,0.02); padding: 0.75rem; border-radius: var(--border-radius-sm); border: 1px solid var(--color-card-border);">
-                <span style="font-size: 0.85rem; font-weight: 500; color: var(--color-text-muted);">Configure credentials for provider:</span>
-                <select id="add-key-provider-select" class="form-select" style="flex: 1; max-width: 250px; margin: 0; padding: 0.35rem 0.5rem; font-size: 0.85rem;"></select>
-                <button class="btn btn-primary btn-sm" id="add-key-provider-btn" style="padding: 0.35rem 0.75rem;">Add Setup</button>
-              </div>
-              <div class="keys-grid-collapsible" id="keys-manager-container" style="display: flex; flex-direction: column; gap: 1rem; margin-top: 1rem;">
-                <!-- Populated dynamically with collapsible panels -->
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Keys Health Check Manual Tester -->
-        <div class="card glass" style="margin-top: 1.5rem;">
-          <div class="card-header-actions" style="margin-bottom: 1.25rem;">
-            <div>
-              <h2 style="margin: 0;">Keys Health Check</h2>
-              <p class="description">Manually run a health probe on any configured API key to check its status, credit balance, and connectivity.</p>
-            </div>
-            <button class="btn btn-secondary btn-sm" id="refresh-health-check-table-btn">Refresh List</button>
-          </div>
-          <div class="table-container" style="overflow-x: auto; max-height: 400px; margin-top: 1rem;">
-            <table class="proxy-table" style="width:100%; border-collapse:collapse; font-size:0.85rem; text-align:left;">
-              <thead>
-                <tr style="border-bottom:1px solid var(--color-card-border); color:var(--color-text-muted);">
-                  <th style="padding:8px; width: 120px;">Provider</th>
-                  <th style="padding:8px;">Key Name / Masked</th>
-                  <th style="padding:8px; width: 220px;">Model to Test</th>
-                  <th style="padding:8px; width: 120px; text-align:center;">Action</th>
-                  <th style="padding:8px; width: 200px;">Status</th>
-                </tr>
-              </thead>
-              <tbody id="keys-health-check-tbody">
-                <!-- Populated dynamically -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB 5: Proxy Pool -->
-      <section id="tab-proxies" class="tab-pane">
-        <!-- Row 1: Config & Analytics Grid -->
-        <div class="grid-layout" style="margin-bottom: 1.5rem;">
-          <div class="grid-col-left">
-            <div class="card glass" style="height: 100%; min-height: 180px;">
-              <h2>Proxy Configuration</h2>
-              <div class="form-group flex-row" style="margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.75rem;">
-                <label class="switch">
-                  <input type="checkbox" id="proxy-enable-toggle" checked>
-                  <span class="slider"></span>
-                </label>
-                <span style="font-size: 0.85rem; font-weight: 500; color: var(--color-text-muted); user-select: none;">Enable IP Masking (Proxy Pool)</span>
-              </div>
-              <div class="form-group">
-                <label for="proxy-latency-threshold-slider">Latency Threshold (ms)</label>
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                  <input type="range" id="proxy-latency-threshold-slider" min="100" max="5000" step="50" value="1500" style="flex: 1; accent-color: var(--color-primary);">
-                  <span id="proxy-latency-threshold-val" style="font-weight: 600; min-width: 60px;">1500ms</span>
-                </div>
-                <button class="btn btn-primary btn-sm mt-2" id="save-proxy-settings-btn" style="align-self: flex-start;">Save Settings</button>
-              </div>
-            </div>
-          </div>
-          <div class="grid-col-right">
-            <div class="card glass" style="height: 100%; min-height: 180px;">
-              <h2>Proxy Analytics</h2>
-              <p class="description">Performance metrics for IP masking and proxy routing.</p>
-              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-top: 1rem;">
-                <div class="analytics-stat-card" style="background: rgba(255,255,255,0.02); border: 1px solid var(--color-card-border); padding: 0.75rem; border-radius: var(--border-radius-sm); text-align: center;">
-                  <div style="font-size: 0.65rem; color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Masked Req</div>
-                  <div style="font-size: 1.25rem; font-weight: bold; margin-top: 0.25rem; color: var(--color-primary);" id="stat-masked-requests">0</div>
-                </div>
-                <div class="analytics-stat-card" style="background: rgba(255,255,255,0.02); border: 1px solid var(--color-card-border); padding: 0.75rem; border-radius: var(--border-radius-sm); text-align: center;">
-                  <div style="font-size: 0.65rem; color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Masked Ok</div>
-                  <div style="font-size: 1.25rem; font-weight: bold; margin-top: 0.25rem; color: var(--color-success);" id="stat-masked-success">0</div>
-                </div>
-                <div class="analytics-stat-card" style="background: rgba(255,255,255,0.02); border: 1px solid var(--color-card-border); padding: 0.75rem; border-radius: var(--border-radius-sm); text-align: center;">
-                  <div style="font-size: 0.65rem; color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Direct Req</div>
-                  <div style="font-size: 1.25rem; font-weight: bold; margin-top: 0.25rem; color: var(--color-text-muted);" id="stat-direct-requests">0</div>
-                </div>
-                <div class="analytics-stat-card" style="background: rgba(255,255,255,0.02); border: 1px solid var(--color-card-border); padding: 0.75rem; border-radius: var(--border-radius-sm); text-align: center;">
-                  <div style="font-size: 0.65rem; color: var(--color-text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Success Rate</div>
-                  <div style="font-size: 1.25rem; font-weight: bold; margin-top: 0.25rem; color: #a78bfa;" id="stat-masked-rate">0%</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Row 2: Active Pool Status (Full Width Main Table) -->
-        <div class="card glass" style="margin-bottom: 1.5rem;">
-          <div class="card-header-actions" style="margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <h2 style="margin: 0;">Active Pool Status</h2>
-              <p class="description">Live SOCKS5 proxies compiled in memory and verified within the latency threshold.</p>
-            </div>
-            <button class="btn btn-secondary btn-sm" id="refresh-proxies-btn">Force Refresh the Proxy Pool</button>
-          </div>
-          <div class="stat-badge flex-row" style="justify-content: space-between; display: flex; margin-bottom: 1rem; max-width: 200px;">
-            <span class="stat-label">Status:</span>
-            <span class="stat-val text-warning" id="proxy-pool-status">Idle</span>
-          </div>
-          <div class="table-container" style="overflow-x: auto; max-height: 400px; margin-top: 1rem;">
-            <table class="proxy-table" style="width:100%; border-collapse:collapse; font-size:0.8rem; text-align:left;">
-              <thead>
-                <tr style="border-bottom:1px solid var(--color-card-border); color:var(--color-text-muted);">
-                  <th style="padding:6px 8px; width: 45px;">#</th>
-                  <th style="padding:6px 8px;">Proxy URL</th>
-                  <th style="padding:6px 8px;">Source URL</th>
-                  <th style="padding:6px 8px; text-align:center; width: 180px;">Created At</th>
-                  <th style="padding:6px 8px; text-align:right; width: 80px;">Latency</th>
-                </tr>
-              </thead>
-              <tbody id="proxy-pool-table-body">
-                <!-- Populated dynamically -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Row 3: Refresh History (Full Width Main Table) -->
-        <div class="card glass" style="margin-bottom: 1.5rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-            <div>
-              <h2 style="margin: 0;">Refresh History</h2>
-              <p class="description">Operations logs for SOCKS5 proxy crawler refreshes.</p>
-            </div>
-            <button class="btn btn-danger btn-sm" id="clear-proxy-history-btn" style="padding: 0.35rem 0.75rem;">Clear Refresh History</button>
-          </div>
-          <div class="table-container" style="overflow-x: auto; max-height: 380px; margin-top: 1rem;">
-            <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.72rem; text-align: left;">
-              <thead>
-                <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
-                  <th style="padding: 6px 6px;">Trigger Cause</th>
-                  <th style="padding: 6px 6px; width: 180px;">Triggered Time</th>
-                  <th style="padding: 6px 6px; text-align: center;">Active Before</th>
-                  <th style="padding: 6px 6px; text-align: center;">Status</th>
-                  <th style="padding: 6px 6px; text-align: right;">Running Time</th>
-                  <th style="padding: 6px 6px; text-align: center;">Harvested Count</th>
-                  <th style="padding: 6px 6px; text-align: center;">Tested Count</th>
-                  <th style="padding: 6px 6px; text-align: center;">Passed Anomaly Count</th>
-                </tr>
-              </thead>
-              <tbody id="proxy-refresh-history-tbody">
-                <!-- Populated dynamically -->
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- Row 4: Scraper Sources Rankings (Full Width Rankings) -->
-        <div class="card glass">
-          <h2>Proxy Scraper Sources Rankings</h2>
-          <p class="description">Aggregated performance of the different free SOCKS5 repository feeds used by the crawler. Sources are ranked based on active usage metrics.</p>
-          
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1rem;">
-            <div class="ranking-block">
-              <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem;">Ranked by Success Rate</h3>
-              <div class="table-container" style="overflow-x: auto; max-height: 250px; margin-top: 0.5rem;">
-                <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: left;">
-                  <thead>
-                    <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
-                      <th style="padding: 6px; width: 30px;">#</th>
-                      <th style="padding: 6px;">Source URL</th>
-                      <th style="padding: 6px; text-align: center;">Ok</th>
-                      <th style="padding: 6px; text-align: center;">Fail</th>
-                      <th style="padding: 6px; text-align: right;">Rate</th>
-                    </tr>
-                  </thead>
-                  <tbody id="proxy-source-success-tbody">
-                    <!-- Populated dynamically -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div class="ranking-block">
-              <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem;">Ranked by Average Speed</h3>
-              <div class="table-container" style="overflow-x: auto; max-height: 250px; margin-top: 0.5rem;">
-                <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.75rem; text-align: left;">
-                  <thead>
-                    <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
-                      <th style="padding: 6px; width: 30px;">#</th>
-                      <th style="padding: 6px;">Source URL</th>
-                      <th style="padding: 6px; text-align: center;">Tested</th>
-                      <th style="padding: 6px; text-align: right;">Avg Speed</th>
-                    </tr>
-                  </thead>
-                  <tbody id="proxy-source-latency-tbody">
-                    <!-- Populated dynamically -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-
-      <!-- TAB 7: Provider Config -->
-      <section id="tab-providers" class="tab-pane">
-        <div class="grid-layout">
-          <!-- Left Column: Providers List -->
-          <div class="grid-col-left">
-            <div class="card glass">
-              <h2>LLM Providers</h2>
-              <p class="description">Select a provider to edit its endpoints and models, or register a custom provider.</p>
-              <div class="auras-list" id="providers-selector-container">
-                <!-- Populated dynamically -->
-              </div>
-              <div class="add-aura-row">
-                <input type="text" id="new-provider-name" placeholder="Provider ID (e.g. sambanova)" class="form-input">
-                <button class="btn btn-primary" id="create-provider-btn">Create</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Right Column: Provider Settings Form -->
-          <div class="grid-col-right" id="provider-settings-card" style="display: none;">
-            <div class="card glass">
-              <div class="aura-title-row">
-                <h2 id="current-provider-title">Provider Config</h2>
-                <button class="btn btn-danger btn-sm" id="delete-provider-btn">Delete Provider</button>
-              </div>
-
-              <form id="provider-config-form" class="mt-3" onsubmit="event.preventDefault();">
-                <div class="form-group">
-                  <label>Display Name</label>
-                  <input type="text" id="provider-display-name" class="form-input" required placeholder="e.g. OpenRouter (free models)">
-                </div>
-                <div class="form-group">
-                  <label>Base URL</label>
-                  <input type="text" id="provider-base-url" class="form-input" required placeholder="e.g. https://openrouter.ai/api/v1">
-                </div>
-                <div class="form-row">
-                  <div class="form-group flex-1">
-                    <label>Auth Header</label>
-                    <input type="text" id="provider-auth-header" class="form-input" required placeholder="e.g. Authorization">
-                  </div>
-                  <div class="form-group flex-1">
-                    <label>Auth Prefix</label>
-                    <input type="text" id="provider-auth-prefix" class="form-input" placeholder="e.g. Bearer">
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label>Cooldown time (seconds)</label>
-                  <input type="number" id="provider-cooldown" class="form-input" min="1" placeholder="e.g. 60 (defaults to dynamic failure backoff)">
-                  <span class="description" style="margin-top: 3px; display: block;">Configures how long keys under this provider cool down on rate limits (429). Useful if a provider rate-limits you for hours.</span>
-                </div>
-                <div class="form-group">
-                  <label>Description / Notes</label>
-                  <textarea id="provider-notes" class="form-textarea" placeholder="Provider notes..."></textarea>
-                </div>
-              </form>
-
-              <!-- Models Section -->
-              <div class="fallback-section mt-4">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
-                  <h3 style="margin: 0;">Provider Models List</h3>
-                  <button id="refresh-provider-models-btn" class="btn btn-secondary btn-sm" style="display: flex; align-items: center; gap: 5px; padding: 0.35rem 0.75rem;">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
-                    Refresh Models
-                  </button>
-                </div>
-                <p class="description">View and configure free status for models fetched dynamically from the provider's /models API.</p>
-                <div class="table-container">
-                  <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
-                    <thead>
-                      <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
-                        <th style="padding: 6px;">ID</th>
-                        <th style="padding: 6px;">Name</th>
-                        <th style="padding: 6px; text-align: right;">Context</th>
-                        <th style="padding: 6px; text-align: right;">Max In / Out</th>
-                        <th style="padding: 6px; text-align: center;">Capabilities</th>
-                        <th style="padding: 6px; text-align: center;">Reasoning</th>
-                        <th style="padding: 6px; text-align: right;">Cost (1M tokens)</th>
-                        <th style="padding: 6px; text-align: center;">Mark Free</th>
-                      </tr>
-                    </thead>
-                    <tbody id="provider-models-tbody">
-                      <!-- Populated dynamically -->
-                    </tbody>
-                  </table>
-                </div>
-
-                <button class="btn btn-success mt-4" id="save-providers-btn">Save Provider Config</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="grid-col-right empty-aura-message" id="provider-settings-empty">
-            <div class="card glass flex-center" style="min-height: 400px; display: flex; justify-content: center; align-items: center;">
-              <p class="text-muted">Select an LLM provider from the list to view and configure its details and models.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB 8: Supported Providers Catalog -->
-      <section id="tab-supported-providers" class="tab-pane">
-        <div class="card glass">
-          <h2>Supported Providers Catalog</h2>
-          <p class="description">A complete catalog of all supported LLM providers, their sign-up requirements, credential patterns, and key settings.</p>
-          <div class="table-container mt-3" style="overflow-x: auto;">
-            <table class="proxy-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
-              <thead>
-                <tr style="border-bottom: 1px solid var(--color-card-border); color: var(--color-text-muted);">
-                  <th style="padding: 10px 8px;">Provider</th>
-                  <th style="padding: 10px 8px;">Description / Notes</th>
-                  <th style="padding: 10px 8px; text-align: center; width: 120px;">Free Tier</th>
-                  <th style="padding: 10px 8px; text-align: center; width: 120px;">Card Required</th>
-                  <th style="padding: 10px 8px; text-align: center; width: 120px;">Phone Required</th>
-                  <th style="padding: 10px 8px; text-align: center; width: 150px;">Sign Up</th>
-                </tr>
-              </thead>
-              <tbody id="supported-providers-tbody">
-                <!-- Populated dynamically -->
-              </tbody>
-            </table>
           </div>
         </div>
       </section>
     </main>
 
-  <!-- Details Modal -->
-  <div class="modal-overlay" id="log-details-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(5px);">
-    <div class="modal-content glass" style="background: rgba(17, 22, 38, 0.95); border: 1px solid var(--color-card-border); border-radius: var(--border-radius-lg); width: 90%; max-width: 800px; max-height: 85vh; overflow-y: auto; padding: 1.5rem; box-shadow: var(--shadow-premium); display: flex; flex-direction: column;">
-      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-card-border); padding-bottom: 0.75rem; margin-bottom: 1rem;">
-        <h2 style="margin: 0; font-size: 1.3rem;">Request Details Log</h2>
-        <button class="close-btn" id="close-modal-btn" style="background: none; border: none; color: var(--color-text-muted); font-size: 1.5rem; cursor: pointer; transition: var(--transition-smooth);">&times;</button>
-      </div>
-      <div class="modal-body" style="display: flex; flex-direction: column; gap: 1rem;">
-        <div class="info-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem;">
-          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
-            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Timestamp</span>
-            <span class="info-val" id="modal-timestamp" style="font-weight: 500; font-size: 0.85rem;">-</span>
-          </div>
-          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
-            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Source</span>
-            <span class="info-val" id="modal-source" style="font-weight: 500; font-size: 0.85rem;">-</span>
-          </div>
-          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
-            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Aura</span>
-            <span class="info-val" id="modal-aura" style="font-weight: 500; font-size: 0.85rem;">-</span>
-          </div>
-          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
-            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Provider / Model</span>
-            <span class="info-val" id="modal-prov-model" style="font-weight: 500; font-size: 0.85rem;">-</span>
-          </div>
-          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
-            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Key Used</span>
-            <span class="info-val" id="modal-key" style="font-weight: 500; font-size: 0.85rem;">-</span>
-          </div>
-          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
-            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Proxy Used</span>
-            <span class="info-val" id="modal-proxy" style="font-weight: 500; font-size: 0.85rem; font-family: var(--font-mono);">-</span>
-          </div>
-          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
-            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Status</span>
-            <span class="info-val" id="modal-status" style="font-weight: 500; font-size: 0.85rem;">-</span>
-          </div>
-          <div class="info-item" style="background: rgba(255,255,255,0.02); padding: 0.5rem; border-radius: var(--border-radius-sm);">
-            <span class="info-label" style="display: block; font-size: 0.7rem; text-transform: uppercase; color: var(--color-text-muted);">Latency</span>
-            <span class="info-val" id="modal-latency" style="font-weight: 500; font-size: 0.85rem;">-</span>
-          </div>
-        </div>
-        <div class="text-area-box mt-3" style="display: flex; flex-direction: column; gap: 0.5rem;">
-          <h3 style="font-size: 1rem; font-weight: 600;">Prompt / Message</h3>
-          <div class="code-box" id="modal-prompt" style="background: rgba(0,0,0,0.3); border: 1px solid var(--color-card-border); padding: 0.75rem; border-radius: var(--border-radius-sm); font-family: var(--font-mono); font-size: 0.8rem; overflow-x: auto; white-space: pre-wrap; max-height: 150px; overflow-y: auto; color: var(--color-text-muted);">[]</div>
-        </div>
-        <div class="text-area-box mt-3" style="display: flex; flex-direction: column; gap: 0.5rem;">
-          <h3 style="font-size: 1rem; font-weight: 600;">Response Content</h3>
-          <div class="code-box text-response-box" id="modal-response" style="background: rgba(0,0,0,0.3); border: 1px solid var(--color-card-border); padding: 0.75rem; border-radius: var(--border-radius-sm); font-family: var(--font-sans); font-size: 0.85rem; overflow-x: auto; white-space: pre-wrap; max-height: 250px; overflow-y: auto; color: var(--color-text-main); line-height: 1.5;">-</div>
-        </div>
-      </div>
-    </div>
+    <!-- Status Bar -->
+    <footer class="status-bar" style="margin-top:2rem;padding:1rem;border-top:1px solid var(--color-card-border);display:flex;justify-content:space-between;font-size:0.8rem;color:var(--color-text-muted);">
+      <span id="status-health">Health: checking...</span>
+      <span id="status-version">v2.0.0</span>
+    </footer>
   </div>
 
-  <!-- Theme Picker Dropdown (placed at root level to escape backdrop-filter clipping) -->
+  <!-- Theme Picker Dropdown -->
   <div class="theme-picker-dropdown" id="theme-picker-dropdown">
     <div class="theme-option" data-theme="deep-space">
-      <span class="theme-swatch" style="background: linear-gradient(135deg, #6366f1, #10b981);"></span>
+      <span class="theme-swatch" style="background:linear-gradient(135deg,#6366f1,#10b981);"></span>
       Deep Space
     </div>
     <div class="theme-option" data-theme="light">
-      <span class="theme-swatch" style="background: linear-gradient(135deg, #4f46e5, #f0f2f8);"></span>
+      <span class="theme-swatch" style="background:linear-gradient(135deg,#4f46e5,#f0f2f8);"></span>
       Light Mode
     </div>
     <div class="theme-option" data-theme="cyberpunk">
-      <span class="theme-swatch" style="background: linear-gradient(135deg, #00ffc8, #ff0078);"></span>
+      <span class="theme-swatch" style="background:linear-gradient(135deg,#00ffc8,#ff0078);"></span>
       Cyberpunk
     </div>
     <div class="theme-option" data-theme="aurora">
-      <span class="theme-swatch" style="background: linear-gradient(135deg, #a855f7, #f472b6);"></span>
+      <span class="theme-swatch" style="background:linear-gradient(135deg,#a855f7,#f472b6);"></span>
       Aurora
     </div>
     <div class="theme-option" data-theme="ocean">
-      <span class="theme-swatch" style="background: linear-gradient(135deg, #06b6d4, #10b981);"></span>
+      <span class="theme-swatch" style="background:linear-gradient(135deg,#06b6d4,#10b981);"></span>
       Ocean
     </div>
   </div>
 
-  <script src="index.js?v=1.0.4"></script>
+  <script src="index.js"></script>
 </body>
 </html>

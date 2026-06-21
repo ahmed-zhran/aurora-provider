@@ -1379,3 +1379,99 @@ body {
 }
 
 
+
+/* ─── Status Badges (for simplified dashboard) ─── */
+.status-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: var(--border-radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.status-ok {
+  background: var(--color-success-light);
+  color: var(--color-success);
+}
+.status-err {
+  background: var(--color-danger-light);
+  color: var(--color-danger);
+}
+
+/* ─── Metrics Row (simplified 3-card layout) ─── */
+.metrics-row {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+.metric-card {
+  flex: 1;
+  padding: 1.25rem;
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-card-border);
+  border-radius: var(--border-radius-lg);
+  text-align: center;
+  box-shadow: var(--shadow-premium);
+}
+.metric-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-text-main);
+  display: block;
+  margin-top: 0.25rem;
+}
+.stat-label {
+  display: block;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 0.25rem;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Filters Grid ─── */
+.filters-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+/* ─── Status Bar Footer ─── */
+.status-bar {
+  border-top: 1px solid var(--color-card-border);
+  margin-top: 2rem;
+  padding: 1rem 0;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+/* ─── Description text ─── */
+.description {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.75rem;
+}
+
+/* ─── Aura item count ─── */
+.aura-item-count {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  padding: 2px 8px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 20px;
+}
+.aura-item.selected .aura-item-count {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+/* ─── Fallback list container ─── */
+.fallback-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
