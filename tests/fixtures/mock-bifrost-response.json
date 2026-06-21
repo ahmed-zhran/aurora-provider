@@ -1,0 +1,21 @@
+{
+  "id": "chatcmpl-mock-001",
+  "object": "chat.completion",
+  "created": 1716000000,
+  "model": "test/single-model",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Mock response for testing."
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 10,
+    "completion_tokens": 20,
+    "total_tokens": 30
+  }
+}

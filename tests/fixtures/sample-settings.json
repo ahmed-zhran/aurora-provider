@@ -1,0 +1,6 @@
+{
+  "latencyThreshold": 500,
+  "enableProxy": false,
+  "logLevel": "info",
+  "bifrostEndpoint": "http://localhost:10550"
+}

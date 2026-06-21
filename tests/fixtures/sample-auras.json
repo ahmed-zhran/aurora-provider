@@ -1,0 +1,25 @@
+{
+  "_comment": "Sample auras for test fixtures",
+  "auras": {
+    "test-single": {
+      "fallbacks": [
+        { "provider": "bifrost", "model": "test/single-model", "contextWindow": 100000 }
+      ]
+    },
+    "test-multi": {
+      "fallbacks": [
+        { "provider": "bifrost", "model": "test/primary", "contextWindow": 128000 },
+        { "provider": "bifrost", "model": "test/fallback-a", "contextWindow": 64000 },
+        { "provider": "bifrost", "model": "test/fallback-b", "contextWindow": 32000 }
+      ]
+    },
+    "test-reasoning": {
+      "fallbacks": [
+        { "provider": "bifrost", "model": "test/reasoning-model", "contextWindow": 200000, "reasoning": true }
+      ]
+    },
+    "test-empty-fallbacks": {
+      "fallbacks": []
+    }
+  }
+}
