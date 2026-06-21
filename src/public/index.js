@@ -24,7 +24,7 @@ function initTheme() {
     e.stopPropagation();
     dropdown.classList.toggle('open');
     if (dropdown.classList.contains('open')) positionDropdown();
-  });
+// API Tester Functionalityconst testApiBtn = document.getElementById("test-api-btn");const apiEndpointInput = document.getElementById("api-endpoint");const apiResponseDiv = document.getElementById("api-response");function testApi() {    const endpoint = apiEndpointInput.value;    apiResponseDiv.innerHTML = `<p>Testing API endpoint: ${endpoint}</p>`;    fetch(endpoint)        .then(response => {            if (!response.ok) {                throw new Error("Network response was not ok");            }            return response.json();        })        .then(data => {            apiResponseDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;        })        .catch(error => {            apiResponseDiv.innerHTML = `<pre>Error: ${error.message}</pre>`;        });}// Add event listener for the test API buttonif (testApiBtn && apiEndpointInput && apiResponseDiv) {    testApiBtn.addEventListener("click", testApi);}  });
 
   document.addEventListener('click', (e) => {
     const wrapper = document.getElementById('theme-picker-wrapper');
@@ -368,4 +368,116 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('tab-auras').classList.contains('active')) {
     loadAuras();
   }
+
+const testApiBtn = document.getElementById('test-api-btn');
+const apiEndpointInput = document.getElementById('api-endpoint');
+const apiResponseDiv = document.getElementById('api-response');
+
+function testApi() {
+    const endpoint = apiEndpointInput.value;
+    apiResponseDiv.innerHTML = '<p>Testing API endpoint: ' + endpoint + '</p>';
+    
+    fetch(endpoint)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        }) 
+        .then(data => {
+            apiResponseDiv.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        }) 
+        .catch(error => {
+            apiResponseDiv.innerHTML = '<pre>Error: ' + error.message + '</pre>';
+        });
+}
+
+// Add event listener for the test API button
+if (testApiBtn && apiEndpointInput && apiResponseDiv) {
+    testApiBtn.addEventListener('click', testApi);
+}
+
+const testApiBtn = document.getElementById('test-api-btn');
+const apiEndpointInput = document.getElementById('api-endpoint');
+const apiResponseDiv = document.getElementById('api-response');
+
+function testApi() {
+    const endpoint = apiEndpointInput.value;
+    apiResponseDiv.innerHTML = '<p>Testing API endpoint: ' + endpoint + '</p>';
+    
+    fetch(endpoint)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        }) 
+        .then(data => {
+            apiResponseDiv.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        }) 
+        .catch(error => {
+            apiResponseDiv.innerHTML = '<pre>Error: ' + error.message + '</pre>';
+        });
+}
+
+// Add event listener for the test API button
+if (testApiBtn && apiEndpointInput && apiResponseDiv) {
+    testApiBtn.addEventListener('click', testApi);
+}
+
+const testApiBtn = document.getElementById('test-api-btn');
+const apiEndpointInput = document.getElementById('api-endpoint');
+const apiResponseDiv = document.getElementById('api-response');
+
+function testApi() {
+    const endpoint = apiEndpointInput.value;
+    apiResponseDiv.innerHTML = '<p>Testing API endpoint: ' + endpoint + '</p>';
+    
+    fetch(endpoint)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        }) 
+        .then(data => {
+            apiResponseDiv.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        }) 
+        .catch(error => {
+            apiResponseDiv.innerHTML = '<pre>Error: ' + error.message + '</pre>';
+        });
+}
+
+// Add event listener for the test API button
+if (testApiBtn && apiEndpointInput && apiResponseDiv) {
+    testApiBtn.addEventListener('click', testApi);
+}
+
+const testApiBtn = document.getElementById('test-api-btn');
+const apiEndpointInput = document.getElementById('api-endpoint');
+const apiResponseDiv = document.getElementById('api-response');
+
+function testApi() {
+    const endpoint = apiEndpointInput.value;
+    apiResponseDiv.innerHTML = '<p>Testing API endpoint: ' + endpoint + '</p>';
+    
+    fetch(endpoint)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        }) 
+        .then(data => {
+            apiResponseDiv.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        }) 
+        .catch(error => {
+            apiResponseDiv.innerHTML = '<pre>Error: ' + error.message + '</pre>';
+        });
+}
+
+// Add event listener for the test API button
+if (testApiBtn && apiEndpointInput && apiResponseDiv) {
+    testApiBtn.addEventListener('click', testApi);
+}
 });

@@ -86,7 +86,7 @@ app.get('/v1/models', (c) => {
 });
 
 // ─── Start ──────────────────────────────────────────────────────────────────
-const PORT = parseInt(process.env.PORT || '8550', 10);
+const PORT = parseInt(process.env.PORT || '10551', 10);
 
 Bun.serve({
   port: PORT,

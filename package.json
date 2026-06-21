@@ -39,6 +39,8 @@
     "openrouter"
   ],
   "dependencies": {
+    "@cloudflare/workers-types": "^4.20260621.1",
+    "esbuild": "^0.28.1",
     "hono": "^4.12.23",
     "https-proxy-agent": "^9.0.0",
     "marked": "^18.0.4",
@@ -46,9 +48,18 @@
     "node-fetch": "^3.3.2",
     "socks": "^2.8.9",
     "socks-proxy-agent": "^10.0.0",
-    "undici": "^8.3.0"
+    "undici": "^8.3.0",
+    "wrangler": "^4.103.0"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.5.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-n": "^18.1.0",
+    "eslint-plugin-promise": "^7.3.0"
   }
 }

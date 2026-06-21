@@ -35,6 +35,8 @@
     <nav class="tabs-nav">
       <button class="tab-btn active" data-tab="tab-dashboard">Dashboard</button>
       <button class="tab-btn" data-tab="tab-auras">Aura Hub</button>
+      <button class="tab-btn" data-tab="tab-api-tester">API Tester</button>
+
     </nav>
 
     <!-- Main Content -->
@@ -123,6 +125,17 @@
 
       <!-- TAB 2: Aura Hub -->
       <section id="tab-auras" class="tab-pane">
+      <section id="tab-api-tester" class="tab-pane">
+        <div class="api-tester-container">
+          <h2>API Tester</h2>
+          <div class="api-request-form">
+            <input type="text" id="api-endpoint" placeholder="Enter API endpoint" value="/api/chat">
+            <button id="test-api-btn">Test API</button>
+          </div>
+          <div id="api-response" class="api-response"></div>
+        </div>
+      </section>
+
         <div class="grid-layout">
           <div class="grid-col-left">
             <div class="card glass">
