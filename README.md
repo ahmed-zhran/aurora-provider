@@ -1,201 +1,199 @@
 <p align="center">
-  <h1 align="center">Aurora-Provider</h1>
+  <h1 align="center">Aurora-Provider v2</h1>
   <p align="center">
-    <strong>The Self-Hosted Ultra-Provider Gateway. Expose rotated keys, proxy pools, and free provider fallback chains as OpenAI-compatible "Auras".</strong>
+    <strong>A lean, self-hosted OpenAI-compatible aura router for the Bifrost AI Gateway.</strong>
   </p>
   <p align="center">
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-Personal_&_Non--Commercial-blue.svg" alt="License: Personal & Non-Commercial"></a>
-    <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen" alt="Node.js"></a>
-    <a href="https://bun.sh"><img src="https://img.shields.io/badge/bun-compatible-f472b6" alt="Bun compatible"></a>
-    <a href="https://github.com/ahmed-zhran/aurora-provider/stargazers"><img src="https://img.shields.io/github/stars/ahmed-zhran/aurora-provider?style=social" alt="GitHub stars"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
+    <a href="https://bun.sh"><img src="https://img.shields.io/badge/runtime-Bun-f472b6.svg" alt="Bun"></a>
+    <a href="https://github.com/ahmed-zhran/aurora-provider"><img src="https://img.shields.io/github/stars/ahmed-zhran/aurora-provider?style=social" alt="GitHub stars"></a>
   </p>
 </p>
 
 ---
 
-Aurora-Provider is an **ultra-provider gateway** designed for single-user self-hosting. It allows you to define unlimited **Auras** (virtual OpenAI-compatible models) backed by complex, automated fallback chains. You will never have to pay for LLMs, write complex model switching logic, or manage API keys in your daily coding tools again.
+Aurora-Provider is a **lean, self-hosted aura router** that sits between your AI coding tools (Cursor, Continue, Claude Code, etc.) and the [Bifrost AI Gateway](https://github.com/ahmed-zhran/bifrost). It provides:
 
-### 🌟 Key Advertising: The Aura Hub
-- **Create Your Aura**: Define virtual endpoints in the **Aura Hub** (e.g. `coder`, `scribe`, `plan`). Each Aura acts as a drop-in OpenAI-compatible model (like `aurora-provider/coder`) for your coding tools.
-- **Provider Fallback Chains**: If the primary model or provider is rate-limited, Aurora-Provider instantly and transparently switches to the next fallback option in the chain.
-- **Multi-Key API Rotation**: Add multiple free-tier API keys per provider. Aurora automatically rotates keys on rate-limits (429) and cools them down.
-- **Proxy Pooling (Beta)**: Bypasses IP-bound rate limiting by routing requests through a dynamically harvested and tested SOCKS5 proxy pool.
-- **Beautiful Analytics Dashboard**: Real-time request log inspection, token metrics, latency charts, and live key status views with 5 premium themes.
+- **OpenAI-compatible endpoint** (`/v1/chat/completions`) - drop-in replacement for any OpenAI SDK
+- **Aura-based fallback chains** - define virtual models with ordered fallback steps routed through Bifrost
+- **Usage tracking** - request logs with latency and error analytics in SQLite
+- **Lightweight dashboard** - aura management, API tester, and usage analytics
+
+> **Architecture note:** v2 is a refactored, simplified version. All provider/key/proxy management has been removed in favor of the Bifrost AI Gateway. Aurora-Provider focuses solely on aura routing and usage logging.
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 ```bash
+# Prerequisites
+bun >= 1.0           # Runtime
+Bifrost Gateway      # Running on localhost:10550 (see Bifrost docs)
+
 # 1. Clone
 git clone https://github.com/ahmed-zhran/aurora-provider.git
 cd aurora-provider
 
 # 2. Install dependencies
-bun install    # or: npm install
+bun install
 
-# 3. Start the gateway
-bun run start  # or: npm start
+# 3. Configure auras
+# Edit vault/auras.json with your aura definitions
 
-# 4. Configure via Dashboard
-# Open http://127.0.0.1:9001 in your browser to add API Keys and create Auras!
+# 4. Start the server
+bun run start         # or: npm start
+# Default port: 8550  (override with PORT env var)
 ```
 
 You should see:
 
 ```
-╔══════════════════════════════════════════╗
-║          Aurora-Provider  v1.0.0         ║
-║  Local OpenAI-compatible LLM router     ║
-║  Listening: http://127.0.0.1:9001       ║
-║  Auras:     plan, build, coder, ...     ║
-╚══════════════════════════════════════════╝
+  Aurora-Provider v2 (Hono on Bun)
+  Listening: http://127.0.0.1:8550
+  Auras:     seolla-nyx-aura
 ```
 
-- **Dashboard UI**: [http://127.0.0.1:9001](http://127.0.0.1:9001)
-- **OpenAI-Compatible Endpoint**: `http://127.0.0.1:9001/v1`
+- **Dashboard UI**: [http://127.0.0.1:8550](http://127.0.0.1:8550)
+- **OpenAI-Compatible Endpoint**: `http://127.0.0.1:8550/v1`
 
 ---
 
-## 🤔 How It Works
+## How It Works
 
 ```
-Cursor / Continue / Cline / Roo Code / Any Coding Tool
-  │
-  │  POST /v1/chat/completions
-  │  model: "aurora-provider/coder"
-  ▼
-┌─────────────────────────────────────────────────────┐
-│                   Aurora-Provider                   │
-│                                                     │
-│  1. Resolve model name → Aura ("coder")             │
-│  2. Load fallback chain from auras.json             │
-│  3. For each (provider, model) in chain:            │
-│     a. Get next available key (skip rate-limited)   │
-│     b. Route through SOCKS5 proxy pool (IP Masking) │
-│     c. Forward request to provider API              │
-│     d. On 429 → rotate key → rotate proxy → retry   │
-│     e. All keys exhausted → next provider           │
-│  4. Return upstream response (streaming supported)  │
-│                                                     │
-│  Background: proxy pool auto-refresh + key probing  │
-└─────────────────────────────────────────────────────┘
-  │
-  ├── Google AI Studio → gemini-2.5-flash (1M context)
-  ├── Groq             → llama-3.3-70b (ultra fast)
-  ├── Cloudflare AI    → kimi-k2.6 (262K context)
-  ├── OpenRouter       → 30+ free models
-  ├── Zhipu            → GLM-4.7-flash (200K context)
-  └── ... (and other free providers)
+Cursor / Continue / Cline / Claude Code / Any OpenAI Client
+  |
+  |  POST /v1/chat/completions
+  |  model: "aurora-provider/seolla-nyx-aura"
+  v
++-------------------------------------------------------+
+|                 Aurora-Provider v2                      |
+|                                                         |
+|  1. Resolve model name -> Aura ("seolla-nyx-aura")      |
+|  2. Load fallback chain from vault/auras.json            |
+|  3. For each fallback step (provider, model):           |
+|     a. Forward request to Bifrost                       |
+|     b. On success -> return response                    |
+|     c. On failure -> log error, try next step            |
+|  4. All steps exhausted -> 503 ALL_FALLBACKS_EXHAUSTED  |
+|                                                         |
+|  Background: log usage to SQLite (vault/vault.db)       |
++-------------------------------------------------------+
+  |
+  +-- Bifrost AI Gateway (:10550)
+       |
+       +-- API key management & rotation
+       +-- Provider fallback per model
+       +-- Rate-limit handling & cooldown
+       +-- Proxy routing (if configured)
 ```
 
-### Two-Layer Resiliency
+### Key Difference vs v1
 
-1. **Key Rotation**: Multiple keys per provider are rotated sequentially. If `key[0]` hits a rate limit, it is put on cooldown and `key[1]` is tried.
-2. **Provider Failover**: If all keys for `google_ai_studio` are rate-limited, the request falls back down the Aura's chain to `groq` or `cloudflare_workers_ai` instantly.
+In v1, Aurora-Provider managed everything: multiple providers, API keys, proxy pools, rate limits, and health probes. In v2, **Bifrost handles all of that** - Aurora-Provider is a lightweight router that delegates inference to Bifrost while adding aura-level fallback orchestration and usage tracking.
 
 ---
 
-## 📊 Dashboard
+## Dashboard
 
-Aurora-Provider includes a premium self-hosted dashboard supporting **5 visual themes** (Deep Space, Light Mode, Cyberpunk, Aurora, Ocean):
+Aurora-Provider includes a browser dashboard with three tabs:
 
-- **Dashboard Tab**: KPI metric cards (success rates, average latencies, token counters), line charts, and paginated request logs.
-- **API Tester Tab**: Select an Aura and run test queries directly in the web UI.
-- **Aura Hub**: Add, rename, or delete Auras and customize their provider/model fallback order using simple control buttons.
-- **API Keys & Health**: Monitor live cooldown timers and add multiple keys per provider.
-- **Proxy Pool**: Check SOCKS5 pool sizes, adjust latency thresholds, or force-refill the harvester.
-- **Provider Config**: Edit base URLs, custom model list mappings, and cooldown timings.
+- **Dashboard** - KPI cards (total requests, success rate, avg latency), request-over-time chart, and paginated usage logs with filters
+- **Auras** - View and manage aura definitions: create, rename, delete, and reorder fallback chains
+- **API Tester** - Test any aura directly from the browser with streaming support
+
+Available at [http://127.0.0.1:8550](http://127.0.0.1:8550).
 
 ---
 
-## 🛠️ Configuration
+## Configuration
 
-Aurora-Provider persists configuration under the `vault/` directory:
+### Environment Variables
 
-### API Keys (`vault/keys.json`)
-Add credentials to increase rate limits. Providers with no keys configured are automatically skipped in the fallback loop:
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT`   | `8550`  | HTTP server port (binds to 127.0.0.1 only) |
+
+### Vault Files
+
+All persistent configuration lives under the `vault/` directory:
+
+#### Aura Definitions (`vault/auras.json`)
+
+Define virtual models with ordered fallback chains. Each aura exposes an OpenAI-compatible model ID (`aurora-provider/<aura-name>`).
+
 ```json
 {
-  "keys": {
-    "google_ai_studio": ["AIza-key1", "AIza-key2"],
-    "groq": ["gsk_key1"],
-    "openrouter": ["sk-or-key-here"],
-    "cloudflare_workers_ai": [
-      { "apiToken": "cf-token-here", "accountId": "cf-account-id-here" }
-    ]
-  }
-}
-```
-
-### Aura Definitions (`vault/auras.json`)
-Exposes virtual models. You can add unlimited custom Auras:
-```json
-{
+  "_comment": "Aurora-Provider aura definitions.",
+  "_version": "2.0.0",
   "auras": {
-    "coder": {
+    "seolla-nyx-aura": {
       "fallbacks": [
-        { "provider": "google_ai_studio", "model": "gemini-2.5-flash" },
-        { "provider": "groq", "model": "llama-3.3-70b-specdec" },
-        { "provider": "openrouter", "model": "deepseek/deepseek-r1:free" }
+        { "provider": "bifrost", "model": "opencode-zen/big-pickle", "contextWindow": 200000, "reasoning": true },
+        { "provider": "bifrost", "model": "mistral/mistral-medium-3-5", "contextWindow": 262144 },
+        { "provider": "bifrost", "model": "openrouter/openrouter/owl-alpha", "contextWindow": 1048576, "reasoning": true }
       ]
     }
   }
 }
 ```
 
----
+Each fallback step:
+- `provider` - always `"bifrost"` (the sole upstream)
+- `model` - model ID as known to Bifrost (e.g. `opencode-zen/big-pickle`)
+- `contextWindow` - optional, for display/reference
+- `reasoning` - optional boolean, marks steps that support reasoning
 
-## 🌐 Supported Free Providers
+#### Settings (`vault/settings.json`)
 
-All supported providers offer completely free tiers (no credit cards required):
-
-- [**Google AI Studio**](https://aistudio.google.com) — Gemini 2.5 Flash (1M context, 1500 req/day)
-- [**Groq**](https://console.groq.com) — Llama 3.3 70B, DeepSeek R1 (Ultra fast, 1000 req/day)
-- [**Cloudflare Workers AI**](https://dash.cloudflare.com) — Kimi, Qwen, DeepSeek, Llama (10K neurons/day)
-- [**OpenRouter**](https://openrouter.ai) — Dozens of free models (rotated by OpenRouter)
-- [**Cerebras**](https://cloud.cerebras.ai) — Llama 3.3 70B (1M tokens/day)
-- [**NVIDIA NIM**](https://build.nvidia.com) — Extensive catalog of models (~5 RPM)
-- [**GitHub Models**](https://github.com/marketplace/models) — Grok 3, Llama 3.3 (Fast free limits)
-- [**Kimi (Moonshot)**](https://platform.moonshot.cn) — Kimi K2.5 (3 RPM)
-
----
-
-## 🔌 Integration Examples
-
-Aurora-Provider is a drop-in replacement for OpenAI. Configure your development tools as follows:
-
-### Cursor (`Settings -> Models`)
-1. Turn off all default models.
-2. Under **Override OpenAI Base URL**, enter: `http://127.0.0.1:9001/v1`
-3. Enter any random string for the API key.
-4. Add your custom Aura name (e.g. `coder` or `aurora-provider/coder`) as a new model.
-
-### Continue (`.continue/config.json`)
 ```json
 {
-  "models": [
-    {
-      "title": "Aurora Coder",
-      "provider": "openai",
-      "model": "aurora-provider/coder",
-      "apiBase": "http://127.0.0.1:9001/v1"
-    }
-  ]
+  "latencyThreshold": 100,
+  "enableProxy": false
+}
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `latencyThreshold` | number | `100` | Latency threshold (ms), informational only |
+| `enableProxy` | boolean | `false` | Proxy enable flag, informational only |
+
+---
+
+## Integration Examples
+
+### Cursor (Settings -> Models)
+
+1. Turn off all default models
+2. Under **Override OpenAI Base URL**, enter: `http://127.0.0.1:8550/v1`
+3. Enter any random string for the API key
+4. Add your aura name (e.g. `aurora-provider/seolla-nyx-aura`) as a new model
+
+### Continue (`.continue/config.json`)
+
+```json
+{
+  "models": [{
+    "title": "Aurora",
+    "provider": "openai",
+    "model": "aurora-provider/seolla-nyx-aura",
+    "apiBase": "http://127.0.0.1:8550/v1"
+  }]
 }
 ```
 
 ### Python SDK
+
 ```python
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://127.0.0.1:9001/v1",
-    api_key="aurora-local"  # ignored, but required
+    base_url="http://127.0.0.1:8550/v1",
+    api_key="aurora-local"  # required by SDK, value is ignored
 )
 
 response = client.chat.completions.create(
-    model="aurora-provider/coder",
+    model="aurora-provider/seolla-nyx-aura",
     messages=[{"role": "user", "content": "Explain binary search."}]
 )
 print(response.choices[0].message.content)
@@ -203,13 +201,83 @@ print(response.choices[0].message.content)
 
 ---
 
-## 📖 Extended Documentation
-For extensive documentation, run Aurora-Provider and click the **Docs** link in the guest website or navigate to `website/docs.html`.
+## Project Structure
+
+```
+aurora-provider/
++-- src/
+|   +-- server.py                 # Entry point - Hono app on Bun
+|   +-- routes/
+|   |   +-- chat.py               # POST /v1/chat/completions, GET /v1/models
+|   |   +-- health.py             # GET /api/health
+|   |   +-- auras.py              # CRUD for aura definitions
+|   |   +-- logs.py               # Usage log queries + clear
+|   |   +-- settings.py           # Settings get/update
+|   |   +-- ui.py                 # Static dashboard file serving
+|   +-- services/
+|   |   +-- aura-service.py       # Aura config read/write
+|   |   +-- log-service.py        # Usage logging wrapper
+|   |   +-- settings-service.py   # Settings read/write
+|   +-- lib/
+|   |   +-- aura-engine.py        # Core fallback dispatch engine
+|   |   +-- config.py             # JSON file load/save helper
+|   |   +-- db.py                 # SQLite database + queries
+|   +-- public/
+|       +-- index.html            # Dashboard HTML
+|       +-- index.js              # Dashboard JavaScript
+|       +-- index.css             # Dashboard styles
++-- vault/
+|   +-- auras.json                # Aura definitions
+|   +-- settings.json             # Server settings
+|   +-- vault.db                  # SQLite usage logs
+|   +-- .gitkeep
++-- docs/
+|   +-- api-reference.md          # API endpoint reference
+|   +-- architecture.md           # System architecture
+|   +-- setup-guide.md            # Installation & configuration guide
+|   +-- migration-notes.md        # v1 -> v2 breaking changes
++-- tests/
+|   +-- aura-engine.test.js       # Unit tests for aura engine
+|   +-- routes.test.js            # Route tests
+|   +-- ...
++-- README.md
++-- CHANGELOG.md
+```
 
 ---
 
-## 🤝 Contributing
+## API Overview
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/chat/completions` | Chat completion (streaming supported) |
+| `GET`  | `/v1/models` | List auras as model IDs |
+| `GET`  | `/api/health` | Health check with Bifrost connectivity |
+| `GET`  | `/api/auras` | List aura definitions |
+| `POST` | `/api/auras` | Create or update an aura |
+| `DELETE` | `/api/auras/:name` | Delete an aura |
+| `GET`  | `/api/logs` | Query usage logs with filters |
+| `POST` | `/api/logs/clear` | Clear usage logs |
+| `GET`  | `/api/settings` | Get settings |
+| `PUT`  | `/api/settings` | Update settings |
+
+See [API Reference](docs/api-reference.md) for full documentation with request/response examples.
+
+---
+
+## Documentation
+
+- [API Reference](docs/api-reference.md) - Complete endpoint specifications
+- [Architecture](docs/architecture.md) - System design and request lifecycle
+- [Setup Guide](docs/setup-guide.md) - Installation and configuration
+- [Migration Notes](docs/migration-notes.md) - v1 -> v2 breaking changes
+
+---
+
+## Contributing
+
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## 📄 License
-This project is licensed under the [Personal and Non-Commercial License](LICENSE).
+## License
+
+This project is licensed under the [MIT License](LICENSE).
