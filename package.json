@@ -1,6 +1,6 @@
 {
   "name": "aurora-provider",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Local OpenAI-compatible LLM router with intelligent multi-provider fallback chains — one endpoint, unlimited free LLMs, zero rate limits",
   "type": "module",
   "main": "src/server.js",
