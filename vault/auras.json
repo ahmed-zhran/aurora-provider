@@ -1,225 +1,42 @@
 {
-  "_comment": "Aurora-Provider Aura definitions. Each Aura acts as a model endpoint and has an ordered fallback chain of provider + model pairs.",
-  "_version": "1.0.0",
+  "_comment": "Aurora-Provider aura definitions. All providers routed through Bifrost Gateway (:10550).",
+  "_version": "2.0.0",
   "auras": {
-    "coder": {
-      "_comment": "Implementation — needs highest reasoning + large context for full codebase edits.",
-      "fallbacks": [
-        {
-          "provider": "opencode_zen",
-          "model": "big-pickle",
-          "contextWindow": 200000,
-          "reasoning": true
-        },
-        {
-          "provider": "cloudflare_workers_ai",
-          "model": "@cf/moonshotai/kimi-k2.6",
-          "contextWindow": 262000,
-          "reasoning": true
-        },
-        {
-          "provider": "openrouter",
-          "model": "google/gemma-4-26b-a4b-it:free",
-          "contextWindow": 1000000,
-          "reasoning": true
-        },
-        {
-          "provider": "zhipu",
-          "model": "glm-4.7-flash",
-          "contextWindow": 200000,
-          "reasoning": true
-        },
-        {
-          "provider": "google_ai_studio",
-          "model": "gemini-2.5-flash",
-          "contextWindow": 1000000,
-          "reasoning": true
-        }
-      ]
-    },
-    "explore": {
-      "_comment": "Codebase analysis — large context critical, low reasoning effort, fast speed preferred.",
-      "fallbacks": [
-        {
-          "provider": "opencode_zen",
-          "model": "deepseek-v4-flash-free",
-          "contextWindow": 200000,
-          "reasoning": true
-        },
-        {
-          "provider": "openrouter",
-          "model": "google/gemma-4-26b-a4b-it:free",
-          "contextWindow": 1000000,
-          "reasoning": true
-        },
-        {
-          "provider": "openrouter",
-          "model": "meta-llama/llama-3.3-70b-instruct:free",
-          "contextWindow": 128000,
-          "reasoning": false
-        },
-        {
-          "provider": "google_ai_studio",
-          "model": "gemini-2.5-flash",
-          "contextWindow": 1000000,
-          "reasoning": true
-        }
-      ]
-    },
-    "researcher": {
-      "_comment": "External research — web tools, high reasoning, medium-large context.",
-      "fallbacks": [
-        {
-          "provider": "opencode_zen",
-          "model": "nemotron-3-super-free",
-          "contextWindow": 128000,
-          "reasoning": true
-        },
-        {
-          "provider": "openrouter",
-          "model": "qwen/qwen3-coder:free",
-          "contextWindow": 128000,
-          "reasoning": true
-        },
-        {
-          "provider": "cloudflare_workers_ai",
-          "model": "@cf/moonshotai/kimi-k2.6",
-          "contextWindow": 262000,
-          "reasoning": true
-        },
-        {
-          "provider": "google_ai_studio",
-          "model": "gemini-2.5-flash",
-          "contextWindow": 1000000,
-          "reasoning": true
-        }
-      ]
-    },
-    "scribe": {
-      "_comment": "Documentation writing — fast, large output, less reasoning needed.",
-      "fallbacks": [
-        {
-          "provider": "opencode_zen",
-          "model": "deepseek-v4-flash-free",
-          "contextWindow": 200000,
-          "reasoning": false
-        },
-        {
-          "provider": "google_ai_studio",
-          "model": "gemini-2.5-flash",
-          "contextWindow": 1000000,
-          "reasoning": false
-        },
-        {
-          "provider": "openrouter",
-          "model": "google/gemma-4-26b-a4b-it:free",
-          "contextWindow": 1000000,
-          "reasoning": false
-        },
-        {
-          "provider": "groq",
-          "model": "llama-3.3-70b-versatile",
-          "contextWindow": 128000,
-          "reasoning": false
-        }
-      ]
-    },
-    "reviewer": {
-      "_comment": "Code review — high reasoning, medium context, accuracy over speed.",
-      "fallbacks": [
-        {
-          "provider": "opencode_zen",
-          "model": "nemotron-3-super-free",
-          "contextWindow": 128000,
-          "reasoning": true
-        },
-        {
-          "provider": "cloudflare_workers_ai",
-          "model": "@cf/moonshotai/kimi-k2.6",
-          "contextWindow": 262000,
-          "reasoning": true
-        },
-        {
-          "provider": "openrouter",
-          "model": "google/gemma-4-26b-a4b-it:free",
-          "contextWindow": 1000000,
-          "reasoning": true
-        },
-        {
-          "provider": "zhipu",
-          "model": "glm-4.7-flash",
-          "contextWindow": 200000,
-          "reasoning": true
-        }
-      ]
-    },
-    "planner": {
-      "_comment": "Orchestrator — needs highest reasoning + large context. Read-only. No writing.",
-      "fallbacks": [
-        {
-          "provider": "opencode_zen",
-          "model": "big-pickle",
-          "contextWindow": 200000,
-          "reasoning": true
-        },
-        {
-          "provider": "cloudflare_workers_ai",
-          "model": "@cf/moonshotai/kimi-k2.6",
-          "contextWindow": 262000,
-          "reasoning": true
-        },
-        {
-          "provider": "openrouter",
-          "model": "google/gemma-4-26b-a4b-it:free",
-          "contextWindow": 1000000,
-          "reasoning": true
-        },
-        {
-          "provider": "openrouter",
-          "model": "qwen/qwen3-coder:free",
-          "contextWindow": 128000,
-          "reasoning": true
-        }
-      ]
-    },
-    "test": {
-      "fallbacks": [
-        {
-          "provider": "opencode_zen",
-          "model": "deepseek-v4-flash-free"
-        },
-        {
-          "provider": "google_ai_studio",
-          "model": "gemini-2.5-flash"
-        },
-        {
-          "provider": "openrouter",
-          "model": "google/gemma-4-26b-a4b-it:free"
-        }
-      ]
-    },
     "seolla-nyx-aura": {
-      "_comment": "Orchestrator — delegates only, no direct file edits. Needs strong reasoning + large context.",
+      "_comment": "Orchestrator — delegates only, no direct file edits. Strong reasoning + large context. Fallback chain: OpenCode Zen → Mistral → MiniMax → OpenRouter → Cerebras → DeepSeek",
       "fallbacks": [
         {
-          "provider": "opencode_zen",
-          "model": "big-pickle",
+          "provider": "bifrost",
+          "model": "opencode-zen/big-pickle",
           "contextWindow": 200000,
           "reasoning": true
         },
         {
-          "provider": "openrouter",
-          "model": "google/gemma-4-26b-a4b-it:free",
-          "contextWindow": 1000000,
+          "provider": "bifrost",
+          "model": "mistral/mistral-medium-3-5",
+          "contextWindow": 262144
+        },
+        {
+          "provider": "bifrost",
+          "model": "minimax/MiniMax-M3",
+          "contextWindow": 262144
+        },
+        {
+          "provider": "bifrost",
+          "model": "openrouter/openrouter/owl-alpha",
+          "contextWindow": 1048576,
           "reasoning": true
         },
         {
-          "provider": "google_ai_studio",
-          "model": "gemma-4-31b-it"
+          "provider": "bifrost",
+          "model": "cerebras/gpt-oss-120b",
+          "contextWindow": 131072
         },
         {
-          "provider": "google_ai_studio",
-          "model": "gemma-4-26b-a4b-it"
+          "provider": "bifrost",
+          "model": "deepseek/deepseek-v4-flash",
+          "contextWindow": 200000,
+          "reasoning": true
         }
       ]
     }
